@@ -1,8 +1,10 @@
-# Shimmer
+# Shimmer — v0
 
 Generative MIDI + LED desktop instrument by [Thawney LTD](https://thawney.com).
 
 **[Open the web UI →](https://thawney.github.io/shimmer)**
+
+> **Version tracking:** firmware version is indicated by the LED colour flash at startup. v0 flashes dim warm orange.
 
 ---
 

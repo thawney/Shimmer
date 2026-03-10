@@ -1,4 +1,4 @@
-# Writing Custom Modes for PrettyMidiGen
+# Writing Custom Modes for Shimmer
 
 Modes are plain JavaScript files running on-device in Duktape. Upload from the web UI, no compile step.
 
