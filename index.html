@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shimmer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+  <header>
+    <h1>Shimmer</h1>
+    <div id="midi-bar">
+      <label class="port-label">Device <select id="midi-port"><option value="">-- none --</option></select></label>
+      <button id="btn-refresh" class="btn-small">Refresh</button>
+      <button id="btn-read-device" class="btn-small">Read my device</button>
+      <span id="status"></span>
+    </div>
+  </header>
+
+  <section id="startup-gate" data-state="awaiting" aria-live="polite">
+    <h2 id="startup-title">Select device to begin</h2>
+    <p id="startup-sub">Choose your Shimmer MIDI port, then wait while settings and scripts load.</p>
+    <div class="startup-progress-track">
+      <div id="startup-progress"></div>
+    </div>
+  </section>
+
+  <nav class="tab-bar">
+    <button class="tab" data-tab="scripts">Scripts</button>
+    <button class="tab active" data-tab="controls">Controls</button>
+    <button class="tab" data-tab="firmware">Firmware</button>
+  </nav>
+
+  <!-- ── Scripts tab ── -->
+  <section id="tab-scripts" class="tab-content">
+    <div id="slot-cards"></div>
+    <p class="api-docs"><a href="user-modes/README.md" target="_blank">JS API reference →</a></p>
+  </section>
+
+  <!-- ── Controls tab ── -->
+  <section id="tab-controls" class="tab-content active">
+
+    <div class="lock-banner">
+      Connect a device to sync from flash before editing.
+    </div>
+
+    <div id="key-banner">
+      Key: <span id="key-info">C Pentatonic</span>
+      <span class="key-hint">(double-press device button to cycle)</span>
+      <div id="key-actions">
+        <button id="btn-randomize-key" class="btn-small">Randomize Key</button>
+      </div>
+    </div>
+
+    <div id="mode-picker">
+      <div id="mode-pills"></div>
+      <p id="mode-desc"></p>
+    </div>
+
+    <section id="shared-params">
+      <label>Scale
+        <select id="p-scale">
+          <option value="0">Major</option>
+          <option value="1">Minor</option>
+          <option value="2">Dorian</option>
+          <option value="3" selected>Pentatonic</option>
+          <option value="4">Chromatic</option>
+        </select>
+      </label>
+      <label>Root
+        <select id="p-root"></select>
+      </label>
+      <label>Tempo (BPM)
+        <input type="range" id="p-tempo" min="1" max="240" step="1" value="120">
+        <output id="p-tempo-val">120</output>
+      </label>
+      <label>Brightness
+        <input type="range" id="p-brightness" min="0" max="255" step="1" value="200">
+        <output id="p-brightness-val">200</output>
+      </label>
+      <label>MIDI Ch
+        <select id="p-channel">
+          <option value="0">1</option><option value="1">2</option>
+          <option value="2">3</option><option value="3">4</option>
+          <option value="4">5</option><option value="5">6</option>
+          <option value="6">7</option><option value="7">8</option>
+          <option value="8">9</option><option value="9">10</option>
+          <option value="10">11</option><option value="11">12</option>
+          <option value="12">13</option><option value="13">14</option>
+          <option value="14">15</option><option value="15">16</option>
+        </select>
+      </label>
+    </section>
+
+    <section id="mode-param">
+      <label>
+        <span id="lbl-param">Amount</span>
+        <input type="range" id="p-param" min="0" max="255" step="1" value="128">
+        <output id="p-param-val">128</output>
+      </label>
+    </section>
+
+  </section>
+
+  <!-- ── Firmware tab ── -->
+  <section id="tab-firmware" class="tab-content">
+    <div class="fw-panel">
+      <div class="fw-server-row">
+        <span id="fw-server-info">Checking firmware folder…</span>
+        <button id="fw-server-reload" class="fw-reload-btn" title="Re-check folder">↺</button>
+      </div>
+      <div class="fw-zone">
+        <label class="fw-file-label">
+          <input type="file" id="fw-file" accept=".bin">
+          <span id="fw-filename">or choose a file…</span>
+        </label>
+        <button id="fw-flash" class="fw-flash-btn" disabled>Flash firmware</button>
+        <button id="fw-abort" class="fw-abort-btn" style="display:none">Abort</button>
+      </div>
+      <div class="fw-progress-track" id="fw-progress-track" style="display:none">
+        <div id="fw-progress-bar"></div>
+      </div>
+      <p id="fw-status" class="fw-status-text"></p>
+      <p class="fw-note">
+        The device reboots automatically after a successful flash.<br>
+        Rollback is active: if the new firmware crashes before setup() completes,
+        the device boots the previous version.
+      </p>
+    </div>
+  </section>
+
+  <script src="app.js?v=5"></script>
+  <footer class="site-footer">© 2026 Thawney LTD</footer>
+</body>
+</html>
