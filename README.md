@@ -2,7 +2,7 @@
 
 Generative MIDI + LED desktop instrument by [Thawney LTD](https://thawney.com).
 
-**[Open the web UI →](https://thawney.github.io/shimmer)**
+**[Open the web UI →](https://thawney.github.io/Shimmer)**
 
 ---
 
