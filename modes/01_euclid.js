@@ -4,11 +4,11 @@
  * @hue 32
  * @sat 220
  * @param_label Hit Density
- * @description Euclidean rhythm walks a scale. Density controls how many of 28 steps trigger notes.
+ * @description Euclidean rhythm walks a scale. Density controls how many of 12 steps trigger notes.
  * @sound Marimba / Mallet
  */
 
-var N_STEPS = 28;
+var N_STEPS = 0;  // set in activate from m.COLS
 var HIT_BRIGHT = 180;
 var colBright = [];
 var elapsed = 0;
@@ -24,6 +24,7 @@ function isHit(s, k) {
 }
 
 function activate(m) {
+  N_STEPS = m.COLS;
   colBright = [];
   for (var c = 0; c < m.COLS; c++) colBright[c] = 0;
   elapsed = 0;
@@ -40,7 +41,7 @@ function update(m) {
     seeded = true;
   }
 
-  var k = 1 + Math.floor((m.density * 26) / 255);
+  var k = 1 + Math.floor((m.density * (N_STEPS - 2)) / 255);
   var stepMs = m.beatMs;
   var jumpRange = 1 + Math.floor((m.density * 3) / 255);
 

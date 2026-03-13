@@ -44,7 +44,7 @@ function spawnRipple(m) {
       r[i].originCol = m.rnd(m.COLS);
       r[i].radius    = 0.0;
       r[i].active    = true;
-      var deg  = Math.floor((r[i].originCol * 13) / (m.COLS - 1));
+      var deg  = Math.floor((r[i].originCol * 6) / (m.COLS - 1));
       var vel  = 65 + m.rnd(31);
       m.note(deg, vel, NOTE_DUR);
       break;

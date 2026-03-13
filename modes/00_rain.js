@@ -87,7 +87,7 @@ function update(m) {
         cum += colWeight[k];
         if (cum > target) { col = k; break; }
       }
-      var degree = Math.floor((col * 13) / (m.COLS - 1));
+      var degree = Math.floor((col * 6) / (m.COLS - 1));
       drops.push({ col: col, rowPos: 0, degree: degree });
     }
   }

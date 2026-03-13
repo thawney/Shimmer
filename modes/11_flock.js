@@ -133,7 +133,7 @@ function update(m) {
     }
 
     if (bestCol >= 0 && bestNearby >= 2 && colDebounce[bestCol] === 0) {
-      var baseDeg = Math.floor((bestCol * 13) / (m.COLS - 1));
+      var baseDeg = Math.floor((bestCol * 6) / (m.COLS - 1));
       var vel     = 55 + m.rnd(64);
       var voices  = bestNearby < 4 ? bestNearby : 4;
       for (var vi = 0; vi < voices; vi++) {

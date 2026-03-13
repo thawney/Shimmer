@@ -109,7 +109,7 @@ function update(m) {
   m.clear();
   for (var v = 0; v < nv; v++) {
     if (bright[v] === 0) continue;
-    var col = Math.floor((degree[v] * (m.COLS - 1)) / 13);
+    var col = Math.floor((degree[v] * (m.COLS - 1)) / 6);
     for (var row = 0; row < m.ROWS; row++)
       m.px(col, row, bright[v]);
   }

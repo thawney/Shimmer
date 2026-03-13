@@ -91,7 +91,7 @@ function update(m) {
     var row  = Math.floor(v[i].y);
     var diff = col - v[i].lastNoteCol;
     if (diff < -1 || diff > 1) {
-      var deg = Math.floor((col * 13) / (m.COLS - 1));
+      var deg = Math.floor((col * 6) / (m.COLS - 1));
       m.note(deg, 50 + m.rnd(32), 30000);  // held until next crossing steals slot
       v[i].held        = true;
       v[i].lastNoteCol = col;

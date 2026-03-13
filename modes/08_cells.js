@@ -8,9 +8,9 @@
  * @sound Pluck / Clavinet
  */
 
-// row 0 = newest (brightest), row 4 = oldest
-var ROW_FRAC = [255, 170, 110, 70, 40];
-var SEED_DENS = [100, 80, 60, 40, 25];
+// row 0 = newest (brightest), row 11 = oldest
+var ROW_FRAC = [255, 214, 180, 151, 127, 107, 90, 75, 63, 53, 45, 38];
+var SEED_DENS = [100, 92, 84, 76, 68, 61, 53, 46, 38, 31, 24, 16];
 
 var gen = [];   // gen[row][col]
 var elapsed = 0;
@@ -76,7 +76,7 @@ function nextGeneration(m) {
   for (var c = 0; c < m.COLS; c++) {
     gen[0][c] = next[c];
     if (next[c] && !prev[c]) {
-      var degree = Math.floor((c * 13) / (m.COLS - 1));
+      var degree = Math.floor((c * 6) / (m.COLS - 1));
       var vel = 55 + m.rnd(64);
       m.note(degree, vel, Math.floor(m.beatMs * 3 / 4));
     }

@@ -71,8 +71,8 @@ If a tag is missing, defaults are used.
 | `m.beatMs` | milliseconds per beat at current tempo |
 | `m.density` | 0..255 density value for this slot |
 | `m.brightness` | 0..255 slot brightness |
-| `m.COLS` | grid width (`28`) |
-| `m.ROWS` | grid height (`5`) |
+| `m.COLS` | grid width (`12`) |
+| `m.ROWS` | grid height (`12`) |
 
 ### Pixel functions
 
@@ -101,8 +101,8 @@ m.allOff()
 m.tick(timerId, intervalMs)           // timerId 0..7
 m.rnd()                               // 0..255
 m.rnd(max)                            // 0..max-1
-m.degreeToCol(degree)                 // 0..13 -> 0..27
-m.colToDegree(col)                    // 0..27 -> 0..13
+m.degreeToCol(degree)                 // 0..6 -> 0..11
+m.colToDegree(col)                    // 0..11 -> 0..6
 m.map(v, inLo, inHi, outLo, outHi)    // linear float mapping
 ```
 

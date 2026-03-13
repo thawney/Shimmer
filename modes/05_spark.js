@@ -100,7 +100,7 @@ function update(m) {
     if (bouncedX) {
       var row = Math.floor(p[i].y + 0.5);
       if (row >= m.ROWS) row = m.ROWS - 1;
-      var deg = Math.floor((row * 13) / (m.ROWS - 1));
+      var deg = Math.floor((row * 6) / (m.ROWS - 1));
       var vel = 70 + m.rnd(31);
       m.note(deg, vel, NOTE_DUR_MS);
     }

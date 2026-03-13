@@ -4,21 +4,21 @@
  * @hue 213
  * @sat 220
  * @param_label Active Rows
- * @description Polyrhythmic row pulses — 5 rows with prime-ratio beat clocks. Cursor sweeps each row.
+ * @description Polyrhythmic row pulses — 12 rows with prime-ratio beat clocks. Cursor sweeps each row.
  * @sound Bell / Celeste
  */
 
 // Row beat divisors (prime ratios): row i fires every ROW_DIV[i] beats
-var ROW_DIV = [2, 3, 5, 7, 11];
-// Degree offset for each row's note cluster
-var ROW_DEG = [0, 2, 4, 6, 8];
+var ROW_DIV = [2, 3, 5, 7, 11, 13, 2, 3, 5, 7, 11, 13];
+// Degree offset for each row's note cluster (1-octave spread, wraps)
+var ROW_DEG = [0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4];
 
-var rowElapsed   = [0, 0, 0, 0, 0];
-var rowBright    = [0, 0, 0, 0, 0];
+var rowElapsed   = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+var rowBright    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var firstUpdate  = true;
 
 function activeRows(density) {
-  return 1 + Math.floor((density * 5) / 255);
+  return 1 + Math.floor((density * 12) / 255);
 }
 
 function activate(m) {
@@ -71,7 +71,7 @@ function update(m) {
     if (rowBright[r] > fadeAmt) rowBright[r] -= fadeAmt;
     else rowBright[r] = 0;
 
-    // Row glow across all 28 columns
+    // Row glow across all 12 columns
     for (var c = 0; c < m.COLS; c++) {
       if (rowBright[r] > 0)
         m.px(c, r, rowBright[r]);
