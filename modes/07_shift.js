@@ -4,11 +4,11 @@
  * @hue 100
  * @sat 200
  * @param_label Lock Amount
- * @description 28-bit shift register. MSB fires a note; density controls lock (high=stable, low=chaotic).
+ * @description Shift register (width = grid columns). MSB fires a note; density controls lock (high=stable, low=chaotic).
  * @sound Lead Synth / Pulse Wave
  */
 
-var REG_MASK = 0x0FFFFFFF;  // 28 bits
+var REG_MASK;  // set in activate() to (1 << m.COLS) - 1
 
 var reg = 0;
 var elapsed = 0;
@@ -21,6 +21,7 @@ function popcount28(v) {
 }
 
 function activate(m) {
+  REG_MASK = (1 << m.COLS) - 1;
   // Random initial register (matches C++ which randomizes on activate)
   reg = ((m.rnd(255) | (m.rnd(255) << 8) | (m.rnd(255) << 16) | (m.rnd(255) << 24)) >>> 0) & REG_MASK;
   if (reg === 0) reg = 0x0A5A5A5A & REG_MASK;

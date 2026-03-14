@@ -8,10 +8,9 @@
  * @sound Bell / Celeste
  */
 
-// Row beat divisors (prime ratios): row i fires every ROW_DIV[i] beats
-var ROW_DIV = [2, 3, 5, 7, 11, 13, 2, 3, 5, 7, 11, 13];
-// Degree offset for each row's note cluster (1-octave spread, wraps)
-var ROW_DEG = [0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4];
+// Row beat divisors (prime ratios) and degree offsets — set in activate()
+var ROW_DIV = [];
+var ROW_DEG = [];
 
 var rowElapsed   = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var rowBright    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -22,7 +21,12 @@ function activeRows(density) {
 }
 
 function activate(m) {
+  var PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
+  ROW_DIV = [];
+  ROW_DEG = [];
   for (var r = 0; r < m.ROWS; r++) {
+    ROW_DIV[r]    = PRIMES[r % PRIMES.length];
+    ROW_DEG[r]    = r;  // unique degree per row — avoids cross-row note cancellation
     rowElapsed[r] = 0;
     rowBright[r]  = 0;
   }

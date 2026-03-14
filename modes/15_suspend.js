@@ -9,7 +9,7 @@
  */
 
 var VOICE_HUE    = [75, 160, 230];
-var VOICE_ROW    = [0, 2, 4];
+var VOICE_ROW    = [];  // set in activate() — spread across full grid height
 var VOICE_SAT    = 210;
 var MAX_V        = 3;
 var SUSTAIN_BRIGHT = 48;
@@ -35,6 +35,7 @@ function voiceChangeInterval(beatMs) {
 }
 
 function activate(m) {
+  VOICE_ROW     = [0, Math.floor((m.ROWS - 1) / 2), m.ROWS - 1];
   initialized   = false;
   changeElapsed = 0;
   changeInterval = 5000;

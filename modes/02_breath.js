@@ -8,8 +8,8 @@
  * @sound Pad / String
  */
 
-// Three voices, staggered phases, rows 0/2/4
-var VOICE_ROW = [0, 2, 4];
+// Three voices, staggered phases — rows spread across full grid height
+var VOICE_ROW = [];
 var MAX_V = 3;
 
 var voiceDeg = [0, 3, 7];  // minor default
@@ -19,6 +19,7 @@ var heldNote = [false, false, false];
 var colourSet = false;
 
 function activate(m) {
+  VOICE_ROW = [0, Math.floor((m.ROWS - 1) / 2), m.ROWS - 1];
   colourSet = false;
   for (var v = 0; v < MAX_V; v++) {
     phase[v]    = Math.floor(v * 85);
