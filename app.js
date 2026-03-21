@@ -22,6 +22,7 @@ const ALL_MODES = [
   { name: 'Suspend',   file: '15_suspend.js'  },
   { name: 'Lean',      file: '16_lean.js'     },
   { name: 'Haze',      file: '17_haze.js'     },
+  { name: 'MIDI Keys', file: '18_midi_keys.js' },
 ];
 
 // Default scripts for the 4 slots (matches data/scripts/ initial LittleFS image)
