@@ -5,6 +5,7 @@
  * @sat 200
  * @param_label Fire Probability
  * @description Sparse stochastic pulses bloom as cross-shaped splashes. Very ambient and minimal.
+ *              MIDI IN notes trigger immediate splashes at the pitch-mapped column.
  * @sound Pad / Ambient Texture
  */
 
@@ -75,6 +76,13 @@ function update(m) {
   // Slow drift: accelY shifts fire rate over ~8s; accelX shifts hue over ~10s
   smoothTilt += (m.accelX - smoothTilt) * (m.dt / 8000.0);
   smoothHue  += (m.accelY - smoothHue)  * (m.dt / 10000.0);
+
+  // MIDI IN: NoteOn triggers an immediate visual splash at the pitch-mapped column
+  if (m.midiType === 1) {
+    var noteCol = Math.floor(m.midiNote * m.COLS / 128);
+    var notePeak = Math.floor((m.brightness * m.midiVel) / 127);
+    fireSplash(pix, noteCol, notePeak, m.ROWS, m.COLS);
+  }
 
   if (elapsed >= m.beatMs) {
     elapsed -= m.beatMs;

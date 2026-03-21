@@ -182,6 +182,35 @@ m.allOff()                            // cancel all held notes
 `degree` maps through the active scale/root and wraps across octaves.
 Scale degrees 0–6 span one octave diatonically; 7–13 continue into the next.
 
+---
+
+### Physical MIDI In
+
+Incoming DIN MIDI messages are available each frame via read-once properties.
+`midiType` resets to `0` after each frame — check it first before reading the other values.
+
+| Property | Type | Meaning |
+|---|---|---|
+| `m.midiType` | 0..3 | 0=none 1=noteOn 2=noteOff 3=CC |
+| `m.midiNote` | 0..127 or 255 | Note number (255 = no note event this frame) |
+| `m.midiVel` | 0..127 | Velocity (0 for noteOff) |
+| `m.midiCC` | 0..127 or 255 | CC number (255 = no CC event this frame) |
+| `m.midiCCVal` | 0..127 | CC value |
+
+**Pattern — react once per NoteOn:**
+```js
+function update(m) {
+  if (m.midiType === 1) {            // new NoteOn arrived this frame
+    var col = Math.floor(m.midiNote * m.COLS / 128);
+    // spawn something at col...
+  }
+  m.show();
+}
+```
+
+In the simulator, all connected WebMIDI inputs are subscribed automatically.
+Send notes from any controller to test MIDI-in scripts without a physical device.
+
 ### Timing and helpers
 
 ```js

@@ -15,24 +15,25 @@ var COLS = 12;
 var ROWS = 12;
 
 var ALL_MODES = [
-  { name: 'Rain',    file: '00_rain.js'    },
-  { name: 'Euclid',  file: '01_euclid.js'  },
-  { name: 'Breath',  file: '02_breath.js'  },
-  { name: 'Stasis',  file: '03_stasis.js'  },
-  { name: 'Drift',   file: '04_drift.js'   },
-  { name: 'Spark',   file: '05_spark.js'   },
-  { name: 'Cascade', file: '06_cascade.js' },
-  { name: 'Shift',   file: '07_shift.js'   },
-  { name: 'Cells',   file: '08_cells.js'   },
-  { name: 'Loop',    file: '09_loop.js'    },
-  { name: 'Weave',   file: '10_weave.js'   },
-  { name: 'Flock',   file: '11_flock.js'   },
-  { name: 'Scatter', file: '12_scatter.js' },
-  { name: 'Walk',    file: '13_walk.js'    },
-  { name: 'Pulse',   file: '14_pulse.js'   },
-  { name: 'Suspend',  file: '15_suspend.js' },
-  { name: 'Lean', file: '16_lean.js' },
-  { name: 'Haze', file: '17_haze.js' },
+  { name: 'Rain',         file: '00_rain.js'         },
+  { name: 'Euclid',       file: '01_euclid.js'       },
+  { name: 'Breath',       file: '02_breath.js'       },
+  { name: 'Stasis',       file: '03_stasis.js'       },
+  { name: 'Drift',        file: '04_drift.js'        },
+  { name: 'Spark',        file: '05_spark.js'        },
+  { name: 'Cascade',      file: '06_cascade.js'      },
+  { name: 'Shift',        file: '07_shift.js'        },
+  { name: 'Cells',        file: '08_cells.js'        },
+  { name: 'Loop',         file: '09_loop.js'         },
+  { name: 'Weave',        file: '10_weave.js'        },
+  { name: 'Flock',        file: '11_flock.js'        },
+  { name: 'Scatter',      file: '12_scatter.js'      },
+  { name: 'Walk',         file: '13_walk.js'         },
+  { name: 'Pulse',        file: '14_pulse.js'        },
+  { name: 'Suspend',      file: '15_suspend.js'      },
+  { name: 'Lean',         file: '16_lean.js'         },
+  { name: 'Haze',         file: '17_haze.js'         },
+  { name: 'MIDI Keys',    file: '18_midi_keys.js'    },
 ];
 
 var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -189,6 +190,27 @@ if (window.ResizeObserver) {
   }).observe(canvas);
 }
 
+// ── MIDI IN state (written by WebMIDI input handler, consumed per tick) ────────
+
+var _midiIn = { type: 0, byte1: 255, byte2: 0 };
+
+function _attachMidiInputs(access) {
+  access.inputs.forEach(function(input) {
+    input.onmidimessage = function(ev) {
+      var d = ev.data;
+      if (!d || d.length < 3) return;
+      var type = d[0] >> 4;
+      if (type === 0x9 && d[2] > 0) {
+        _midiIn.type = 1; _midiIn.byte1 = d[1]; _midiIn.byte2 = d[2];
+      } else if (type === 0x8 || (type === 0x9 && d[2] === 0)) {
+        _midiIn.type = 2; _midiIn.byte1 = d[1]; _midiIn.byte2 = 0;
+      } else if (type === 0xB) {
+        _midiIn.type = 3; _midiIn.byte1 = d[1]; _midiIn.byte2 = d[2];
+      }
+    };
+  });
+}
+
 // ── Shared state ───────────────────────────────────────────────────────────────
 
 var settings = {
@@ -279,6 +301,14 @@ function makeM() {
     get motion()   { return sensorState.motion; },
     temp:     22.0,
     humidity: 55.0,
+
+    // Physical MIDI IN — overwritten each tick from _midiIn before update() runs.
+    // type: 0=none 1=noteOn 2=noteOff 3=CC. Consumed (reset to 0) after each frame.
+    midiType:  0,
+    midiNote:  255,
+    midiVel:   0,
+    midiCC:    255,
+    midiCCVal: 0,
 
     // m.px(col, row, brightness)       — uses @hue/@sat defaults
     // m.px(col, row, hue, sat, val)    — explicit HSV
@@ -389,6 +419,14 @@ function _tick(ts) {
   if (_lastTs !== null) _dt = ts - _lastTs;
   _lastTs = ts;
 
+  // Push MIDI IN state into the running script's m object, then consume.
+  _curM.midiType  = _midiIn.type;
+  _curM.midiNote  = _midiIn.byte1;
+  _curM.midiVel   = _midiIn.byte2;
+  _curM.midiCC    = _midiIn.byte1;
+  _curM.midiCCVal = _midiIn.byte2;
+  _midiIn.type = 0;
+
   try {
     _handlers.update(_curM);
   } catch (err) {
@@ -467,7 +505,11 @@ function initMidi() {
   navigator.requestMIDIAccess({ sysex: false }).then(function(access) {
     _midiAccess = access;
     populateMidiPorts();
-    access.onstatechange = populateMidiPorts;
+    _attachMidiInputs(access);
+    access.onstatechange = function() {
+      populateMidiPorts();
+      _attachMidiInputs(access);
+    };
   }).catch(function() {
     selMidiEl.innerHTML = '<option value="">MIDI access denied</option>';
   });

@@ -6,7 +6,7 @@
  * @param_label Drop Density
  * @description Drops fall from top to bottom. Tilt the device to add wind — each
  *              drop drifts sideways as it falls and the note it plays depends on
- *              where it lands.
+ *              where it lands. MIDI IN notes spawn targeted drops at the pitch column.
  * @sound Kalimba / Bell
  */
 
@@ -54,6 +54,11 @@ function update(m) {
   while (spawnElapsed >= spawnMs && drops.length < MAX_DROPS) {
     spawnElapsed -= spawnMs;
     drops.push({ x: m.rnd(m.COLS), y: 0.0 });
+  }
+
+  // MIDI IN: NoteOn spawns a targeted drop at the pitch-mapped column
+  if (m.midiType === 1 && drops.length < MAX_DROPS) {
+    drops.push({ x: Math.floor(m.midiNote * m.COLS / 128) + 0.5, y: 0.0 });
   }
 
   // Fade persistent grid (trails and landing splashes)
