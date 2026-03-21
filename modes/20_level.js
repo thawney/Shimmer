@@ -20,8 +20,8 @@ var flashBr   = 0;
 function activate(m) {
   fill      = 0.0;
   hue       = m.hue !== undefined ? m.hue : 200;
-  smoothHX  = m.accelX;
-  smoothHY  = m.accelY;
+  smoothHX  = m.accelY;
+  smoothHY  = m.accelX;
   prevTier  = 0;
   flashBr   = 0;
   m.clear();
@@ -34,8 +34,8 @@ function deactivate(m) {
 
 function update(m) {
   // Very slow hue drift from tilt — 20s lag, barely perceptible
-  smoothHX += (m.accelX - smoothHX) * (m.dt / 20000.0);
-  smoothHY += (m.accelY - smoothHY) * (m.dt / 20000.0);
+  smoothHX += (m.accelY - smoothHX) * (m.dt / 20000.0);
+  smoothHY += (m.accelX - smoothHY) * (m.dt / 20000.0);
 
   // Hue: base + small shift from slow tilt
   var h = (Math.floor(smoothHX * 30 / 80) + Math.floor(smoothHY * 15 / 80) + 200 + 512) & 255;

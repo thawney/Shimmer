@@ -20,8 +20,8 @@ function activate(m) {
   embers       = [];
   spawnTimer   = 0;
   lastMotionEm = 0;
-  smoothX      = m.accelX;
-  smoothY      = m.accelY;
+  smoothX      = m.accelY;
+  smoothY      = m.accelX;
   m.clear();
   m.show();
 }
@@ -32,9 +32,9 @@ function deactivate(m) {
 
 function update(m) {
   // ~3s lag — embers respond to sustained lean, not instant flicks
-  smoothX += (m.accelX - smoothX) * (m.dt / 3000.0);
-  // Negate Y so "tilt up" drifts embers toward row 0 (top of display)
-  smoothY += (-m.accelY - smoothY) * (m.dt / 3000.0);
+  smoothX += (m.accelY - smoothX) * (m.dt / 3000.0);
+  // Negate X so "tilt up" drifts embers toward row 0 (top of display)
+  smoothY += (-m.accelX - smoothY) * (m.dt / 3000.0);
 
   // Horizontal drift from tilt; vertical from Y
   var driftX = smoothX * 0.0000030;

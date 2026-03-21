@@ -64,7 +64,7 @@ function update(m) {
   if (maxRipples > MAX_R) maxRipples = MAX_R;
 
   // Slow drift: tilt biases spawn zone over ~10s
-  smoothWind += (m.accelX - smoothWind) * (m.dt / 10000.0);
+  smoothWind += (m.accelY - smoothWind) * (m.dt / 10000.0);
 
   // Shake: immediate ripple burst
   if (m.motion > 160 && lastMotionCa <= 160) spawnRipple(m);

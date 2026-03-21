@@ -52,7 +52,7 @@ function update(m) {
   var dt = m.dt / 1000.0;
 
   // Tilt slowly pulls the flock's home position left/right over ~15 seconds
-  smoothWind += (m.accelX - smoothWind) * (m.dt / 15000.0);
+  smoothWind += (m.accelY - smoothWind) * (m.dt / 15000.0);
 
   if (!initialized) {
     numBoids = 2 + Math.floor((m.density * 6) / 255);

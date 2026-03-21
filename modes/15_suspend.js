@@ -41,7 +41,7 @@ function activate(m) {
   changeElapsed = 0;
   changeInterval = 5000;
   // Seed palette from tilt at activation — locked for this session
-  hueOffset = Math.floor(m.accelX * 30 / 127);
+  hueOffset = Math.floor(m.accelY * 30 / 127);
   for (var v = 0; v < MAX_V; v++) {
     degree[v] = v * 2;  // {0, 2, 4}
     bright[v] = 0;

@@ -86,10 +86,10 @@ function update(m) {
   // Clear display
   m.clear();
 
-  // accelX/Y apply a gravity field — tilt to make particles drift toward one corner
-  // Positive X = right, positive Y = forward/top-down (matches confirmed axis orientation)
-  var gx = m.accelX * 0.000006;
-  var gy = m.accelY * 0.000006;
+  // accelY = left/right tilt → horizontal gravity; accelX = forward/back → vertical gravity
+  // Negate accelX for gy: forward tilt (accelX+, top dips) should pull particles UP (row 0)
+  var gx = m.accelY * 0.000006;
+  var gy = -m.accelX * 0.000006;
 
   for (var i = 0; i < numParticles; i++) {
     p[i].prevCol = Math.floor(p[i].x);

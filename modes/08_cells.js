@@ -39,7 +39,7 @@ function activate(m) {
   gen[0][Math.floor(m.COLS / 2)] = 1;  // always seed center in newest row
 
   // Seed mutation rate from tilt: flat = moderate, tilted = more or less chaotic
-  mutationSeed = Math.floor(m.accelX / 16) + 8;  // range 0..15
+  mutationSeed = Math.floor(m.accelY / 16) + 8;  // range 0..15
   elapsed = 0;
   m.clear();
   m.show();

@@ -48,7 +48,7 @@ function update(m) {
 
     var step = 1 + m.rnd(maxStep);
     // accelX biases step direction: tilt right (positive X) → melody walks upward
-    if (m.rnd(255) < (128 + m.accelX)) step = -step;
+    if (m.rnd(255) >= (128 + m.accelY)) step = -step;
 
     degree += step;
     // Bounce at boundaries

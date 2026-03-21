@@ -51,7 +51,7 @@ function update(m) {
 
     if (isHit(step, k)) {
       // accelX biases direction: tilt right → walks up, tilt left → walks down
-      var dirProb = 128 + Math.floor(m.accelX / 2);
+      var dirProb = 128 + Math.floor(m.accelY / 2);
       if (dirProb < 20)  dirProb = 20;
       if (dirProb > 235) dirProb = 235;
       var dir = (m.rnd(255) < dirProb) ? 1 : -1;

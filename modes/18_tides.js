@@ -17,11 +17,11 @@ var lastPhase = 0.0;
 var centreCol = 0.0;
 
 function activate(m) {
-  smoothX   = m.accelX;
+  smoothX   = m.accelY;
   smoothZ   = m.accelZ;
   phase     = 0.0;
   lastPhase = 0.0;
-  centreCol = m.map(m.accelX, -80, 80, 0, m.COLS - 1);
+  centreCol = m.map(m.accelY, -80, 80, 0, m.COLS - 1);
   if (centreCol < 0)           centreCol = 0;
   if (centreCol > m.COLS - 1) centreCol = m.COLS - 1;
   m.clear();
@@ -37,7 +37,7 @@ function update(m) {
   // density scales the lag: 0 -> 18s, 255 -> 6s
   var lag = 18000 - Math.floor((m.density * 12000) / 255);
   if (lag < 6000) lag = 6000;
-  smoothX += (m.accelX - smoothX) * (m.dt / lag);
+  smoothX += (m.accelY - smoothX) * (m.dt / lag);
 
   // accelZ: flat (+64) = slow breath, tilted toward 0 = faster
   smoothZ += (m.accelZ - smoothZ) * (m.dt / 5000.0);

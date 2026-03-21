@@ -17,7 +17,7 @@ var colBright  = [];
 var strikeBr   = 0;
 
 function activate(m) {
-  smoothX    = m.accelX;
+  smoothX    = m.accelY;
   prevCol    = -1;
   heldMs     = 0;
   strikeBr   = 0;
@@ -31,7 +31,7 @@ function update(m) {
   // Lag controlled by density: 0 -> 8s, 255 -> 1.5s
   var lag = 8000 - Math.floor((m.density * 6500) / 255);
   if (lag < 1500) lag = 1500;
-  smoothX += (m.accelX - smoothX) * (m.dt / lag);
+  smoothX += (m.accelY - smoothX) * (m.dt / lag);
 
   var col = Math.floor(m.map(smoothX, -80, 80, 0, m.COLS - 1));
   if (col < 0)           col = 0;

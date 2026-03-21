@@ -62,7 +62,7 @@ function update(m) {
   elapsed += m.dt;
 
   // Pitch centre drifts toward accelX tilt over ~10 seconds
-  smoothPitch += (m.accelX - smoothPitch) * (m.dt / 10000.0);
+  smoothPitch += (m.accelY - smoothPitch) * (m.dt / 10000.0);
 
   if (elapsed >= m.beatMs) {
     elapsed -= m.beatMs;

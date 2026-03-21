@@ -73,8 +73,8 @@ function update(m) {
   elapsed += m.dt;
 
   // Slow drift: accelY shifts fire rate over ~8s; accelX shifts hue over ~10s
-  smoothTilt += (m.accelY - smoothTilt) * (m.dt / 8000.0);
-  smoothHue  += (m.accelX - smoothHue)  * (m.dt / 10000.0);
+  smoothTilt += (m.accelX - smoothTilt) * (m.dt / 8000.0);
+  smoothHue  += (m.accelY - smoothHue)  * (m.dt / 10000.0);
 
   if (elapsed >= m.beatMs) {
     elapsed -= m.beatMs;

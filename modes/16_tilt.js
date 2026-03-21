@@ -16,8 +16,8 @@ var colBright  = [];
 var flashBr    = 0;
 
 function activate(m) {
-  smoothX   = m.accelX;
-  smoothY   = m.accelY;
+  smoothX   = m.accelY;
+  smoothY   = m.accelX;
   flashBr   = 0;
   colBright = [];
   for (var c = 0; c < m.COLS; c++) colBright[c] = 0;
@@ -27,9 +27,9 @@ function activate(m) {
 
 function update(m) {
   // ~2s lag — column settles smoothly, no jitter
-  smoothX += (m.accelX - smoothX) * (m.dt / 2000.0);
+  smoothX += (m.accelY - smoothX) * (m.dt / 2000.0);
   // ~4s lag — row bias (secondary, subtle vertical gradient)
-  smoothY += (m.accelY - smoothY) * (m.dt / 4000.0);
+  smoothY += (m.accelX - smoothY) * (m.dt / 4000.0);
 
   // Current resting column
   var col = Math.floor(m.map(smoothX, -80, 80, 0, m.COLS - 1));
