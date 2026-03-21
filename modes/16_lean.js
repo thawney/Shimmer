@@ -16,8 +16,8 @@ var pix     = [];
 var flashBr = 0;
 
 function activate(m) {
-  smoothX = m.accelY;
-  smoothY = m.accelX;
+  smoothX =  m.accelY;
+  smoothY = -m.accelX;
   pix     = [];
   for (var r = 0; r < m.ROWS; r++) {
     pix[r] = [];
@@ -29,14 +29,20 @@ function activate(m) {
 }
 
 function update(m) {
-  smoothX += (m.accelY - smoothX) * (m.dt / 2000.0);
-  smoothY += (m.accelX - smoothY) * (m.dt / 2000.0);
+  // Steeper tilt = faster response
+  var tiltX = m.accelY < 0 ? -m.accelY : m.accelY;
+  var tiltY = m.accelX < 0 ? -m.accelX : m.accelX;
+  var lagX = 2000 - Math.floor(tiltX * 18);
+  var lagY = 2000 - Math.floor(tiltY * 18);
+  if (lagX < 300) lagX = 300;
+  if (lagY < 300) lagY = 300;
+  smoothX += (m.accelY  - smoothX) * (m.dt / lagX);
+  smoothY += (-m.accelX - smoothY) * (m.dt / lagY);
 
   var col = Math.floor(m.map(smoothX, -80, 80, 0, m.COLS - 1));
   if (col < 0)           col = 0;
   if (col > m.COLS - 1) col = m.COLS - 1;
 
-  // accelX positive = top dips = physically lower, maps to higher row number
   var row = Math.floor(m.map(smoothY, -80, 80, 0, m.ROWS - 1));
   if (row < 0)           row = 0;
   if (row > m.ROWS - 1) row = m.ROWS - 1;

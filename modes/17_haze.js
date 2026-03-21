@@ -5,7 +5,7 @@
  * @sat 155
  * @param_label Drift Rate
  * @description A soft haze pools at the low edge, breathing slowly in and out.
- *              Lean to draw it across the grid. Notes fall on every beat from
+ *              Lean to draw it across the grid. A chord falls on every beat from
  *              wherever it has settled.
  * @sound Pad / Choir
  */
@@ -51,11 +51,15 @@ function update(m) {
   if (centreCol < 0)           centreCol = 0;
   if (centreCol > m.COLS - 1) centreCol = m.COLS - 1;
 
-  // Note every beat from the settled column — clean, rhythmic
+  // Chord every beat from the settled column
   if (m.tick(0, m.beatMs)) {
-    var deg = m.colToDegree(Math.floor(centreCol + 0.5));
-    var vel = 50 + Math.floor((m.density * 40) / 255);
-    m.note(deg, vel, Math.floor(m.beatMs * 0.7));
+    var centC = Math.floor(centreCol + 0.5);
+    var root  = m.colToDegree(centC);
+    var vel   = 50 + Math.floor((m.density * 40) / 255);
+    var dur   = Math.floor(m.beatMs * 0.7);
+    m.note(root,     vel,      dur);
+    m.note(root + 2, vel - 8,  dur);
+    m.note(root + 4, vel - 14, dur);
   }
 
   // Triangle wave breath: 0→1 (inhale) then 1→0 (exhale)
