@@ -49,6 +49,15 @@ var SCALES = [
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+function clamp(v, lo, hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+
+function formatSignedInt(v, width) {
+  var abs = String(Math.abs(v | 0)).padStart(width || 3, '0');
+  return (v >= 0 ? '+' : '-') + abs;
+}
+
 function parseScriptMeta(code) {
   function get(tag) {
     var m = code.match(new RegExp('@' + tag + '\\s+(.+)'));
@@ -113,6 +122,10 @@ function degreeToMidi(degree, rootNote, scaleId, octave) {
 
 var canvas = document.getElementById('grid-canvas');
 var ctx2d  = canvas.getContext('2d');
+var gridStageEl = document.getElementById('sim-grid-stage');
+var threeStageEl = document.getElementById('sim-3d-stage');
+var enable3DEl = document.getElementById('sim-enable-3d');
+var sensorReadoutEl = document.getElementById('sim-sensor-readout');
 
 // [row][col] = { h, s, v }  (0–255 each)
 var pixelBuf = [];
@@ -161,6 +174,8 @@ function drawGrid() {
       }
     }
   }
+
+  if (sim3D && sim3D.texture) sim3D.texture.needsUpdate = true;
 }
 
 // Keep internal canvas resolution in sync with its CSS display size.
@@ -194,6 +209,511 @@ var midiOut = null;
 // Frame delta in ms for m.dt (updated each rAF tick)
 var _dt = 16;
 
+// Shared mock sensor values, read by every running script.
+var sensorState = {
+  accelX: 0,
+  accelY: 0,
+  accelZ: 64,
+  motion: 0,
+};
+
+function updateSensorReadout() {
+  if (!sensorReadoutEl) return;
+  sensorReadoutEl.textContent =
+    'X ' + formatSignedInt(sensorState.accelX, 3) +
+    ' · Y ' + formatSignedInt(sensorState.accelY, 3) +
+    ' · Z ' + formatSignedInt(sensorState.accelZ, 3) +
+    ' · M ' + String(sensorState.motion | 0).padStart(3, '0');
+}
+
+function resetSensorState() {
+  sensorState.accelX = 0;
+  sensorState.accelY = 0;
+  sensorState.accelZ = 64;
+  sensorState.motion = 0;
+  updateSensorReadout();
+}
+
+function report3DError(msg) {
+  if (enable3DEl) {
+    enable3DEl.checked = false;
+    enable3DEl.title = msg || '';
+  }
+  setStatus(msg, 'error');
+}
+
+// ── 3D simulator ───────────────────────────────────────────────────────────────
+
+var sim3D = {
+  ready: false,
+  enabled: false,
+  dragging: false,
+  pointerId: null,
+  lastClientX: 0,
+  lastClientY: 0,
+  pitch: 0,
+  roll: 0,
+  renderPitch: 0,
+  renderRoll: 0,
+  targetPitch: 0,
+  targetRoll: 0,
+  lastTiltPitch: 1,
+  lastTiltRoll: 0,
+  axisLock: null,
+  shakeTime: 0,
+  shakeDuration: 560,
+  lastPitch: 0,
+  lastRoll: 0,
+  lastFrameTs: 0,
+  renderer: null,
+  scene: null,
+  camera: null,
+  deviceGroup: null,
+  texture: null,
+  raycaster: null,
+  pointer: null,
+  interactiveMeshes: [],
+};
+
+function focus3DStage() {
+  if (!threeStageEl || threeStageEl.tabIndex < 0) return;
+  try {
+    threeStageEl.focus({ preventScroll: true });
+  } catch (e) {
+    threeStageEl.focus();
+  }
+}
+
+function reset3DPose() {
+  if (threeStageEl && sim3D.pointerId != null && threeStageEl.releasePointerCapture) {
+    try {
+      if (threeStageEl.hasPointerCapture && threeStageEl.hasPointerCapture(sim3D.pointerId)) {
+        threeStageEl.releasePointerCapture(sim3D.pointerId);
+      }
+    } catch (e) {}
+  }
+
+  sim3D.dragging = false;
+  sim3D.pointerId = null;
+  sim3D.pitch = 0;
+  sim3D.roll = 0;
+  sim3D.renderPitch = 0;
+  sim3D.renderRoll = 0;
+  sim3D.targetPitch = 0;
+  sim3D.targetRoll = 0;
+  sim3D.lastTiltPitch = 1;
+  sim3D.lastTiltRoll = 0;
+  sim3D.axisLock = null;
+  sim3D.shakeTime = 0;
+  sim3D.lastPitch = 0;
+  sim3D.lastRoll = 0;
+  sim3D.lastFrameTs = 0;
+  if (gridStageEl) gridStageEl.classList.remove('is-dragging');
+}
+
+function trigger3DShake() {
+  sim3D.shakeTime = sim3D.shakeDuration;
+}
+
+function clear3DAxisLock() {
+  sim3D.axisLock = null;
+}
+
+function updateTiltDirection(pitch, roll) {
+  var mag = Math.sqrt(pitch * pitch + roll * roll);
+  if (mag < 0.0001) return;
+  sim3D.lastTiltPitch = pitch / mag;
+  sim3D.lastTiltRoll = roll / mag;
+}
+
+function adjust3DZTilt(delta) {
+  var curPitch = sim3D.targetPitch;
+  var curRoll = sim3D.targetRoll;
+  var radius = Math.sqrt(curPitch * curPitch + curRoll * curRoll);
+  var nextRadius = clamp(radius + delta, 0, 1.45);
+  var dirPitch = sim3D.lastTiltPitch;
+  var dirRoll = sim3D.lastTiltRoll;
+
+  if (radius >= 0.0001) {
+    dirPitch = curPitch / radius;
+    dirRoll = curRoll / radius;
+  }
+
+  sim3D.targetPitch = clamp(dirPitch * nextRadius, -1.45, 1.45);
+  sim3D.targetRoll = clamp(dirRoll * nextRadius, -1.45, 1.45);
+  updateTiltDirection(sim3D.targetPitch, sim3D.targetRoll);
+}
+
+function apply3DDrag(dx, dy) {
+  var lock = sim3D.axisLock;
+
+  if (lock === 'x') {
+    sim3D.targetPitch = clamp(sim3D.targetPitch + dy * 0.0085, -1.45, 1.45);
+    updateTiltDirection(sim3D.targetPitch, sim3D.targetRoll);
+    return;
+  }
+
+  if (lock === 'y') {
+    sim3D.targetRoll = clamp(sim3D.targetRoll + dx * 0.0085, -1.45, 1.45);
+    updateTiltDirection(sim3D.targetPitch, sim3D.targetRoll);
+    return;
+  }
+
+  if (lock === 'z') {
+    adjust3DZTilt((Math.abs(dy) >= Math.abs(dx) ? dy : dx) * 0.0085);
+    return;
+  }
+
+  sim3D.targetRoll  = clamp(sim3D.targetRoll  + dx * 0.0085, -1.45, 1.45);
+  sim3D.targetPitch = clamp(sim3D.targetPitch + dy * 0.0085, -1.45, 1.45);
+  updateTiltDirection(sim3D.targetPitch, sim3D.targetRoll);
+}
+
+function set3DEnabled(enabled) {
+  sim3D.enabled = !!enabled && sim3D.ready;
+  if (enable3DEl) enable3DEl.checked = sim3D.enabled;
+  if (gridStageEl) gridStageEl.classList.toggle('is-3d', sim3D.enabled);
+  if (threeStageEl) threeStageEl.tabIndex = sim3D.enabled ? 0 : -1;
+
+  if (!sim3D.enabled) {
+    reset3DPose();
+    if (threeStageEl && document.activeElement === threeStageEl) threeStageEl.blur();
+    resetSensorState();
+  } else {
+    sim3D.lastFrameTs = 0;
+    focus3DStage();
+  }
+
+  render3DScene();
+}
+
+function sync3DSensorState(dtMs) {
+  var dt = Math.max(1, dtMs || 16);
+  var smoothing = sim3D.dragging ? 1 : Math.min(1, dt / 24);
+
+  sim3D.pitch += (sim3D.targetPitch - sim3D.pitch) * smoothing;
+  sim3D.roll += (sim3D.targetRoll - sim3D.roll) * smoothing;
+
+  if (Math.abs(sim3D.targetPitch - sim3D.pitch) < 0.0001) sim3D.pitch = sim3D.targetPitch;
+  if (Math.abs(sim3D.targetRoll - sim3D.roll) < 0.0001) sim3D.roll = sim3D.targetRoll;
+
+  var shakePitch = 0;
+  var shakeRoll = 0;
+  if (sim3D.shakeTime > 0) {
+    var progress = 1.0 - (sim3D.shakeTime / sim3D.shakeDuration);
+    var envelope = (sim3D.shakeTime / sim3D.shakeDuration);
+    var time = progress * 0.72;
+    shakePitch = Math.sin(time * 32.0) * 0.18 * envelope;
+    shakeRoll  = Math.sin(time * 41.0 + 0.9) * 0.16 * envelope;
+    sim3D.shakeTime = Math.max(0, sim3D.shakeTime - dt);
+  }
+
+  sim3D.renderPitch = clamp(sim3D.pitch + shakePitch, -1.45, 1.45);
+  sim3D.renderRoll  = clamp(sim3D.roll + shakeRoll, -1.45, 1.45);
+
+  var sinPitch = Math.sin(sim3D.renderPitch);
+  var cosPitch = Math.cos(sim3D.renderPitch);
+  var sinRoll  = Math.sin(sim3D.renderRoll);
+  var cosRoll  = Math.cos(sim3D.renderRoll);
+
+  sensorState.accelX = clamp(Math.round(-sinPitch * 64), -128, 127);
+  sensorState.accelY = clamp(Math.round(sinRoll * cosPitch * 64), -128, 127);
+  sensorState.accelZ = clamp(Math.round(cosRoll * cosPitch * 64), -128, 127);
+
+  var deltaPitch = sim3D.renderPitch - sim3D.lastPitch;
+  var deltaRoll  = sim3D.renderRoll  - sim3D.lastRoll;
+  var angularSpeed = Math.sqrt(deltaPitch * deltaPitch + deltaRoll * deltaRoll) / (dt / 1000);
+  var motionBoost = clamp(Math.round(angularSpeed * 36), 0, 255);
+  var decayedMotion = Math.round(sensorState.motion * Math.exp(-dt / 170));
+  sensorState.motion = motionBoost > decayedMotion ? motionBoost : decayedMotion;
+
+  sim3D.lastPitch = sim3D.renderPitch;
+  sim3D.lastRoll  = sim3D.renderRoll;
+
+  updateSensorReadout();
+}
+
+function render3DScene() {
+  if (!sim3D.ready) return;
+
+  sim3D.deviceGroup.rotation.x = sim3D.renderPitch;
+  sim3D.deviceGroup.rotation.z = -sim3D.renderRoll;
+  sim3D.renderer.render(sim3D.scene, sim3D.camera);
+}
+
+function resize3DScene() {
+  if (!sim3D.ready || !threeStageEl) return;
+
+  var rect = threeStageEl.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  sim3D.camera.aspect = rect.width / rect.height;
+  sim3D.camera.updateProjectionMatrix();
+  sim3D.renderer.setPixelRatio(window.devicePixelRatio || 1);
+  sim3D.renderer.setSize(rect.width, rect.height, false);
+  render3DScene();
+}
+
+function isPointerOnDevice(event) {
+  if (!sim3D.ready || !threeStageEl) return false;
+
+  var rect = threeStageEl.getBoundingClientRect();
+  if (!rect.width || !rect.height) return false;
+
+  sim3D.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  sim3D.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  sim3D.raycaster.setFromCamera(sim3D.pointer, sim3D.camera);
+
+  return sim3D.raycaster.intersectObjects(sim3D.interactiveMeshes, false).length > 0;
+}
+
+function on3DPointerDown(event) {
+  if (!sim3D.enabled || event.button !== 0) return;
+
+  focus3DStage();
+  if (!isPointerOnDevice(event)) return;
+
+  sim3D.dragging = true;
+  sim3D.pointerId = event.pointerId;
+  sim3D.lastClientX = event.clientX;
+  sim3D.lastClientY = event.clientY;
+
+  if (gridStageEl) gridStageEl.classList.add('is-dragging');
+  if (threeStageEl && threeStageEl.setPointerCapture) {
+    try { threeStageEl.setPointerCapture(event.pointerId); } catch (e) {}
+  }
+
+  event.preventDefault();
+}
+
+function on3DPointerMove(event) {
+  if (!sim3D.dragging || event.pointerId !== sim3D.pointerId) return;
+
+  var dx = event.clientX - sim3D.lastClientX;
+  var dy = event.clientY - sim3D.lastClientY;
+  sim3D.lastClientX = event.clientX;
+  sim3D.lastClientY = event.clientY;
+
+  apply3DDrag(dx, dy);
+}
+
+function end3DDrag(event) {
+  if (!sim3D.dragging) return;
+  if (event && event.pointerId != null && sim3D.pointerId != null && event.pointerId !== sim3D.pointerId) return;
+
+  if (threeStageEl && sim3D.pointerId != null && threeStageEl.releasePointerCapture) {
+    try {
+      if (threeStageEl.hasPointerCapture && threeStageEl.hasPointerCapture(sim3D.pointerId)) {
+        threeStageEl.releasePointerCapture(sim3D.pointerId);
+      }
+    } catch (e) {}
+  }
+
+  sim3D.dragging = false;
+  sim3D.pointerId = null;
+  if (gridStageEl) gridStageEl.classList.remove('is-dragging');
+}
+
+function on3DKeyDown(event) {
+  if (!sim3D.enabled) return;
+
+  var key = event.key ? event.key.toLowerCase() : '';
+  if (key === 'x' || key === 'y' || key === 'z') {
+    sim3D.axisLock = key;
+    event.preventDefault();
+    return;
+  }
+
+  if (event.repeat) return;
+
+  if (key === 'r') {
+    reset3DPose();
+    resetSensorState();
+    render3DScene();
+    event.preventDefault();
+    return;
+  }
+
+  if (key === 's') {
+    trigger3DShake();
+    event.preventDefault();
+  }
+}
+
+function on3DKeyUp(event) {
+  var key = event.key ? event.key.toLowerCase() : '';
+  if (key === sim3D.axisLock) {
+    clear3DAxisLock();
+    event.preventDefault();
+  }
+}
+
+function on3DBlur() {
+  clear3DAxisLock();
+}
+
+function step3DScene(ts) {
+  if (sim3D.ready && sim3D.enabled) {
+    var dt = sim3D.lastFrameTs ? Math.min(48, ts - sim3D.lastFrameTs) : 16;
+    sim3D.lastFrameTs = ts;
+    sync3DSensorState(dt);
+    render3DScene();
+  }
+
+  requestAnimationFrame(step3DScene);
+}
+
+function ensure3DSimulator() {
+  if (sim3D.ready) return true;
+  if (!gridStageEl || !threeStageEl || !enable3DEl) return false;
+
+  if (!window.THREE) {
+    report3DError('3D view unavailable: Three.js failed to load');
+    return false;
+  }
+
+  try {
+    threeStageEl.innerHTML = '';
+
+    var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 0);
+    if ('outputColorSpace' in renderer && THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
+    threeStageEl.appendChild(renderer.domElement);
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+    camera.position.set(3.0, 2.45, 3.1);
+    camera.lookAt(0, 0.22, 0);
+
+    scene.add(new THREE.HemisphereLight(0xf7edc9, 0x090909, 1.5));
+
+    var keyLight = new THREE.DirectionalLight(0xffe2a1, 1.35);
+    keyLight.position.set(3.4, 5.0, 2.2);
+    scene.add(keyLight);
+
+    var rimLight = new THREE.DirectionalLight(0x8db7ff, 0.35);
+    rimLight.position.set(-3.0, 2.0, -2.5);
+    scene.add(rimLight);
+
+    // Keep the "floor" as a background-only shadow so it never clips the device.
+    var shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(4.6, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0x110f0d,
+        transparent: true,
+        opacity: 0.32,
+        depthWrite: false,
+      })
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(0, -1.9, 0.18);
+    shadow.renderOrder = -10;
+    scene.add(shadow);
+
+    var deviceGroup = new THREE.Group();
+    deviceGroup.position.y = 0.22;
+    scene.add(deviceGroup);
+
+    var body = new THREE.Mesh(
+      new THREE.BoxGeometry(2.36, 0.28, 2.36),
+      new THREE.MeshStandardMaterial({
+        color: 0x171717,
+        metalness: 0.12,
+        roughness: 0.74,
+      })
+    );
+    deviceGroup.add(body);
+
+    var bezel = new THREE.Mesh(
+      new THREE.BoxGeometry(2.12, 0.04, 2.12),
+      new THREE.MeshStandardMaterial({
+        color: 0x060606,
+        metalness: 0.08,
+        roughness: 0.92,
+      })
+    );
+    bezel.position.y = 0.14;
+    deviceGroup.add(bezel);
+
+    var edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(2.36, 0.28, 2.36)),
+      new THREE.LineBasicMaterial({ color: 0x55451a, transparent: true, opacity: 0.55 })
+    );
+    deviceGroup.add(edges);
+
+    var texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+
+    var panel = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.0, 2.0),
+      new THREE.MeshBasicMaterial({ map: texture })
+    );
+    panel.rotation.x = -Math.PI / 2;
+    panel.position.y = 0.161;
+    deviceGroup.add(panel);
+
+    sim3D.renderer = renderer;
+    sim3D.scene = scene;
+    sim3D.camera = camera;
+    sim3D.deviceGroup = deviceGroup;
+    sim3D.texture = texture;
+    sim3D.raycaster = new THREE.Raycaster();
+    sim3D.pointer = new THREE.Vector2();
+    sim3D.interactiveMeshes = [body, bezel, panel];
+    sim3D.ready = true;
+    enable3DEl.title = '';
+
+    threeStageEl.addEventListener('pointerdown', on3DPointerDown);
+    threeStageEl.addEventListener('pointermove', on3DPointerMove);
+    threeStageEl.addEventListener('pointerup', end3DDrag);
+    threeStageEl.addEventListener('pointercancel', end3DDrag);
+    threeStageEl.addEventListener('lostpointercapture', end3DDrag);
+    threeStageEl.addEventListener('keydown', on3DKeyDown);
+    threeStageEl.addEventListener('keyup', on3DKeyUp);
+    threeStageEl.addEventListener('blur', on3DBlur);
+
+    if (window.ResizeObserver) {
+      new ResizeObserver(resize3DScene).observe(threeStageEl);
+    } else {
+      window.addEventListener('resize', resize3DScene);
+    }
+
+    resize3DScene();
+    render3DScene();
+    requestAnimationFrame(step3DScene);
+    return true;
+  } catch (err) {
+    sim3D.ready = false;
+    sim3D.renderer = null;
+    sim3D.scene = null;
+    sim3D.camera = null;
+    sim3D.deviceGroup = null;
+    sim3D.texture = null;
+    sim3D.raycaster = null;
+    sim3D.pointer = null;
+    sim3D.interactiveMeshes = [];
+    threeStageEl.innerHTML = '';
+    report3DError('3D view unavailable: ' + (err && err.message ? err.message : 'WebGL init failed'));
+    return false;
+  }
+}
+
+function init3DSimulatorControls() {
+  if (!enable3DEl) return;
+
+  enable3DEl.addEventListener('change', function() {
+    if (enable3DEl.checked) {
+      if (!ensure3DSimulator()) return;
+      set3DEnabled(true);
+      return;
+    }
+
+    set3DEnabled(false);
+  });
+}
+
 // ── m object factory ───────────────────────────────────────────────────────────
 
 function makeM() {
@@ -209,10 +729,10 @@ function makeM() {
 
     // Sensor stubs — static defaults so sensor-aware scripts run without errors.
     // On real hardware these are updated every frame from the LIS3DH / AHT20.
-    accelX:   0,
-    accelY:   0,
-    accelZ:   64,   // ~+64 = 1g pointing down when device is flat/upright
-    motion:   0,
+    get accelX()   { return sensorState.accelX; },
+    get accelY()   { return sensorState.accelY; },
+    get accelZ()   { return sensorState.accelZ; },   // ~+64 = 1g pointing down when device is flat/upright
+    get motion()   { return sensorState.motion; },
     temp:     22.0,
     humidity: 55.0,
 
@@ -577,4 +1097,6 @@ function setStatus(msg, state) {
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 initMidi();
+resetSensorState();
+init3DSimulatorControls();
 drawGrid();
