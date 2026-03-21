@@ -32,10 +32,10 @@ function update(m) {
   // Steeper tilt = faster response
   var tiltX = m.accelY < 0 ? -m.accelY : m.accelY;
   var tiltY = m.accelX < 0 ? -m.accelX : m.accelX;
-  var lagX = 2000 - Math.floor(tiltX * 18);
-  var lagY = 2000 - Math.floor(tiltY * 18);
-  if (lagX < 300) lagX = 300;
-  if (lagY < 300) lagY = 300;
+  var lagX = 600 - Math.floor(tiltX * 5);
+  var lagY = 600 - Math.floor(tiltY * 5);
+  if (lagX < 100) lagX = 100;
+  if (lagY < 100) lagY = 100;
   smoothX += (m.accelY  - smoothX) * (m.dt / lagX);
   smoothY += (-m.accelX - smoothY) * (m.dt / lagY);
 
