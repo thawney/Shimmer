@@ -45,7 +45,7 @@
         <div class="grid-stage-layer grid-stage-layer-3d" id="sim-3d-stage" tabindex="-1" aria-label="3D device simulator"></div>
         <div class="sim-stage-overlay">
           <div class="sim-sensor-readout" id="sim-sensor-readout">X +000 · Y +000 · Z +064 · M 000</div>
-          <div class="sim-3d-hint">Drag to tilt · R reset · S shake · Hold X/Y/Z to lock</div>
+          <div class="sim-3d-hint">Click device, then drag · R reset · S shake · Hold <span class="sim-axis-x">X</span>/<span class="sim-axis-y">Y</span>/<span class="sim-axis-z">Z</span> to lock</div>
         </div>
       </div>
     </div>
@@ -101,6 +101,7 @@
     <span id="sim-status" class="sim-status-idle">Stopped</span>
   </div>
 
+  <script src="simulator-3d.js"></script>
   <script src="simulator.js"></script>
 </body>
 </html>

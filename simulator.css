@@ -237,6 +237,20 @@ body {
   height: 100%;
 }
 
+.grid-stage-layer-3d .sim-3d-main-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.grid-stage-layer-3d .sim-3d-axis-canvas {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: clamp(76px, 11%, 96px);
+  height: clamp(76px, 11%, 96px);
+  pointer-events: none;
+}
+
 .grid-stage-layer-3d:focus-visible {
   outline: 3px solid rgba(255,198,10,0.45);
   outline-offset: -3px;
@@ -366,6 +380,24 @@ body {
   opacity: 0;
   transform: translate(-50%, 10px);
   transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.sim-3d-hint .sim-axis-x,
+.sim-3d-hint .sim-axis-y,
+.sim-3d-hint .sim-axis-z {
+  font-weight: 700;
+}
+
+.sim-3d-hint .sim-axis-x {
+  color: #ff7c7c;
+}
+
+.sim-3d-hint .sim-axis-y {
+  color: #78ffab;
+}
+
+.sim-3d-hint .sim-axis-z {
+  color: #78beff;
 }
 
 .grid-stage.is-3d .sim-sensor-readout {
