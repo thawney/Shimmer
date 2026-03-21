@@ -27,6 +27,7 @@ function activate(m) {
 
 function update(m) {
   // Called every frame.
+  // m.accelX/Y: tilt (-128..127), m.accelZ: ~+64 flat, m.motion: knock/shake (0..255 transient)
   m.show();
 }
 
@@ -73,6 +74,34 @@ If a tag is missing, defaults are used.
 | `m.brightness` | 0..255 slot brightness |
 | `m.COLS` | grid width (`12`) |
 | `m.ROWS` | grid height (`12`) |
+| `m.accelX` | accelerometer X axis, signed ~-128..127 (~±2g); positive = tilted right |
+| `m.accelY` | accelerometer Y axis, signed ~-128..127; positive = tilted forward |
+| `m.accelZ` | accelerometer Z axis (~+64 when flat/upright, gravity pointing down) |
+| `m.motion` | overall motion magnitude 0..255 (0 = still, spikes on knock/shake) |
+| `m.temp` | temperature in °C from the AHT20 sensor — **defective on current hardware; returns −50.0** |
+| `m.humidity` | relative humidity 0..100 from the AHT20 sensor — **defective on current hardware; returns 0** |
+
+### Accelerometer tips
+
+- `m.accelX` / `m.accelY` are smooth tilt values. For generative modes prefer seeding
+  from them in `activate()`, or use a slow exponential smooth so behaviour shifts
+  gradually rather than frame-by-frame:
+  ```js
+  // ~8-second lag — barely perceptible, feels generative not reactive:
+  smooth += (m.accelX - smooth) * (m.dt / 8000.0);
+  ```
+- `m.accelZ` ≈ +64 when the device is lying flat. Near 0 = tilted on its side.
+  Use it for orientation-dependent behaviour (e.g. breath rate, density).
+- `m.motion` spikes transiently on knock or shake. Use rising-edge detection so
+  the event fires once, not every frame while motion is elevated:
+  ```js
+  var lastMotion = 0;
+  // in update():
+  if (m.motion > 150 && lastMotion <= 150) { /* fires once per knock */ }
+  lastMotion = m.motion;
+  ```
+
+---
 
 ### Pixel functions
 
@@ -116,6 +145,7 @@ m.map(v, inLo, inHi, outLo, outHi)    // linear float mapping
 - Use `m.tick()` for stable periodic events.
 - Max script size is **8192 bytes**.
 - Out-of-range pixels are ignored safely.
+- Avoid `m.temp` and `m.humidity` — the AHT20 sensor is defective on current hardware.
 
 ---
 

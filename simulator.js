@@ -205,6 +205,15 @@ function makeM() {
     get density()    { return settings.density; },
     get brightness() { return settings.brightness; },
 
+    // Sensor stubs — static defaults so sensor-aware scripts run without errors.
+    // On real hardware these are updated every frame from the LIS3DH / AHT20.
+    accelX:   0,
+    accelY:   0,
+    accelZ:   64,   // ~+64 = 1g pointing down when device is flat/upright
+    motion:   0,
+    temp:     22.0,
+    humidity: 55.0,
+
     // m.px(col, row, brightness)       — uses @hue/@sat defaults
     // m.px(col, row, hue, sat, val)    — explicit HSV
     px: function(col, row) {

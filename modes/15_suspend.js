@@ -21,6 +21,7 @@ var bright         = [0, 0, 0];
 var initialized    = false;
 var changeElapsed  = 0;
 var changeInterval = 5000;
+var hueOffset      = 0;  // seeded from accelX at activate; palette locked for session
 
 function numVoices(density) {
   return (density >= 128) ? 3 : 2;
@@ -39,6 +40,8 @@ function activate(m) {
   initialized   = false;
   changeElapsed = 0;
   changeInterval = 5000;
+  // Seed palette from tilt at activation — locked for this session
+  hueOffset = Math.floor(m.accelX * 30 / 127);
   for (var v = 0; v < MAX_V; v++) {
     degree[v] = v * 2;  // {0, 2, 4}
     bright[v] = 0;
@@ -123,7 +126,7 @@ function update(m) {
   }
 
   // Draw: each active voice = full row of its unique hue
-  // Clear all rows first
+  // hueOffset seeded from accelX tilt at activation — palette fixed for session
   for (var r = 0; r < m.ROWS; r++)
     for (var c = 0; c < m.COLS; c++)
       m.px(c, r, 0);
@@ -131,7 +134,7 @@ function update(m) {
   for (var v = 0; v < MAX_V; v++) {
     var row = VOICE_ROW[v];
     var br  = (v < nv) ? bright[v] : 0;
-    var h   = VOICE_HUE[v];
+    var h   = (VOICE_HUE[v] + hueOffset + 256) & 255;
 
     if (br > 0) {
       for (var c = 0; c < m.COLS; c++)

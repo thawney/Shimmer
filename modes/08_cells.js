@@ -14,6 +14,7 @@ var SEED_DENS = [100, 92, 84, 76, 68, 61, 53, 46, 38, 31, 24, 16];
 
 var gen = [];   // gen[row][col]
 var elapsed = 0;
+var mutationSeed = 8;  // set in activate() from accelX tilt
 
 function rule30(row, i, n) {
   var l = row[(i - 1 + n) % n];
@@ -37,6 +38,8 @@ function activate(m) {
   }
   gen[0][Math.floor(m.COLS / 2)] = 1;  // always seed center in newest row
 
+  // Seed mutation rate from tilt: flat = moderate, tilted = more or less chaotic
+  mutationSeed = Math.floor(m.accelX / 16) + 8;  // range 0..15
   elapsed = 0;
   m.clear();
   m.show();
@@ -59,9 +62,10 @@ function nextGeneration(m) {
   var next = [];
   for (var c = 0; c < m.COLS; c++) next[c] = rule30(prev, c, m.COLS);
 
-  // Apply mutation
+  // Apply mutation; knock/shake spikes chaos briefly via m.motion
+  var motionBias = Math.floor(m.motion / 25);
   for (var c = 0; c < m.COLS; c++) {
-    if (m.rnd(255) < Math.floor(m.density / 16)) next[c] ^= 1;
+    if (m.rnd(255) < (Math.floor(m.density / 16) + mutationSeed + motionBias)) next[c] ^= 1;
   }
 
   // Reseed if all dead

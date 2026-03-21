@@ -11,9 +11,11 @@
 // Grid state — brightness per cell
 var grid = [];
 var drops = [];      // {col, rowPos, degree}
-var colWeight = [];  // weighted column selection map
+var colWeight = [];  // weighted column selection map (built once from density)
 var seedBuilt = false;
 var spawnElapsed = 0;
+var smoothWind = 0;  // slow-drift accelX → column bias (wind effect, ~12s lag)
+var windBias   = 0;
 
 function activate(m) {
   grid = [];
@@ -23,13 +25,19 @@ function activate(m) {
   }
   drops = [];
   colWeight = [];
-  seedBuilt = false;
+  seedBuilt    = false;
   spawnElapsed = 0;
+  smoothWind   = 0;
+  windBias     = 0;
   m.clear();
   m.show();
 }
 
 function update(m) {
+  // Wind slowly drifts toward tilt over ~12 seconds — rain shifts left/right gradually
+  smoothWind += (m.accelX - smoothWind) * (m.dt / 12000.0);
+  windBias    = Math.floor(smoothWind / 16);  // ~-8..+7
+
   // Build column weight map once from density seed
   if (!seedBuilt) {
     var s = m.density;
@@ -77,14 +85,21 @@ function update(m) {
   while (spawnElapsed >= spawnMs) {
     spawnElapsed -= spawnMs;
     if (drops.length < maxDrops) {
-      // Weighted column selection — scale 0-255 into 0..total-1
+      // Weighted column selection — windBias tilts the distribution left/right
       var total = 0;
-      for (var j = 0; j < colWeight.length; j++) total += colWeight[j];
+      var mid = Math.floor(m.COLS / 2);
+      for (var j = 0; j < m.COLS; j++) {
+        var effW = colWeight[j] + (j - mid) * windBias;
+        if (effW < 1) effW = 1;
+        total += effW;
+      }
       var target = Math.floor(m.rnd() * total / 256);
       var col = m.COLS - 1;
       var cum = 0;
       for (var k = 0; k < m.COLS; k++) {
-        cum += colWeight[k];
+        var ew = colWeight[k] + (k - mid) * windBias;
+        if (ew < 1) ew = 1;
+        cum += ew;
         if (cum > target) { col = k; break; }
       }
       var degree = Math.floor((col * 6) / (m.COLS - 1));

@@ -1,25 +1,28 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
-// Built-in mode library (all 16 scripts available for loading into any slot)
+// Built-in mode library (all scripts available for loading into any slot)
 // ---------------------------------------------------------------------------
 const ALL_MODES = [
-  { name: 'Rain',    file: '00_rain.js'    },
-  { name: 'Euclid',  file: '01_euclid.js'  },
-  { name: 'Breath',  file: '02_breath.js'  },
-  { name: 'Stasis',  file: '03_stasis.js'  },
-  { name: 'Drift',   file: '04_drift.js'   },
-  { name: 'Spark',   file: '05_spark.js'   },
-  { name: 'Cascade', file: '06_cascade.js' },
-  { name: 'Shift',   file: '07_shift.js'   },
-  { name: 'Cells',   file: '08_cells.js'   },
-  { name: 'Loop',    file: '09_loop.js'    },
-  { name: 'Weave',   file: '10_weave.js'   },
-  { name: 'Flock',   file: '11_flock.js'   },
-  { name: 'Scatter', file: '12_scatter.js' },
-  { name: 'Walk',    file: '13_walk.js'    },
-  { name: 'Pulse',   file: '14_pulse.js'   },
-  { name: 'Suspend', file: '15_suspend.js' },
+  { name: 'Rain',      file: '00_rain.js'     },
+  { name: 'Euclid',    file: '01_euclid.js'   },
+  { name: 'Breath',    file: '02_breath.js'   },
+  { name: 'Stasis',    file: '03_stasis.js'   },
+  { name: 'Drift',     file: '04_drift.js'    },
+  { name: 'Spark',     file: '05_spark.js'    },
+  { name: 'Cascade',   file: '06_cascade.js'  },
+  { name: 'Shift',     file: '07_shift.js'    },
+  { name: 'Cells',     file: '08_cells.js'    },
+  { name: 'Loop',      file: '09_loop.js'     },
+  { name: 'Weave',     file: '10_weave.js'    },
+  { name: 'Flock',     file: '11_flock.js'    },
+  { name: 'Scatter',   file: '12_scatter.js'  },
+  { name: 'Walk',      file: '13_walk.js'     },
+  { name: 'Pulse',     file: '14_pulse.js'    },
+  { name: 'Suspend',   file: '15_suspend.js'  },
+  { name: 'Tilt',      file: '16_tilt.js'     },
+  { name: 'Pendulum',  file: '17_pendulum.js' },
+  { name: 'Tides',     file: '18_tides.js'    },
 ];
 
 // Default scripts for the 4 slots (matches data/scripts/ initial LittleFS image)

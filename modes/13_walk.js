@@ -41,12 +41,14 @@ function update(m) {
   if (elapsed >= m.beatMs) {
     elapsed -= m.beatMs;
 
-    // maxStep: density=0 -> 1, density=255 -> 9 (matches C++ without motion seed)
+    // maxStep: density=0 -> 1, density=255 -> 9; motion burst temporarily doubles it
     var maxStep = 1 + Math.floor(m.density >> 5);
     if (maxStep < 1) maxStep = 1;
+    if (m.motion > 180) maxStep = maxStep * 2;  // physical knock = melodic leap
 
     var step = 1 + m.rnd(maxStep);
-    if (m.rnd(255) < 128) step = -step;
+    // accelX biases step direction: tilt right (positive X) → melody walks upward
+    if (m.rnd(255) < (128 + m.accelX)) step = -step;
 
     degree += step;
     // Bounce at boundaries

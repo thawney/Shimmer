@@ -4,7 +4,7 @@
  * @hue 32
  * @sat 220
  * @param_label Hit Density
- * @description Euclidean rhythm walks a scale. Density controls how many of 12 steps trigger notes.
+ * @description Euclidean rhythm walks a scale. Density controls how many of 12 steps trigger notes. Tilt left/right biases melodic direction.
  * @sound Marimba / Mallet
  */
 
@@ -50,7 +50,11 @@ function update(m) {
     elapsed -= stepMs;
 
     if (isHit(step, k)) {
-      var dir = (m.rnd(255) < 160) ? 1 : -1;
+      // accelX biases direction: tilt right → walks up, tilt left → walks down
+      var dirProb = 128 + Math.floor(m.accelX / 2);
+      if (dirProb < 20)  dirProb = 20;
+      if (dirProb > 235) dirProb = 235;
+      var dir = (m.rnd(255) < dirProb) ? 1 : -1;
       var jump = (m.rnd(255) < 30) ? dir * jumpRange : dir;
       degree += jump;
       if (degree < 0) degree = 0;

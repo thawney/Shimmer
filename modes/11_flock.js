@@ -10,18 +10,22 @@
 
 var MAX_BOIDS = 8;
 
-var boids        = [];
-var numBoids     = 4;
-var colBright    = [];
-var colDebounce  = [];
-var eventElapsed = 0;
-var driftPhase   = 0.0;
-var initialized  = false;
+var boids          = [];
+var numBoids       = 4;
+var colBright      = [];
+var colDebounce    = [];
+var eventElapsed   = 0;
+var driftPhase     = 0.0;
+var initialized    = false;
+var smoothWind     = 0;    // slow-drift accelX → flock centroid bias (~15s lag)
+var lastMotionFl   = 0;
 
 function activate(m) {
   initialized  = false;
   eventElapsed = 0;
   driftPhase   = 0.0;
+  smoothWind   = 0;
+  lastMotionFl = 0;
   boids = [];
   for (var i = 0; i < MAX_BOIDS; i++) {
     boids[i] = {
@@ -47,6 +51,9 @@ function update(m) {
   var tempoScale = 500.0 / m.beatMs;  // 1.0 at 120bpm
   var dt = m.dt / 1000.0;
 
+  // Tilt slowly pulls the flock's home position left/right over ~15 seconds
+  smoothWind += (m.accelX - smoothWind) * (m.dt / 15000.0);
+
   if (!initialized) {
     numBoids = 2 + Math.floor((m.density * 6) / 255);
     if (numBoids > MAX_BOIDS) numBoids = MAX_BOIDS;
@@ -60,6 +67,13 @@ function update(m) {
   // speed: use density as proxy for speed seed
   var spd = (0.5 + (m.density / 255.0) * 4.0) * tempoScale;
   if (spd < 0.35) spd = 0.35;
+
+  // Knock scatters the flock — they re-converge naturally over a few seconds
+  if (m.motion > 160 && lastMotionFl <= 160) {
+    for (var i = 0; i < nb; i++)
+      boids[i].vel = (m.rnd(255) < 128 ? 1.0 : -1.0) * spd;
+  }
+  lastMotionFl = m.motion;
 
   // Tick debounce
   for (var c = 0; c < m.COLS; c++) {
@@ -86,7 +100,11 @@ function update(m) {
       if (dist < 4.0 && dist > 0.001)
         sep += (diff / dist) * (4.0 - dist);
     }
-    var cohere = (centroid - boids[i].pos) * 0.12;
+    var tiltTarget = Math.floor(m.COLS / 2) + Math.floor(smoothWind * 4 / 127);
+    if (tiltTarget < 0) tiltTarget = 0;
+    if (tiltTarget > m.COLS - 1) tiltTarget = m.COLS - 1;
+    var biasedCentroid = centroid * 0.7 + tiltTarget * 0.3;
+    var cohere = (biasedCentroid - boids[i].pos) * 0.12;
     var align  = (avgVel  - boids[i].vel)  * 0.22;
     var drift  = Math.sin(driftPhase + i * 1.17) * 0.06 * tempoScale;
 

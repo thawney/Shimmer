@@ -4,7 +4,7 @@
  * @hue 200
  * @sat 220
  * @param_label Ripple Count
- * @description Ripples spawn at random columns and expand outward across all rows. Origin fires a note.
+ * @description Ripples spawn at random columns and expand outward across all rows. Origin fires a note. Tilt left/right drifts spawn zone over ~10s. Shake for a burst.
  * @sound Vibraphone / Glass
  */
 
@@ -15,7 +15,9 @@ var r = [];
 var maxRipples = 1;
 var spawnElapsed  = 0;
 var spawnInterval = 1000;
-var initialized = false;
+var initialized   = false;
+var smoothWind    = 0;    // slow-drift accelX → spawn column bias (~10s lag)
+var lastMotionCa  = 0;
 
 function spawnIntervalMs(density, beatMs) {
   // base = 1000 + (255-density)*20; tempo-scaled vs 120bpm
@@ -25,8 +27,10 @@ function spawnIntervalMs(density, beatMs) {
 }
 
 function activate(m) {
-  initialized = false;
+  initialized  = false;
   spawnElapsed = 0;
+  smoothWind   = 0;
+  lastMotionCa = 0;
   r = [];
   for (var i = 0; i < MAX_R; i++) r[i] = { originCol: 0, radius: 0.0, active: false };
   m.clear();
@@ -41,7 +45,10 @@ function deactivate(m) {
 function spawnRipple(m) {
   for (var i = 0; i < maxRipples; i++) {
     if (!r[i].active) {
-      r[i].originCol = m.rnd(m.COLS);
+      var bias = Math.floor(smoothWind * 3 / 127);
+      r[i].originCol = m.rnd(m.COLS) + bias;
+      if (r[i].originCol < 0)        r[i].originCol = 0;
+      if (r[i].originCol >= m.COLS)  r[i].originCol = m.COLS - 1;
       r[i].radius    = 0.0;
       r[i].active    = true;
       var deg  = Math.floor((r[i].originCol * 6) / (m.COLS - 1));
@@ -55,6 +62,13 @@ function spawnRipple(m) {
 function update(m) {
   maxRipples = 1 + Math.floor((m.density * 2) / 255);
   if (maxRipples > MAX_R) maxRipples = MAX_R;
+
+  // Slow drift: tilt biases spawn zone over ~10s
+  smoothWind += (m.accelX - smoothWind) * (m.dt / 10000.0);
+
+  // Shake: immediate ripple burst
+  if (m.motion > 160 && lastMotionCa <= 160) spawnRipple(m);
+  lastMotionCa = m.motion;
 
   var nextSpawnInterval = spawnIntervalMs(m.density, m.beatMs);
 

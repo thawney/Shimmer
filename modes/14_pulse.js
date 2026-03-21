@@ -15,9 +15,11 @@ var PULSE_CENTER = Math.floor(DEGREE_MAX / 2);
 // Splash brightness fractions: centre, arm1(±1), arm2(±2 + diagonals)
 var SPLASH_FRAC = [255, 150, 80];
 
-var pix        = [];   // pix[row][col]
-var elapsed    = 0;
-var lastDegree = PULSE_CENTER;
+var pix         = [];   // pix[row][col]
+var elapsed     = 0;
+var lastDegree  = PULSE_CENTER;
+var smoothTilt  = 0;   // slow-drift accelY → fire rate (8s lag)
+var smoothHue   = 0;   // slow-drift accelX → hue shift (10s lag)
 
 function stamp(pix, c, r, br, rows, cols) {
   if (c < 0 || c >= cols || r < 0 || r >= rows) return;
@@ -57,6 +59,8 @@ function activate(m) {
   }
   elapsed    = 0;
   lastDegree = PULSE_CENTER;
+  smoothTilt = 0;
+  smoothHue  = 0;
   m.clear();
   m.show();
 }
@@ -68,11 +72,18 @@ function deactivate(m) {
 function update(m) {
   elapsed += m.dt;
 
+  // Slow drift: accelY shifts fire rate over ~8s; accelX shifts hue over ~10s
+  smoothTilt += (m.accelY - smoothTilt) * (m.dt / 8000.0);
+  smoothHue  += (m.accelX - smoothHue)  * (m.dt / 10000.0);
+
   if (elapsed >= m.beatMs) {
     elapsed -= m.beatMs;
 
-    // Roll dice: density = probability of firing
-    if (m.rnd(255) < m.density) {
+    // Roll dice: density = base; tilt forward (accelY+) = more frequent, back = sparser
+    var fireThreshold = m.density + Math.floor(smoothTilt / 4);
+    if (fireThreshold < 0) fireThreshold = 0;
+    if (fireThreshold > 255) fireThreshold = 255;
+    if (m.rnd(255) < fireThreshold) {
       // Random walk toward centre
       var step = 0;
       var r8 = m.rnd(255);
@@ -103,13 +114,16 @@ function update(m) {
   var fadeAmt = Math.floor((fadePerFrame * m.dt + 8) / 16);
   if (fadeAmt < 1) fadeAmt = 1;
 
+  // Tilt left/right slowly drifts hue over ~10s
+  var tiltHue = (180 + Math.floor(smoothHue * 40 / 127) + 256) & 255;
+
   for (var r = 0; r < m.ROWS; r++) {
     for (var c = 0; c < m.COLS; c++) {
       if (pix[r][c] > fadeAmt) pix[r][c] -= fadeAmt;
       else pix[r][c] = 0;
 
       if (pix[r][c] > 0)
-        m.px(c, r, pix[r][c]);
+        m.px(c, r, tiltHue, 200, pix[r][c]);
       else
         m.px(c, r, 0);
     }

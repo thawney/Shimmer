@@ -12,13 +12,15 @@ var NOTE_DUR_MS = 180;
 var MAX_P = 4;
 
 var p = [];
-var numParticles = 2;
+var numParticles  = 2;
 var particleSpeed = 0.0;
-var initialized = false;
+var initialized   = false;
+var lastMotionSp  = 0;
 
 function activate(m) {
-  initialized = false;
+  initialized  = false;
   particleSpeed = 0.0;
+  lastMotionSp  = 0;
   p = [];
   for (var i = 0; i < MAX_P; i++) {
     p[i] = {
@@ -71,13 +73,30 @@ function update(m) {
     particleSpeed = targetSpeed;
   }
 
+  // Knock scatters all particles in random directions
+  if (m.motion > 160 && lastMotionSp <= 160) {
+    for (var i = 0; i < numParticles; i++) {
+      var ang = (m.rnd(255) / 255.0) * 6.28318;
+      p[i].vx = particleSpeed * 2.0 * Math.cos(ang);
+      p[i].vy = particleSpeed * 2.0 * Math.sin(ang) * 0.5;
+    }
+  }
+  lastMotionSp = m.motion;
+
   // Clear display
   m.clear();
+
+  // accelX/Y apply a gravity field — tilt to make particles drift toward one corner
+  // Positive X = right, positive Y = forward/top-down (matches confirmed axis orientation)
+  var gx = m.accelX * 0.000006;
+  var gy = m.accelY * 0.000006;
 
   for (var i = 0; i < numParticles; i++) {
     p[i].prevCol = Math.floor(p[i].x);
     p[i].prevRow = Math.floor(p[i].y);
 
+    p[i].vx += gx * m.dt;
+    p[i].vy += gy * m.dt;
     p[i].x += p[i].vx * m.dt;
     p[i].y += p[i].vy * m.dt;
 
