@@ -1,6 +1,7 @@
 # Writing Custom Modes for Shimmer
 
 Modes are plain JavaScript files running on-device in Duktape. Upload from the web UI, no compile step.
+Try scripts live in the [**Simulator →**](../simulator.html)
 
 ---
 
@@ -26,8 +27,7 @@ function activate(m) {
 }
 
 function update(m) {
-  // Called every frame.
-  // m.accelX/Y: tilt (-128..127), m.accelZ: ~+64 flat, m.motion: knock/shake (0..255 transient)
+  // Called every frame. Draw pixels and trigger notes here.
   m.show();
 }
 
@@ -39,26 +39,23 @@ function update(m) {
 
 ## Metadata tags
 
-Use `@tag value` lines (as shown above). Current tags:
-
-- `@name`: mode name shown in slot labels and controls.
-- `@author`: shown in the Scripts tab.
-- `@param_label`: label for the per-slot Density slider in Controls.
-- `@description`: shown in UI descriptions.
-- `@sound`: informational text in Scripts tab.
-- `@hue`: default hue for `m.px(col,row,brightness)`.
-- `@sat`: default saturation for `m.px(col,row,brightness)`.
-
-If a tag is missing, defaults are used.
+| Tag | Purpose |
+|---|---|
+| `@name` | Mode name shown in slot labels and controls |
+| `@author` | Shown in the Scripts tab |
+| `@param_label` | Label for the per-slot Density slider in Controls |
+| `@description` | Shown in UI descriptions |
+| `@sound` | Informational text in Scripts tab |
+| `@hue` | Default hue for `m.px(col, row, brightness)` (0..255) |
+| `@sat` | Default saturation for `m.px(col, row, brightness)` (0..255) |
 
 ---
 
 ## Runtime lifecycle
 
-- `activate(m)`: called once when the mode becomes active.
-- `update(m)`: called every frame. Draw and trigger notes here.
-- `deactivate(m)`: optional cleanup hook on mode exit.
-- Firmware always performs note-off + clear/show on mode deactivation.
+- `activate(m)` — called once when the mode becomes active. Reset state here.
+- `update(m)` — called every frame (~60 fps). Draw and trigger notes here.
+- `deactivate(m)` — optional. Firmware always sends note-off + clear on mode exit.
 
 ---
 
@@ -66,94 +63,154 @@ If a tag is missing, defaults are used.
 
 ### Properties (read-only)
 
-| Property | Meaning |
+| Property | Type | Meaning |
+|---|---|---|
+| `m.dt` | ms | Frame delta time |
+| `m.beatMs` | ms | Milliseconds per beat at current tempo |
+| `m.density` | 0..255 | Per-slot density knob value |
+| `m.brightness` | 0..255 | Per-slot brightness value |
+| `m.COLS` | 12 | Grid width |
+| `m.ROWS` | 12 | Grid height |
+| `m.accelX` | −128..127 | Tilt left/right — **positive = tilted right** |
+| `m.accelY` | −128..127 | Tilt forward/back — **positive = top edge tilted down** |
+| `m.accelZ` | −128..127 | **~+64 when flat**, decreases as device tilts onto its side |
+| `m.motion` | 0..255 | Motion magnitude — spikes transiently on knock or shake |
+
+> `m.temp` and `m.humidity` are present but return −50 °C / 0% — the AHT20 sensor on current hardware is defective. Do not use them.
+
+---
+
+### Grid reference
+
+```
+col:   0   1   2   3   4   5   6   7   8   9  10  11
+       ┌───────────────────────────────────────────────┐
+row 0  │ LED 1                              LED 12     │  ← top edge
+row 1  │                                               │
+  ...  │                                               │
+row 11 │ LED 132                           LED 144     │  ← bottom edge
+       └───────────────────────────────────────────────┘
+```
+
+`m.px(col, row, ...)` — col 0 = left, row 0 = top. Always.
+
+---
+
+### Accelerometer
+
+**Confirmed axis orientations** (verified on hardware):
+
+| Action | Result |
 |---|---|
-| `m.dt` | frame delta in milliseconds |
-| `m.beatMs` | milliseconds per beat at current tempo |
-| `m.density` | 0..255 density value for this slot |
-| `m.brightness` | 0..255 slot brightness |
-| `m.COLS` | grid width (`12`) |
-| `m.ROWS` | grid height (`12`) |
-| `m.accelX` | accelerometer X axis, signed ~-128..127 (~±2g); positive = tilted right |
-| `m.accelY` | accelerometer Y axis, signed ~-128..127; positive = tilted forward |
-| `m.accelZ` | accelerometer Z axis (~+64 when flat/upright, gravity pointing down) |
-| `m.motion` | overall motion magnitude 0..255 (0 = still, spikes on knock/shake) |
-| `m.temp` | temperature in °C from the AHT20 sensor — **defective on current hardware; returns −50.0** |
-| `m.humidity` | relative humidity 0..100 from the AHT20 sensor — **defective on current hardware; returns 0** |
+| Tilt right (LED 12/144 side down) | `accelX` → positive |
+| Tilt top-down (LED 1–12 edge down) | `accelY` → positive |
+| Lay flat, display up | `accelZ` ≈ +64 |
+| Stand on edge | `accelZ` → near 0 |
 
-### Accelerometer tips
+**Three patterns for using accel in generative modes:**
 
-- `m.accelX` / `m.accelY` are smooth tilt values. For generative modes prefer seeding
-  from them in `activate()`, or use a slow exponential smooth so behaviour shifts
-  gradually rather than frame-by-frame:
-  ```js
-  // ~8-second lag — barely perceptible, feels generative not reactive:
-  smooth += (m.accelX - smooth) * (m.dt / 8000.0);
-  ```
-- `m.accelZ` ≈ +64 when the device is lying flat. Near 0 = tilted on its side.
-  Use it for orientation-dependent behaviour (e.g. breath rate, density).
-- `m.motion` spikes transiently on knock or shake. Use rising-edge detection so
-  the event fires once, not every frame while motion is elevated:
-  ```js
-  var lastMotion = 0;
-  // in update():
-  if (m.motion > 150 && lastMotion <= 150) { /* fires once per knock */ }
-  lastMotion = m.motion;
-  ```
+**1. Seed at activation** — locks a value for the session, no frame-by-frame effect:
+```js
+function activate(m) {
+  hueOffset = Math.floor(m.accelX * 30 / 127);  // palette set by how you picked it up
+}
+```
+
+**2. Slow exponential smooth** — barely perceptible when stationary, gradual when tilted:
+```js
+var smooth = 0;
+// in update():
+smooth += (m.accelX - smooth) * (m.dt / 8000.0);  // ~8s time constant
+```
+Good values: 6000–15000 ms. The device is often flat or on its side — this approach
+produces zero effect when stationary and a gentle drift when the device is moved.
+
+**3. Direct responsive** — for modes where tilt is the primary input:
+```js
+var col = Math.floor(m.map(m.accelX, -100, 100, 0, m.COLS - 1));
+```
+
+**Physics gravity** — use the same sign as the axis (no negation needed):
+```js
+var gx = m.accelX * 0.000003;  // tilt right → push particles/objects right
+var gy = m.accelY * 0.000003;  // tilt top-down → push toward row 11
+particle.vx += gx * m.dt;
+particle.vy += gy * m.dt;
+```
+
+**`accelZ` uses:**
+```js
+// Detect flat vs upright:
+var tilt = 1.0 - m.accelZ / 64.0;  // 0 = flat, 1 = fully on its side
+// Slow breath rate when flat, faster when upright:
+var period = Math.floor(4000 - tilt * 2500);
+```
+
+**Motion knock detection** — rising-edge only, fires once per knock:
+```js
+var lastMotion = 0;
+// in update():
+if (m.motion > 150 && lastMotion <= 150) { /* fires once per knock */ }
+lastMotion = m.motion;
+```
+
+> **Not every mode needs accelerometer.** Shimmer is most often sitting flat or resting
+> on a side — accel values will be near-constant. Generative modes are complete without
+> it; add accel where it genuinely adds something.
 
 ---
 
 ### Pixel functions
 
 ```js
-m.px(col, row, brightness)     // uses @hue/@sat
-m.px(col, row, hue, sat, val)  // explicit HSV (0..255)
-m.fade(amount)                 // default amount = 3
-m.clear()
-m.show()
+m.px(col, row, brightness)       // brightness 0..255, uses @hue/@sat
+m.px(col, row, hue, sat, val)    // explicit HSV — all 0..255
+m.fade(amount)                   // subtract `amount` from every pixel (default 3)
+m.clear()                        // set all pixels to 0
+m.show()                         // push pixel buffer to LEDs — call once per update()
 ```
 
 ### MIDI functions
 
 ```js
-m.note(degree)                        // default velocity 80, duration 1 beat
+m.note(degree)                        // velocity 80, duration 1 beat
 m.note(degree, velocity)              // velocity 0..127
 m.note(degree, velocity, durationMs)
-m.allOff()
+m.allOff()                            // cancel all held notes
 ```
 
-`degree` follows the active scale/root and wraps across octaves.
+`degree` maps through the active scale/root and wraps across octaves.
+Scale degrees 0–6 span one octave diatonically; 7–13 continue into the next.
 
 ### Timing and helpers
 
 ```js
-m.tick(timerId, intervalMs)           // timerId 0..7
-m.rnd()                               // 0..255
-m.rnd(max)                            // 0..max-1
-m.degreeToCol(degree)                 // 0..6 -> 0..11
-m.colToDegree(col)                    // 0..11 -> 0..6
-m.map(v, inLo, inHi, outLo, outHi)    // linear float mapping
+m.tick(timerId, intervalMs)      // returns true once per interval; timerId 0..7
+m.rnd()                          // integer 0..255
+m.rnd(max)                       // integer 0..max-1
+m.degreeToCol(degree)            // map scale degree (0..6) → col (0..11)
+m.colToDegree(col)               // map col (0..11) → scale degree (0..6)
+m.map(v, inLo, inHi, outLo, outHi)  // linear float mapping
 ```
 
 ---
 
 ## Practical rules
 
-- Call `m.show()` in every `update()` call, after drawing.
-- Keep script globals simple; they persist while the mode is active.
-- Use `m.dt` for frame-rate-independent movement.
-- Use `m.tick()` for stable periodic events.
-- Max script size is **8192 bytes**.
-- Out-of-range pixels are ignored safely.
-- Avoid `m.temp` and `m.humidity` — the AHT20 sensor is defective on current hardware.
+- Call `m.show()` exactly once per `update()` call, at the end.
+- Script globals persist while the mode is active; reset them in `activate()`.
+- Use `m.dt` for all movement so speed is frame-rate-independent.
+- Use `m.tick()` for rhythmically stable events rather than manual elapsed timers.
+- Max script size: **8192 bytes**.
+- Out-of-range pixel coordinates are silently ignored.
 
 ---
 
-## Upload flow (current UI)
+## Upload flow
 
-1. Open the web page and connect your device.
+1. Open the web UI and connect your device.
 2. Go to **Scripts**.
-3. Edit/paste code into a slot card.
-4. Click **Upload to device** for that slot.
+3. Paste or edit code in a slot card.
+4. Click **Upload to device** — takes effect immediately, no reboot needed.
 
-The current UI exposes slots **0..3**. Upload takes effect immediately; no reboot is required.
+Or prototype first in the [**Simulator**](../simulator.html) — no device required.

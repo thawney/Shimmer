@@ -23,6 +23,8 @@ const ALL_MODES = [
   { name: 'Tilt',      file: '16_tilt.js'     },
   { name: 'Pendulum',  file: '17_pendulum.js' },
   { name: 'Tides',     file: '18_tides.js'    },
+  { name: 'Marble',    file: '19_marble.js'   },
+  { name: 'Level',     file: '20_level.js'    },
 ];
 
 // Default scripts for the 4 slots (matches data/scripts/ initial LittleFS image)

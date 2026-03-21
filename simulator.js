@@ -30,7 +30,12 @@ var ALL_MODES = [
   { name: 'Scatter', file: '12_scatter.js' },
   { name: 'Walk',    file: '13_walk.js'    },
   { name: 'Pulse',   file: '14_pulse.js'   },
-  { name: 'Suspend', file: '15_suspend.js' },
+  { name: 'Suspend',  file: '15_suspend.js' },
+  { name: 'Tilt',     file: '16_tilt.js'    },
+  { name: 'Pendulum', file: '17_pendulum.js' },
+  { name: 'Tides',    file: '18_tides.js'   },
+  { name: 'Marble',   file: '19_marble.js'  },
+  { name: 'Level',    file: '20_level.js'   },
 ];
 
 var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
