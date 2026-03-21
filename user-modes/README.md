@@ -71,8 +71,8 @@ function update(m) {
 | `m.brightness` | 0..255 | Per-slot brightness value |
 | `m.COLS` | 12 | Grid width |
 | `m.ROWS` | 12 | Grid height |
-| `m.accelX` | −128..127 | Tilt left/right — **positive = tilted right** |
-| `m.accelY` | −128..127 | Tilt forward/back — **positive = top edge tilted down** |
+| `m.accelX` | −128..127 | Tilt forward/back — **positive = top edge tilted down** |
+| `m.accelY` | −128..127 | Tilt left/right — **positive = tilted right** |
 | `m.accelZ` | −128..127 | **~+64 when flat**, decreases as device tilts onto its side |
 | `m.motion` | 0..255 | Motion magnitude — spikes transiently on knock or shake |
 
@@ -102,8 +102,8 @@ row 11 │ LED 132                           LED 144     │  ← bottom edge
 
 | Action | Result |
 |---|---|
-| Tilt right (LED 12/144 side down) | `accelX` → positive |
-| Tilt top-down (LED 1–12 edge down) | `accelY` → positive |
+| Tilt right (LED 12/144 side down) | `accelY` → positive |
+| Tilt top-down (LED 1–12 edge down) | `accelX` → positive |
 | Lay flat, display up | `accelZ` ≈ +64 |
 | Stand on edge | `accelZ` → near 0 |
 
@@ -120,20 +120,20 @@ function activate(m) {
 ```js
 var smooth = 0;
 // in update():
-smooth += (m.accelX - smooth) * (m.dt / 8000.0);  // ~8s time constant
+smooth += (m.accelY - smooth) * (m.dt / 8000.0);  // ~8s time constant
 ```
 Good values: 6000–15000 ms. The device is often flat or on its side — this approach
 produces zero effect when stationary and a gentle drift when the device is moved.
 
 **3. Direct responsive** — for modes where tilt is the primary input:
 ```js
-var col = Math.floor(m.map(m.accelX, -100, 100, 0, m.COLS - 1));
+var col = Math.floor(m.map(m.accelY, -100, 100, 0, m.COLS - 1));
 ```
 
 **Physics gravity** — use the same sign as the axis (no negation needed):
 ```js
-var gx = m.accelX * 0.000003;  // tilt right → push particles/objects right
-var gy = m.accelY * 0.000003;  // tilt top-down → push toward row 11
+var gx = m.accelY * 0.000003;   // tilt right → push particles/objects right
+var gy = -m.accelX * 0.000003;  // tilt top-down → push toward row 0
 particle.vx += gx * m.dt;
 particle.vy += gy * m.dt;
 ```
