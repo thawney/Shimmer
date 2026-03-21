@@ -49,6 +49,15 @@ var SCALES = [
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+function clamp(v, lo, hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+
+function formatSignedInt(v, width) {
+  var abs = String(Math.abs(v | 0)).padStart(width || 3, '0');
+  return (v >= 0 ? '+' : '-') + abs;
+}
+
 function parseScriptMeta(code) {
   function get(tag) {
     var m = code.match(new RegExp('@' + tag + '\\s+(.+)'));
@@ -113,6 +122,10 @@ function degreeToMidi(degree, rootNote, scaleId, octave) {
 
 var canvas = document.getElementById('grid-canvas');
 var ctx2d  = canvas.getContext('2d');
+var gridStageEl = document.getElementById('sim-grid-stage');
+var threeStageEl = document.getElementById('sim-3d-stage');
+var enable3DEl = document.getElementById('sim-enable-3d');
+var sensorReadoutEl = document.getElementById('sim-sensor-readout');
 
 // [row][col] = { h, s, v }  (0–255 each)
 var pixelBuf = [];
@@ -161,6 +174,8 @@ function drawGrid() {
       }
     }
   }
+
+  if (sim3DController) sim3DController.notifyTextureUpdate();
 }
 
 // Keep internal canvas resolution in sync with its CSS display size.
@@ -194,6 +209,55 @@ var midiOut = null;
 // Frame delta in ms for m.dt (updated each rAF tick)
 var _dt = 16;
 
+// Shared mock sensor values, read by every running script.
+var sensorState = {
+  accelX: 0,
+  accelY: 0,
+  accelZ: 64,
+  motion: 0,
+};
+
+function updateSensorReadout() {
+  if (!sensorReadoutEl) return;
+  sensorReadoutEl.textContent =
+    'X ' + formatSignedInt(sensorState.accelX, 3) +
+    ' · Y ' + formatSignedInt(sensorState.accelY, 3) +
+    ' · Z ' + formatSignedInt(sensorState.accelZ, 3) +
+    ' · M ' + String(sensorState.motion | 0).padStart(3, '0');
+}
+
+function resetSensorState() {
+  sensorState.accelX = 0;
+  sensorState.accelY = 0;
+  sensorState.accelZ = 64;
+  sensorState.motion = 0;
+  updateSensorReadout();
+}
+
+// Optional Three.js layer lives in its own file so the original canvas simulator
+// logic stays compact and readable.
+var sim3DController = window.createShimmerSimulator3D
+  ? window.createShimmerSimulator3D({
+      canvas: canvas,
+      gridStageEl: gridStageEl,
+      threeStageEl: threeStageEl,
+      enable3DEl: enable3DEl,
+      sensorState: sensorState,
+      clamp: clamp,
+      setStatus: setStatus,
+      updateSensorReadout: updateSensorReadout,
+      resetSensorState: resetSensorState,
+    })
+  : null;
+
+function init3DSimulatorControls() {
+  if (sim3DController) {
+    sim3DController.initControls();
+    return;
+  }
+  if (enable3DEl) enable3DEl.title = '3D view unavailable: simulator-3d.js failed to load';
+}
+
 // ── m object factory ───────────────────────────────────────────────────────────
 
 function makeM() {
@@ -209,10 +273,10 @@ function makeM() {
 
     // Sensor stubs — static defaults so sensor-aware scripts run without errors.
     // On real hardware these are updated every frame from the LIS3DH / AHT20.
-    accelX:   0,
-    accelY:   0,
-    accelZ:   64,   // ~+64 = 1g pointing down when device is flat/upright
-    motion:   0,
+    get accelX()   { return sensorState.accelX; },
+    get accelY()   { return sensorState.accelY; },
+    get accelZ()   { return sensorState.accelZ; },   // ~+64 = 1g pointing down when device is flat/upright
+    get motion()   { return sensorState.motion; },
     temp:     22.0,
     humidity: 55.0,
 
@@ -577,4 +641,6 @@ function setStatus(msg, state) {
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 initMidi();
+resetSensorState();
+init3DSimulatorControls();
 drawGrid();
