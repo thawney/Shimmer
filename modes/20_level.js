@@ -1,28 +1,29 @@
 /**
- * @name Level
+ * @name Hush
  * @author Thawney
- * @hue 145
- * @sat 200
- * @param_label Fill Level
- * @description A liquid level: tilt left/right to pour water between columns.
- *              Density controls how full. Shake for a splash. Fires held notes
- *              from tilt angle every two beats. Beautiful when gently rocked.
- * @sound Pad / Drone
+ * @hue 200
+ * @sat 140
+ * @param_label Recovery
+ * @description Stillness is rewarded. Hold the device steady and the light
+ *              fills slowly from below, the harmony deepens. Disturb it and
+ *              everything dims to quiet.
+ * @sound Ambient / Drone
  */
 
-// accelX positive = tilt right = right columns fill more (water pools to lower side) ✓
-
-var smoothX     = 0.0;
-var phase       = 0.0;
-var splashBr    = [];
-var lastMotionLv = 0;
+var fill      = 0.0;   // 0..255 accumulator — rises when still, falls with motion
+var hue       = 0;
+var smoothHX  = 0.0;
+var smoothHY  = 0.0;
+var prevTier  = 0;     // how many harmonic voices were active last frame
+var flashBr   = 0;
 
 function activate(m) {
-  smoothX      = m.accelX;
-  phase        = 0.0;
-  lastMotionLv = 0;
-  splashBr = [];
-  for (var c = 0; c < m.COLS; c++) splashBr[c] = 0;
+  fill      = 0.0;
+  hue       = m.hue !== undefined ? m.hue : 200;
+  smoothHX  = m.accelX;
+  smoothHY  = m.accelY;
+  prevTier  = 0;
+  flashBr   = 0;
   m.clear();
   m.show();
 }
@@ -32,70 +33,70 @@ function deactivate(m) {
 }
 
 function update(m) {
-  // ~1s lag — water responds quickly but not instantly
-  smoothX += (m.accelX - smoothX) * (m.dt / 1000.0);
+  // Very slow hue drift from tilt — 20s lag, barely perceptible
+  smoothHX += (m.accelX - smoothHX) * (m.dt / 20000.0);
+  smoothHY += (m.accelY - smoothHY) * (m.dt / 20000.0);
 
-  // Advance ripple phase
-  phase += m.dt * 0.0025;
+  // Hue: base + small shift from slow tilt
+  var h = (Math.floor(smoothHX * 30 / 80) + Math.floor(smoothHY * 15 / 80) + 200 + 512) & 255;
 
-  // Fill height: density 0 → 2 rows, 255 → 9 rows
-  var meanFill = 2 + Math.floor((m.density * 7) / 255);
+  // density controls recovery speed (how fast fill rises when still)
+  var riseK  = 0.00008 + (m.density * 0.00016) / 255.0;
+  var fallK  = 0.00025;
 
-  // Slope: tilt right (positive accelX) → right columns fill more
-  // At max tilt (accelX=127): ±4 rows from centre col to edge
-  var slope = (smoothX / 127.0) * 4.0;
-  var mid   = (m.COLS - 1) * 0.5;  // 5.5
-
-  // Splash on knock
-  if (m.motion > 160 && lastMotionLv <= 160) {
-    for (var c = 0; c < m.COLS; c++) splashBr[c] = m.brightness;
-    var deg = Math.floor(6 + smoothX * 6 / 127);
-    if (deg < 0) deg = 0;
-    if (deg > 13) deg = 13;
-    m.note(deg, 90 + m.rnd(24), Math.floor(m.beatMs * 2));
+  if (m.motion < 30) {
+    fill += (30 - m.motion) * m.dt * riseK;
+  } else {
+    fill -= m.motion * m.dt * fallK;
+    // Sudden jolt: flash bright then go dark
+    if (m.motion > 150) {
+      flashBr = Math.floor(m.brightness * 0.8);
+    }
   }
-  lastMotionLv = m.motion;
+  if (fill < 0)   fill = 0;
+  if (fill > 255) fill = 255;
 
-  // Decay splash
-  var splashDecay = Math.floor((10 * m.dt + 8) / 16);
-  if (splashDecay < 1) splashDecay = 1;
+  // Decay flash
+  var flashDecay = Math.floor((12 * m.dt + 8) / 16);
+  if (flashDecay < 1) flashDecay = 1;
+  if (flashBr > flashDecay) flashBr -= flashDecay;
+  else flashBr = 0;
 
-  // Beat-synced ambient note from tilt every two beats
-  if (m.tick(0, m.beatMs * 2)) {
-    var deg = Math.floor(6 + smoothX * 6 / 127);
-    if (deg < 0) deg = 0;
-    if (deg > 13) deg = 13;
-    m.note(deg, 48 + Math.floor(m.density / 6), Math.floor(m.beatMs * 3));
+  // Harmonic tier: 0=silent, 1=root, 2=+third, 3=+fifth
+  var tier = 0;
+  if (fill >= 192) tier = 3;
+  else if (fill >= 128) tier = 2;
+  else if (fill >= 64)  tier = 1;
+
+  // Root note drifts with slow X tilt — maps across 7 degrees
+  var rootDeg = Math.floor(m.map(smoothHX, -80, 80, 0, 6));
+  if (rootDeg < 0) rootDeg = 0;
+  if (rootDeg > 6) rootDeg = 6;
+
+  // On tier change: note events
+  if (m.tick(0, m.beatMs * 4)) {
+    if (tier >= 1) m.note(rootDeg,           50 + Math.floor(fill / 5),  Math.floor(m.beatMs * 5));
+    if (tier >= 2) m.note(rootDeg + 2,       45 + Math.floor(fill / 6),  Math.floor(m.beatMs * 5));
+    if (tier >= 3) m.note(rootDeg + 4,       42 + Math.floor(fill / 7),  Math.floor(m.beatMs * 5));
   }
 
-  // Draw
+  // Display: all columns fill from bottom to the same height (stillness meter)
+  var filledRows = Math.floor((fill * m.ROWS) / 255);
+  if (filledRows > m.ROWS) filledRows = m.ROWS;
+
   for (var c = 0; c < m.COLS; c++) {
-    if (splashBr[c] > splashDecay) splashBr[c] -= splashDecay;
-    else splashBr[c] = 0;
-
-    // Fill height at this column with gentle surface ripple
-    var ripple   = Math.sin(phase + c * 0.8) * 0.35;
-    var fillHere = meanFill + slope * (c - mid) / 5.5 + ripple;
-    if (fillHere < 0)      fillHere = 0;
-    if (fillHere > m.ROWS) fillHere = m.ROWS;
-
-    // surfRow: row index of water surface (0 = top)
-    var surfRow = Math.floor(m.ROWS - fillHere);
-
     for (var r = 0; r < m.ROWS; r++) {
+      // Row 0 = top, row ROWS-1 = bottom. Fill from bottom upward.
+      var filled = r >= (m.ROWS - filledRows);
       var br = 0;
-      if (r === surfRow && fillHere >= 0.5) {
-        // Surface pixel — full brightness
-        br = m.brightness;
-      } else if (r > surfRow) {
-        // Submerged — dims toward bottom
-        var depth     = r - surfRow;
-        var depthFrac = depth / (m.ROWS - surfRow);
-        br = Math.floor(m.brightness * (0.50 - depthFrac * 0.25));
-        if (br < 8) br = 8;
+      if (filled) {
+        // Depth: bottom row = full, top of fill = dimmer
+        var depth = r - (m.ROWS - filledRows);
+        var depthFrac = (filledRows > 1) ? depth / (filledRows - 1) : 1.0;
+        br = Math.floor(m.brightness * (0.35 + depthFrac * 0.65));
       }
-      if (splashBr[c] > br) br = splashBr[c];
-      if (br > 0) m.px(c, r, br);
+      if (flashBr > br) br = flashBr;
+      if (br > 0) m.px(c, r, h, 140, br);
       else        m.px(c, r, 0);
     }
   }

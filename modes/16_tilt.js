@@ -1,91 +1,86 @@
 /**
- * @name Tilt
+ * @name Sway
  * @author Thawney
- * @hue 16
+ * @hue 24
  * @sat 200
- * @param_label Density
- * @description 2D pitch surface: tilt left/right to select pitch, tilt forward/back for
- *              velocity. A gated note fires on each 16th beat at your current position.
- *              Shake to strum a chord upward from the current pitch.
- * @sound Lead / Whistle
+ * @param_label Tempo
+ * @description A column of light follows the low side of your tilt, settling
+ *              like a compass needle. On each beat it plucks a note from wherever
+ *              it has come to rest. Rock it gently for a slow arpeggio.
+ * @sound Bell / Kalimba
  */
 
-var strumStep    = -1;   // -1 = idle; 0..3 = strum in progress
-var strumElapsed = 0;
-var strumDegs    = [0, 0, 0, 0];
-var lastMotionTl = 0;
-var lastTickCol  = -1;
+var smoothX    = 0.0;
+var smoothY    = 0.0;
+var colBright  = [];
+var flashBr    = 0;
 
 function activate(m) {
-  strumStep    = -1;
-  strumElapsed = 0;
-  lastMotionTl = 0;
-  lastTickCol  = -1;
+  smoothX   = m.accelX;
+  smoothY   = m.accelY;
+  flashBr   = 0;
+  colBright = [];
+  for (var c = 0; c < m.COLS; c++) colBright[c] = 0;
   m.clear();
   m.show();
 }
 
-function deactivate(m) {
-  m.allOff();
-}
-
 function update(m) {
-  // Map tilt to column (pitch) and row (velocity)
-  var col = Math.floor(m.map(m.accelX, -100, 100, 0, m.COLS - 1));
-  if (col < 0) col = 0;
+  // ~2s lag — column settles smoothly, no jitter
+  smoothX += (m.accelX - smoothX) * (m.dt / 2000.0);
+  // ~4s lag — row bias (secondary, subtle vertical gradient)
+  smoothY += (m.accelY - smoothY) * (m.dt / 4000.0);
+
+  // Current resting column
+  var col = Math.floor(m.map(smoothX, -80, 80, 0, m.COLS - 1));
+  if (col < 0)         col = 0;
   if (col > m.COLS - 1) col = m.COLS - 1;
 
-  var row = Math.floor(m.map(m.accelY, -100, 100, 0, m.ROWS - 1));
-  if (row < 0) row = 0;
-  if (row > m.ROWS - 1) row = m.ROWS - 1;
-
-  var deg = Math.floor((col * 6) / (m.COLS - 1));
-  var vel = 50 + Math.floor((row * 77) / (m.ROWS - 1));
-
-  // 16th-note gated note at current tilt position
-  if (m.tick(0, Math.floor(m.beatMs / 4))) {
-    m.note(deg, vel, Math.floor(m.beatMs / 4));
+  // On each beat: pluck a note from the current column
+  if (m.tick(0, m.beatMs)) {
+    var deg = m.colToDegree(col);
+    var vel = 55 + Math.floor((m.density * 50) / 255);
+    m.note(deg, vel, Math.floor(m.beatMs * 0.8));
+    // Flash the column
+    colBright[col] = m.brightness;
+    flashBr = Math.floor(m.brightness * 0.3);
   }
 
-  // Shake: strum 4 notes upward from current pitch
-  if (m.motion > 150 && lastMotionTl <= 150 && strumStep < 0) {
-    strumDegs[0] = deg;
-    strumDegs[1] = deg + 2;
-    strumDegs[2] = deg + 4;
-    strumDegs[3] = deg + 6;
-    for (var i = 0; i < 4; i++) {
-      if (strumDegs[i] > 13) strumDegs[i] = 13;
+  // Decay column brightness
+  var fadeAmt = Math.floor((3 * m.dt + 8) / 16);
+  if (fadeAmt < 1) fadeAmt = 1;
+  for (var c = 0; c < m.COLS; c++) {
+    if (colBright[c] > fadeAmt) colBright[c] -= fadeAmt;
+    else colBright[c] = 0;
+  }
+  if (flashBr > fadeAmt) flashBr -= fadeAmt;
+  else flashBr = 0;
+
+  // Row bias: smoothY negative (tilt top up) → bright at row 0; positive → row ROWS-1
+  // Negate smoothY so "tilt up" brightens the top of the display
+  var rowBias = -smoothY;
+
+  for (var c = 0; c < m.COLS; c++) {
+    var baseBr = colBright[c];
+    if (c === col) {
+      // Active column always at least at ghost brightness
+      var live = Math.floor(m.brightness * 0.35) + flashBr;
+      if (live > baseBr) baseBr = live;
+    } else if (c === col - 1 || c === col + 1) {
+      var adj = Math.floor(m.brightness * 0.12);
+      if (adj > baseBr) baseBr = adj;
     }
-    strumStep    = 0;
-    strumElapsed = 0;
-  }
-  lastMotionTl = m.motion;
 
-  // Advance strum — one note every beatMs/8
-  if (strumStep >= 0) {
-    strumElapsed += m.dt;
-    var strumInterval = Math.floor(m.beatMs / 8);
-    if (strumInterval < 40) strumInterval = 40;
-    while (strumElapsed >= strumInterval && strumStep < 4) {
-      strumElapsed -= strumInterval;
-      m.note(strumDegs[strumStep], vel + 20 > 127 ? 127 : vel + 20, Math.floor(m.beatMs / 2));
-      strumStep++;
-    }
-    if (strumStep >= 4) strumStep = -1;
-  }
-
-  // Draw: crosshair at (col, row)
-  for (var r = 0; r < m.ROWS; r++) {
-    for (var c = 0; c < m.COLS; c++) {
-      if (c === col && r === row) {
-        // Centre: full brightness
-        m.px(c, r, m.brightness);
-      } else if (c === col || r === row) {
-        // Arms: dim
-        m.px(c, r, Math.floor(m.brightness / 5));
-      } else {
-        m.px(c, r, 0);
-      }
+    for (var r = 0; r < m.ROWS; r++) {
+      if (baseBr === 0) { m.px(c, r, 0); continue; }
+      // Subtle row gradient from tilt Y
+      var rowFrac = (m.ROWS > 1) ? r / (m.ROWS - 1) : 0.5;
+      var rowScale = 0.7 + 0.3 * (rowBias >= 0
+        ? (1.0 - rowFrac)
+        : rowFrac);
+      var br = Math.floor(baseBr * rowScale);
+      if (br < 0) br = 0;
+      m.px(c, r, br);
     }
   }
 

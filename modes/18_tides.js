@@ -1,31 +1,29 @@
 /**
- * @name Tides
+ * @name Veil
  * @author Thawney
- * @hue 128
- * @sat 180
- * @param_label Pulse Rate
- * @description Ambient breathing driven by device orientation. Lay flat for slow tides,
- *              tilt upright for faster pulses. Tilt left/right drifts the hue.
- *              Shake for a flash.
- * @sound Pad / Drone
+ * @hue 160
+ * @sat 155
+ * @param_label Drift Rate
+ * @description A soft haze pools at the low edge, breathing in and out.
+ *              Tilt draws it slowly across the grid. Each full breath fires a
+ *              held tone from wherever the haze has settled.
+ * @sound Pad / Choir
  */
 
-var smoothZ      = 64.0;  // follows accelZ with a 3s lag
-var smoothHueX   = 0.0;   // follows accelX with a 6s lag
-var smoothHueY   = 0.0;   // follows accelY with a 6s lag
-var phase        = 0.0;   // 0..1 breath cycle
-var flashBright  = 0;
-var lastMotionTd = 0;
-var lastPhase    = 0.0;
+var smoothX   = 0.0;
+var smoothZ   = 64.0;
+var phase     = 0.0;
+var lastPhase = 0.0;
+var centreCol = 0.0;
 
 function activate(m) {
-  smoothZ     = m.accelZ;
-  smoothHueX  = m.accelX;
-  smoothHueY  = m.accelY;
-  phase       = 0.0;
-  lastPhase   = 0.0;
-  flashBright = 0;
-  lastMotionTd = 0;
+  smoothX   = m.accelX;
+  smoothZ   = m.accelZ;
+  phase     = 0.0;
+  lastPhase = 0.0;
+  centreCol = m.map(m.accelX, -80, 80, 0, m.COLS - 1);
+  if (centreCol < 0)           centreCol = 0;
+  if (centreCol > m.COLS - 1) centreCol = m.COLS - 1;
   m.clear();
   m.show();
 }
@@ -35,62 +33,57 @@ function deactivate(m) {
 }
 
 function update(m) {
-  // Smooth orientation — changes feel gradual, not jittery
-  smoothZ    += (m.accelZ - smoothZ)    * (m.dt / 3000.0);
-  smoothHueX += (m.accelX - smoothHueX) * (m.dt / 6000.0);
-  smoothHueY += (m.accelY - smoothHueY) * (m.dt / 6000.0);
+  // ~12s lag — haze drifts very slowly toward the low side
+  // density scales the lag: 0 -> 18s, 255 -> 6s
+  var lag = 18000 - Math.floor((m.density * 12000) / 255);
+  if (lag < 6000) lag = 6000;
+  smoothX += (m.accelX - smoothX) * (m.dt / lag);
 
-  // Breath period: flat (+64) = slow ~4s cycle; vertical (~0) = faster ~1.5s cycle
-  // density shifts it further: 0 = slowest, 255 = fastest
+  // accelZ: flat (+64) = slow breath, tilted toward 0 = faster
+  smoothZ += (m.accelZ - smoothZ) * (m.dt / 5000.0);
   var tilt01 = 1.0 - smoothZ / 64.0;
   if (tilt01 < 0.0) tilt01 = 0.0;
   if (tilt01 > 1.0) tilt01 = 1.0;
-  var densityShift = Math.floor(m.density * 1000 / 255);
-  var period = Math.floor(4000 - tilt01 * 2500 - densityShift);
-  if (period < 400) period = 400;
+  var period = Math.floor(5000 - tilt01 * 3200);
+  if (period < 1800) period = 1800;
 
   // Advance breath phase 0..1
   lastPhase = phase;
   phase += m.dt / period;
   if (phase >= 1.0) phase -= 1.0;
 
-  // Fire a held note at the start of each breath cycle (phase rollover)
+  // Update haze centroid from tilt
+  centreCol = m.map(smoothX, -80, 80, 0, m.COLS - 1);
+  if (centreCol < 0)           centreCol = 0;
+  if (centreCol > m.COLS - 1) centreCol = m.COLS - 1;
+
+  // Fire a held note when the breath cycle rolls over
   if (phase < lastPhase) {
-    var deg = Math.floor(6 + smoothHueX * 6 / 127);
-    if (deg < 0) deg = 0;
-    if (deg > 13) deg = 13;
-    var vel = 45 + Math.floor(tilt01 * 45);
+    var deg = m.colToDegree(Math.floor(centreCol + 0.5));
+    var vel = 45 + Math.floor(tilt01 * 40) + Math.floor((m.density * 20) / 255);
+    if (vel > 120) vel = 120;
     m.note(deg, vel, period);
   }
 
-  // Triangle wave: 0→1 (inhale) then 1→0 (exhale)
+  // Triangle wave breath: 0->1 (inhale) then 1->0 (exhale)
   var amp = (phase < 0.5) ? phase * 2.0 : (1.0 - phase) * 2.0;
-  var br = Math.floor(amp * m.brightness);
+  var maxBr = Math.floor(amp * m.brightness);
 
-  // Flash on shake — decays over ~500ms
-  if (m.motion > 150 && lastMotionTd <= 150) {
-    flashBright = m.brightness;
-  }
-  lastMotionTd = m.motion;
-  if (flashBright > 0) {
-    var decay = Math.floor((8 * m.dt + 8) / 16);
-    if (decay < 1) decay = 1;
-    flashBright -= decay;
-    if (flashBright < 0) flashBright = 0;
-  }
+  // accelZ: wider haze when flat, narrower when sharply tilted
+  var absTilt01 = tilt01 < 0.5 ? tilt01 * 2.0 : 1.0;
+  var sigma = Math.floor(2 + (1.0 - absTilt01) * 4 + (m.density / 64));
+  if (sigma < 2)  sigma = 2;
+  if (sigma > 10) sigma = 10;
 
-  var eff = br;
-  if (flashBright > eff) eff = flashBright;
-
-  // Hue from tilt — X shifts hue, Y adds a secondary push
-  var h = (Math.floor(smoothHueX * 100 / 127) + Math.floor(smoothHueY * 40 / 127) + 256) & 255;
-
-  for (var r = 0; r < m.ROWS; r++) {
-    for (var c = 0; c < m.COLS; c++) {
-      if (eff > 0)
-        m.px(c, r, h, 180, eff);
-      else
-        m.px(c, r, 0);
+  // Draw haze: linear falloff from centreCol, scaled by breath amplitude
+  for (var c = 0; c < m.COLS; c++) {
+    var dist = c - centreCol;
+    if (dist < 0) dist = -dist;
+    var br = maxBr - Math.floor(dist * maxBr / sigma);
+    if (br < 0) br = 0;
+    for (var r = 0; r < m.ROWS; r++) {
+      if (br > 0) m.px(c, r, br);
+      else        m.px(c, r, 0);
     }
   }
 
