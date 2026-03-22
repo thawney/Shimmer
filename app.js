@@ -36,6 +36,7 @@ const CMD_SAVE  = 0x05;
 const CMD_ACK   = 0x06;
 const CMD_KEY   = 0x08;
 const CMD_MODE  = 0x09;
+const CMD_CLOCK = 0x0A;
 
 // Firmware OTA SysEx commands
 const SYSEX_FW_BEGIN  = 0x30;
@@ -250,6 +251,7 @@ const selScale   = document.getElementById('p-scale');
 const selRoot    = document.getElementById('p-root');
 const slTempo    = document.getElementById('p-tempo');
 const outTempo   = document.getElementById('p-tempo-val');
+const clockInfoEl = document.getElementById('clock-info');
 const slBright   = document.getElementById('p-brightness');
 const outBright  = document.getElementById('p-brightness-val');
 const selChan    = document.getElementById('p-channel');
@@ -261,6 +263,20 @@ const lblParam   = document.getElementById('lbl-param');
 const slotCardsEl = document.getElementById('slot-cards');
 
 function setStatus(msg) { statusEl.textContent = msg; }
+
+let _clockState = { external: false, running: false, bpmX10: 1200 };
+
+function renderClockInfo() {
+  if (!clockInfoEl) return;
+  const bpm = (_clockState.bpmX10 / 10).toFixed(1).replace(/\.0$/, '');
+  if (_clockState.external) {
+    clockInfoEl.textContent = _clockState.running
+      ? `External clock ${bpm} BPM`
+      : `External clock stopped`;
+  } else {
+    clockInfoEl.textContent = `Internal clock ${bpm} BPM`;
+  }
+}
 
 function setBootState(state, title, sub, pct = 0) {
   if (startupGateEl) startupGateEl.dataset.state = state;
@@ -614,6 +630,8 @@ function bindPorts() {
   clearActiveDownload();
   _slotNamesSeenMask = 0;
   setSynced(false);
+  _clockState = { external: false, running: false, bpmX10: 1200 };
+  renderClockInfo();
 
   const name = selPort.value;
   if (name) {
@@ -900,6 +918,16 @@ function handleSysExFrame(data) {
     return;
   }
 
+  if (cmd === CMD_CLOCK && data.length >= 8) {
+    const flags = data[4] & 0x7F;
+    const bpmX10 = ((data[5] & 0x7F) << 7) | (data[6] & 0x7F);
+    _clockState.external = (flags & 0x01) !== 0;
+    _clockState.running = (flags & 0x02) !== 0;
+    _clockState.bpmX10 = bpmX10 > 0 ? bpmX10 : _clockState.bpmX10;
+    renderClockInfo();
+    return;
+  }
+
   if (cmd === CMD_SLOT_NAMES && data.length >= 7) {
     // Per-slot message: data[4] = slot index, data.slice(5,-1) = ASCII name bytes
     const slot = data[4] & 0x0F;
@@ -1054,6 +1082,10 @@ function selectSlot(idx, sendToDevice) {
   selRoot.value    = shared.rootNote;
   slTempo.value    = tempoStoredToBpm(shared.tempo);
   outTempo.value   = tempoStoredToBpm(shared.tempo);
+  if (!_clockState.external) {
+    _clockState.bpmX10 = tempoStoredToBpm(shared.tempo) * 10;
+    renderClockInfo();
+  }
   slBright.value   = shared.brightness;
   outBright.value  = shared.brightness;
   selChan.value    = shared.midiChannel;
@@ -1117,6 +1149,10 @@ slTempo.addEventListener('input', () => {
   const bpm = parseInt(slTempo.value);
   const stored = bpmToTempoStored(bpm);
   outTempo.value = tempoStoredToBpm(stored);
+  if (!_clockState.external) {
+    _clockState.bpmX10 = tempoStoredToBpm(stored) * 10;
+    renderClockInfo();
+  }
   for (let i = 0; i < NUM_SLOTS; i++) {
     modeSettings[i].tempo = stored;
     sendParam(i, P_TEMPO, stored);
