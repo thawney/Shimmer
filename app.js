@@ -56,8 +56,9 @@ const P_ROOT       = 0x01;
 const P_TEMPO      = 0x02;
 const P_BRIGHTNESS = 0x03;
 const P_CHANNEL    = 0x04;
-const P_DENSITY    = 0x05;
-const P_SPEED      = 0x06;
+const P_IN_CHANNEL = 0x05;
+const P_DENSITY    = 0x06;
+const P_SPEED      = 0x07;
 const P_G_MODE     = 0x11;
 
 const GLOBAL_HEADER   = 4;
@@ -214,7 +215,7 @@ let _synced = false;
 let _slotNamesSeenMask = 0;
 
 const modeSettings = Array.from({length: NUM_MODES_TOTAL}, () => ({
-  scale: 3, rootNote: 60, tempo: 60, brightness: 200, midiChannel: 0, density: 128, speed: 128
+  scale: 3, rootNote: 60, tempo: 60, brightness: 200, midiChannel: 0, midiInChannel: 0, density: 128, speed: 128
 }));
 
 // ---------------------------------------------------------------------------
@@ -241,6 +242,7 @@ const outTempo   = document.getElementById('p-tempo-val');
 const slBright   = document.getElementById('p-brightness');
 const outBright  = document.getElementById('p-brightness-val');
 const selChan    = document.getElementById('p-channel');
+const selInChan  = document.getElementById('p-in-channel');
 const slParam    = document.getElementById('p-param');
 const outParam   = document.getElementById('p-param-val');
 const lblParam   = document.getElementById('lbl-param');
@@ -878,8 +880,9 @@ function handleSysExFrame(data) {
       tempo:       raw[2],
       brightness:  raw[3],
       midiChannel: raw[4],
-      density:     raw[5],
-      speed:       raw[6],
+      midiInChannel: raw[5],
+      density:     raw[6],
+      speed:       raw[7],
     };
     selectSlot(currentSlot, false);
     setStatus(`Synced — ${_thawneyModes[modeIdx]?.name ?? ('mode ' + modeIdx)}`);
@@ -1004,8 +1007,9 @@ function parseGlobalSettings(raw) {
       tempo:       raw[b + 2],
       brightness:  raw[b + 3],
       midiChannel: raw[b + 4],
-      density:     raw[b + 5],
-      speed:       raw[b + 6],
+      midiInChannel: raw[b + 5],
+      density:     raw[b + 6],
+      speed:       raw[b + 7],
     };
   }
 
@@ -1042,6 +1046,7 @@ function selectSlot(idx, sendToDevice) {
   slBright.value   = shared.brightness;
   outBright.value  = shared.brightness;
   selChan.value    = shared.midiChannel;
+  selInChan.value  = shared.midiInChannel;
   slParam.value    = mode.density;
   outParam.value   = mode.density;
 
@@ -1084,6 +1089,15 @@ selChan.addEventListener('change', () => {
   for (let i = 0; i < NUM_SLOTS; i++) {
     modeSettings[i].midiChannel = v;
     sendParam(i, P_CHANNEL, v);
+  }
+  scheduleSave();
+});
+
+selInChan.addEventListener('change', () => {
+  const v = parseInt(selInChan.value);
+  for (let i = 0; i < NUM_SLOTS; i++) {
+    modeSettings[i].midiInChannel = v;
+    sendParam(i, P_IN_CHANNEL, v);
   }
   scheduleSave();
 });

@@ -20,6 +20,9 @@ var chColBr       = [0,0,0,0,0,0,0,0,0,0,0,0];
 var chShakePrev   = 0;
 var chCooldown    = 0;
 var chRootMidi    = -1;          // MIDI note number of held root (-1 = nothing held)
+var chRetrigMs    = 0;
+var CH_TAIL_MS    = 1400;
+var CH_RETRIG_MS  = 900;
 
 function chMidiToCol(note, cols) {
   var col = Math.round(note * (cols - 1) / 127.0);
@@ -35,6 +38,7 @@ function activate(m) {
   chShakePrev   = 0;
   chCooldown    = 0;
   chRootMidi    = -1;
+  chRetrigMs    = 0;
   for (var i = 0; i < CH_MAX; i++) { chLearnNote[i] = 0; chInterval[i] = 0; }
   for (var c = 0; c < m.COLS; c++) chColBr[c] = 0;
   m.clear(); m.show();
@@ -67,7 +71,8 @@ function chLock() {
   chIsPlay = 1;
 }
 
-// Fire chord: play all intervals from rootMidi until the root key is released.
+// Fire chord with a finite tail; while the root is held we refresh before the
+// previous notes expire, and on release we simply stop refreshing.
 function chFire(m, rootMidi) {
   if (chIntervalCnt < 1) return;
   var vel = Math.floor(60 + (m.density / 255.0) * 55);  // density = velocity 60-115
@@ -79,7 +84,7 @@ function chFire(m, rootMidi) {
     if (note > 127) note = 127;
     var noteVel = vel - i * 8;
     if (noteVel < 30) noteVel = 30;
-    m.noteOn(note, noteVel);
+    m.noteMidi(note, noteVel, CH_TAIL_MS);
     var col = chMidiToCol(note, m.COLS);
     if (col >= 0 && col < m.COLS) {
       var br = m.brightness - i * 22;
@@ -108,6 +113,7 @@ function update(m) {
       chLearnCnt    = 0;
       chIntervalCnt = 0;
       chRootMidi    = -1;
+      chRetrigMs    = 0;
       for (var i = 0; i < CH_MAX; i++) { chLearnNote[i] = 0; chInterval[i] = 0; }
       for (var c = 0; c < m.COLS; c++) chColBr[c] = 0;
     }
@@ -119,9 +125,8 @@ function update(m) {
   var isNoteOff = (m.midiType === 2) ||
                   (m.midiType === 1 && m.midiNote !== 255 && m.midiVel === 0);
   if (isNoteOff && m.midiNote !== 255 && chRootMidi !== -1 && m.midiNote === chRootMidi) {
-    m.allOff();
     chRootMidi = -1;
-    for (var c = 0; c < m.COLS; c++) chColBr[c] = 0;
+    chRetrigMs = 0;
   }
 
   // ── Note-on ──────────────────────────────────────────────────────────
@@ -146,7 +151,16 @@ function update(m) {
       // Play mode: cut any previous chord, fire new one held on this root
       if (chRootMidi !== -1) m.allOff();
       chRootMidi = inNote;
+      chRetrigMs = CH_RETRIG_MS;
       chFire(m, inNote);
+    }
+  }
+
+  if (chIsPlay === 1 && chRootMidi !== -1) {
+    chRetrigMs -= m.dt;
+    if (chRetrigMs <= 0) {
+      chRetrigMs += CH_RETRIG_MS;
+      chFire(m, chRootMidi);
     }
   }
 

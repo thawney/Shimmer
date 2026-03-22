@@ -66,7 +66,7 @@ function update(m) {
 | Property | Type | Meaning |
 |---|---|---|
 | `m.dt` | ms | Frame delta time |
-| `m.beatMs` | ms | Milliseconds per beat at current tempo |
+| `m.beatMs` | ms | Milliseconds per beat at current tempo, or external MIDI clock when present |
 | `m.density` | 0..255 | Per-slot density knob value |
 | `m.brightness` | 0..255 | Per-slot brightness value |
 | `m.rootNote` | 0..127 | Current root note used by scale-degree output |
@@ -195,6 +195,7 @@ Use `m.noteMidi()` / `m.noteOn()` when a mode needs exact 0–127 MIDI pitch con
 ### MIDI In
 
 Incoming USB and DIN MIDI messages are available each frame via read-once properties.
+Messages are filtered by the mode's selected **MIDI In Ch** in the web UI.
 `midiType` resets to `0` after each frame — check it first before reading the other values.
 
 | Property | Type | Meaning |
