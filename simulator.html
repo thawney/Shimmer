@@ -88,9 +88,12 @@
     <label>Root
       <select id="sim-root"><!-- populated by JS --></select>
     </label>
-    <label>Tempo
-      <input type="range" id="sim-tempo" min="1" max="240" value="120">
-      <output id="sim-tempo-val">120</output>
+    <label class="label-stack"><span>Tempo</span>
+      <div class="tempo-field">
+        <input type="range" id="sim-tempo" min="1" max="240" value="120">
+        <output id="sim-tempo-val">120</output>
+        <span id="sim-clock-info" class="control-note">Internal clock</span>
+      </div>
     </label>
     <label>Brightness
       <input type="range" id="sim-brightness" min="0" max="255" value="200">
@@ -106,6 +109,24 @@
     </label>
     <label>MIDI In Ch
       <select id="sim-in-channel"><!-- populated by JS --></select>
+    </label>
+    <label>Clock In
+      <select id="sim-clock-in">
+        <option value="1">On</option>
+        <option value="0">Off</option>
+      </select>
+    </label>
+    <label>Prefer Ext
+      <select id="sim-clock-priority">
+        <option value="1">On</option>
+        <option value="0">Off</option>
+      </select>
+    </label>
+    <label>Clock Out
+      <select id="sim-clock-out">
+        <option value="1">On</option>
+        <option value="0">Off</option>
+      </select>
     </label>
     <label class="sim-toggle" for="sim-enable-3d">
       <input type="checkbox" id="sim-enable-3d">

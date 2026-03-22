@@ -66,7 +66,7 @@ function update(m) {
 | Property | Type | Meaning |
 |---|---|---|
 | `m.dt` | ms | Frame delta time |
-| `m.beatMs` | ms | Milliseconds per beat at current tempo, or external MIDI clock when present |
+| `m.beatMs` | ms | Milliseconds per beat at current tempo, or external MIDI clock when the mode has `Clock In` and `Prefer Ext` enabled |
 | `m.density` | 0..255 | Per-slot density knob value |
 | `m.brightness` | 0..255 | Per-slot brightness value |
 | `m.rootNote` | 0..127 | Current root note used by scale-degree output |
@@ -219,8 +219,15 @@ function update(m) {
 }
 ```
 
-In the simulator, all connected WebMIDI inputs are subscribed automatically.
-Send notes, CC, or pitch bend from any controller to test MIDI-reactive scripts without a physical device.
+In the simulator, all available WebMIDI inputs are attached, but the selected **MIDI in** port limits which input is accepted.
+Leave it on `-- any --` to listen to every connected controller, or choose a single port for cleaner testing.
+
+Clock behavior is controlled from the device/web Controls page per mode:
+- `Clock In`: allows external MIDI clock to be seen by the mode
+- `Prefer Ext`: actually uses external clock for `m.beatMs` when clock is present
+- `Clock Out`: sends internal MIDI clock when the mode is acting as leader
+
+The simulator now exposes the same `Clock In`, `Prefer Ext`, and `Clock Out` controls, so you can prototype leader/follower behavior there too.
 
 ### Timing and helpers
 

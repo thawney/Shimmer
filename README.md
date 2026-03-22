@@ -17,7 +17,7 @@ The web UI (this repo) lets you:
 - Upload custom scripts over SysEx
 - Flash firmware updates
 
-Physical MIDI in/out is available on the DIN connector. Incoming USB/DIN notes, CC, and pitch bend are exposed to mode scripts via `m.midiNote`, `m.midiType`, etc., and scripts can emit absolute notes, CC, and pitch bend as well. `m.beatMs` now follows external MIDI clock when clock is present, and the Controls page exposes separate MIDI output and input channel selection — see [`user-modes/README.md`](user-modes/README.md). MIDI output is sent simultaneously to both USB MIDI and the DIN connector. The browser simulator now mirrors that more closely too, with separate MIDI in/out port selection, a dedicated MIDI input channel selector, and external MIDI clock driving simulated tempo.
+Physical MIDI in/out is available on the DIN connector. Incoming USB/DIN notes, CC, and pitch bend are exposed to mode scripts via `m.midiNote`, `m.midiType`, etc., and scripts can emit absolute notes, CC, and pitch bend as well. `m.beatMs` can follow external MIDI clock, but that is now configurable per mode from the Controls page with `Clock In`, `Prefer Ext`, and `Clock Out`, alongside separate MIDI output and input channel selection — see [`user-modes/README.md`](user-modes/README.md). MIDI output is sent simultaneously to both USB MIDI and the DIN connector. The browser simulator now mirrors that more closely too, with separate MIDI in/out port selection, a dedicated MIDI input channel selector, and external MIDI clock driving simulated tempo.
 
 ## Adding your own scripts
 

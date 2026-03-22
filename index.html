@@ -79,10 +79,12 @@
       <label>Root
         <select id="p-root"></select>
       </label>
-      <label>Tempo (BPM)
-        <input type="range" id="p-tempo" min="1" max="240" step="1" value="120">
-        <output id="p-tempo-val">120</output>
-        <span id="clock-info">Internal clock</span>
+      <label class="label-stack"><span>Tempo (BPM)</span>
+        <div class="tempo-field">
+          <input type="range" id="p-tempo" min="1" max="240" step="1" value="120">
+          <output id="p-tempo-val">120</output>
+          <span id="clock-info" class="control-note">Internal clock</span>
+        </div>
       </label>
       <label>Brightness
         <input type="range" id="p-brightness" min="0" max="255" step="1" value="200">
@@ -110,6 +112,24 @@
           <option value="10">11</option><option value="11">12</option>
           <option value="12">13</option><option value="13">14</option>
           <option value="14">15</option><option value="15">16</option>
+        </select>
+      </label>
+      <label>Clock In
+        <select id="p-clock-in">
+          <option value="1">On</option>
+          <option value="0">Off</option>
+        </select>
+      </label>
+      <label>Prefer Ext
+        <select id="p-clock-priority">
+          <option value="1">On</option>
+          <option value="0">Off</option>
+        </select>
+      </label>
+      <label>Clock Out
+        <select id="p-clock-out">
+          <option value="1">On</option>
+          <option value="0">Off</option>
         </select>
       </label>
     </section>

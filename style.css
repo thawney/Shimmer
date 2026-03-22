@@ -636,8 +636,29 @@ label {
   color: var(--ink-soft);
 }
 
+label.label-stack {
+  grid-template-columns: 148px 1fr;
+}
+
 label > span {
   color: var(--ink-soft);
+}
+
+.tempo-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.tempo-field input[type="range"] {
+  flex: 1 1 240px;
+}
+
+.control-note {
+  color: var(--accent-yellow);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 label select {

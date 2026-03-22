@@ -256,9 +256,28 @@ function externalClockActive(now) {
   return _clockIn.lastRealtimeAt > 0 && (now - _clockIn.lastRealtimeAt) <= MIDI_CLOCK_TIMEOUT_MS && _clockIn.beatMs > 0;
 }
 
+function usingExternalClock(now) {
+  return !!settings.clockIn && !!settings.clockPriority && externalClockActive(now);
+}
+
 function effectiveBeatMs(now) {
-  if (externalClockActive(now)) return _clockIn.beatMs;
+  if (usingExternalClock(now)) return _clockIn.beatMs;
   return 60000 / Math.max(1, settings.tempo);
+}
+
+function renderClockInfo(now) {
+  var el = document.getElementById('sim-clock-info');
+  if (!el) return;
+  var extActive = externalClockActive(now);
+  var bpm = ((usingExternalClock(now) ? _clockIn.beatMs : (60000 / Math.max(1, settings.tempo))) || 500);
+  bpm = (60000 / bpm).toFixed(1).replace(/\.0$/, '');
+  if (usingExternalClock(now)) {
+    el.textContent = _clockIn.running ? ('External clock ' + bpm + ' BPM') : 'External clock stopped';
+  } else if (extActive) {
+    el.textContent = 'Internal clock ' + bpm + ' BPM · ext present';
+  } else {
+    el.textContent = 'Internal clock ' + bpm + ' BPM';
+  }
 }
 
 function resetClockIn() {
@@ -267,6 +286,7 @@ function resetClockIn() {
   _clockIn.lastClockAt = 0;
   _clockIn.lastRealtimeAt = 0;
   _clockIn.running = false;
+  renderClockInfo();
 }
 
 function sendRealtime(status) {
@@ -288,7 +308,7 @@ function scheduleClockOut(resetPhase) {
     clearTimeout(_clockOutTimer);
     _clockOutTimer = null;
   }
-  if (!_handlers || !midiOut || externalClockActive()) {
+  if (!_handlers || !midiOut || !settings.clockOut || usingExternalClock()) {
     _clockOutNextAt = 0;
     return;
   }
@@ -301,7 +321,7 @@ function scheduleClockOut(resetPhase) {
       stopClockOut(false);
       return;
     }
-    if (externalClockActive()) {
+    if (!settings.clockOut || usingExternalClock()) {
       _clockOutTimer = setTimeout(tickClockOut, 50);
       return;
     }
@@ -325,6 +345,7 @@ function scheduleClockOut(resetPhase) {
 
 function handleRealtime(status, now) {
   if (!now) now = performance.now();
+  if (!settings.clockIn) return;
   if (status === MIDI_CLOCK) {
     if (_clockIn.lastClockAt > 0) {
       var delta = now - _clockIn.lastClockAt;
@@ -335,16 +356,19 @@ function handleRealtime(status, now) {
     }
     _clockIn.lastClockAt = now;
     _clockIn.lastRealtimeAt = now;
+    renderClockInfo(now);
     return;
   }
   if (status === MIDI_START || status === MIDI_CONTINUE) {
     _clockIn.running = true;
     _clockIn.lastRealtimeAt = now;
+    renderClockInfo(now);
     return;
   }
   if (status === MIDI_STOP) {
     _clockIn.running = false;
     _clockIn.lastRealtimeAt = now;
+    renderClockInfo(now);
   }
 }
 
@@ -385,6 +409,9 @@ var settings = {
   density:     128, // 0-255 (the per-script "amount" parameter)
   midiChannel: 0,   // 0-based, 0=ch1
   midiInChannel: 0, // 0-based, 0=ch1
+  clockIn:     1,
+  clockPriority: 1,
+  clockOut:    1,
 };
 
 // Script @hue / @sat — updated on each script load
@@ -627,6 +654,7 @@ function _tick(ts) {
     _clockIn.lastClockAt = 0;
     if (_handlers && !_clockOutTimer && midiOut) scheduleClockOut(true);
   }
+  renderClockInfo(ts);
 
   // Push MIDI IN state into the running script's m object, then consume.
   var configuredInCh = (settings.midiInChannel & 0x0F) + 1;
@@ -904,6 +932,9 @@ NOTE_NAMES.forEach(function(name, i) {
 
 var selChanEl = document.getElementById('sim-channel');
 var selInChanEl = document.getElementById('sim-in-channel');
+var selClockInEl = document.getElementById('sim-clock-in');
+var selClockPriorityEl = document.getElementById('sim-clock-priority');
+var selClockOutEl = document.getElementById('sim-clock-out');
 for (var ch = 0; ch < 16; ch++) {
   var opt = document.createElement('option');
   opt.value = ch;
@@ -950,6 +981,22 @@ selChanEl.addEventListener('change', function(e) {
 selInChanEl.addEventListener('change', function(e) {
   settings.midiInChannel = parseInt(e.target.value, 10);
 });
+selClockInEl.addEventListener('change', function(e) {
+  settings.clockIn = parseInt(e.target.value, 10);
+  if (!settings.clockIn) resetClockIn();
+  if (_handlers) scheduleClockOut(true);
+  renderClockInfo();
+});
+selClockPriorityEl.addEventListener('change', function(e) {
+  settings.clockPriority = parseInt(e.target.value, 10);
+  if (_handlers) scheduleClockOut(true);
+  renderClockInfo();
+});
+selClockOutEl.addEventListener('change', function(e) {
+  settings.clockOut = parseInt(e.target.value, 10);
+  if (_handlers) scheduleClockOut(true);
+  renderClockInfo();
+});
 
 // ── Status display ─────────────────────────────────────────────────────────────
 
@@ -965,4 +1012,5 @@ function setStatus(msg, state) {
 initMidi();
 resetSensorState();
 init3DSimulatorControls();
+renderClockInfo();
 drawGrid();

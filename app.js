@@ -79,6 +79,10 @@ const GLOBAL_SIZE     = GLOBAL_HEADER + NUM_MODES_TOTAL * MODE_SIZE + 4; // 136
 const SETTINGS_POLL_MS = 1500;
 const BPM_MIN = 1;
 const BPM_MAX = 240;
+const MODE_MIDI_IN_CH_MASK = 0x0F;
+const MODE_CLOCK_IN_ENABLE_BIT = 0x10;
+const MODE_CLOCK_PREFER_EXTERNAL_BIT = 0x20;
+const MODE_CLOCK_OUT_ENABLE_BIT = 0x40;
 
 function tempoStoredToBpm(stored) {
   const t = stored & 0xFF;
@@ -91,6 +95,25 @@ function bpmToTempoStored(bpm) {
   const b = Math.max(BPM_MIN, Math.min(BPM_MAX, bpm | 0));
   if (b >= 60) return b - 60;
   return b + 180;
+}
+
+function decodeMidiInConfig(raw) {
+  const packed = raw & 0x7F;
+  const legacy = (packed & 0x70) === 0;
+  return {
+    midiInChannel: packed & MODE_MIDI_IN_CH_MASK,
+    clockIn: legacy ? 1 : ((packed & MODE_CLOCK_IN_ENABLE_BIT) ? 1 : 0),
+    clockPriority: legacy ? 1 : ((packed & MODE_CLOCK_PREFER_EXTERNAL_BIT) ? 1 : 0),
+    clockOut: legacy ? 1 : ((packed & MODE_CLOCK_OUT_ENABLE_BIT) ? 1 : 0),
+  };
+}
+
+function packMidiInConfig(settings) {
+  let packed = settings.midiInChannel & MODE_MIDI_IN_CH_MASK;
+  if (settings.clockIn) packed |= MODE_CLOCK_IN_ENABLE_BIT;
+  if (settings.clockPriority) packed |= MODE_CLOCK_PREFER_EXTERNAL_BIT;
+  if (settings.clockOut) packed |= MODE_CLOCK_OUT_ENABLE_BIT;
+  return packed;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,7 +250,7 @@ let _synced = false;
 let _slotNamesSeenMask = 0;
 
 const modeSettings = Array.from({length: NUM_MODES_TOTAL}, () => ({
-  scale: 3, rootNote: 60, tempo: 60, brightness: 200, midiChannel: 0, midiInChannel: 0, density: 128, speed: 128
+  scale: 3, rootNote: 60, tempo: 60, brightness: 200, midiChannel: 0, midiInChannel: 0, clockIn: 1, clockPriority: 1, clockOut: 1, density: 128, speed: 128
 }));
 
 // ---------------------------------------------------------------------------
@@ -256,6 +279,9 @@ const slBright   = document.getElementById('p-brightness');
 const outBright  = document.getElementById('p-brightness-val');
 const selChan    = document.getElementById('p-channel');
 const selInChan  = document.getElementById('p-in-channel');
+const selClockIn = document.getElementById('p-clock-in');
+const selClockPriority = document.getElementById('p-clock-priority');
+const selClockOut = document.getElementById('p-clock-out');
 const slParam    = document.getElementById('p-param');
 const outParam   = document.getElementById('p-param-val');
 const lblParam   = document.getElementById('lbl-param');
@@ -264,15 +290,17 @@ const slotCardsEl = document.getElementById('slot-cards');
 
 function setStatus(msg) { statusEl.textContent = msg; }
 
-let _clockState = { external: false, running: false, bpmX10: 1200 };
+let _clockState = { external: false, running: false, usingExternal: false, bpmX10: 1200 };
 
 function renderClockInfo() {
   if (!clockInfoEl) return;
   const bpm = (_clockState.bpmX10 / 10).toFixed(1).replace(/\.0$/, '');
-  if (_clockState.external) {
+  if (_clockState.usingExternal) {
     clockInfoEl.textContent = _clockState.running
       ? `External clock ${bpm} BPM`
       : `External clock stopped`;
+  } else if (_clockState.external) {
+    clockInfoEl.textContent = `Internal clock ${bpm} BPM · ext present`;
   } else {
     clockInfoEl.textContent = `Internal clock ${bpm} BPM`;
   }
@@ -630,7 +658,7 @@ function bindPorts() {
   clearActiveDownload();
   _slotNamesSeenMask = 0;
   setSynced(false);
-  _clockState = { external: false, running: false, bpmX10: 1200 };
+  _clockState = { external: false, running: false, usingExternal: false, bpmX10: 1200 };
   renderClockInfo();
 
   const name = selPort.value;
@@ -903,13 +931,17 @@ function handleSysExFrame(data) {
     if (modeIdx >= NUM_MODES_TOTAL) return;
     const raw = decode7to8(Array.from(data.slice(5, -1)));
     if (raw.length < MODE_SIZE) return;
+    const midiInCfg = decodeMidiInConfig(raw[5]);
     modeSettings[modeIdx] = {
       scale:       raw[0],
       rootNote:    raw[1],
       tempo:       raw[2],
       brightness:  raw[3],
       midiChannel: raw[4],
-      midiInChannel: raw[5],
+      midiInChannel: midiInCfg.midiInChannel,
+      clockIn: midiInCfg.clockIn,
+      clockPriority: midiInCfg.clockPriority,
+      clockOut: midiInCfg.clockOut,
       density:     raw[6],
       speed:       raw[7],
     };
@@ -923,6 +955,7 @@ function handleSysExFrame(data) {
     const bpmX10 = ((data[5] & 0x7F) << 7) | (data[6] & 0x7F);
     _clockState.external = (flags & 0x01) !== 0;
     _clockState.running = (flags & 0x02) !== 0;
+    _clockState.usingExternal = (flags & 0x04) !== 0;
     _clockState.bpmX10 = bpmX10 > 0 ? bpmX10 : _clockState.bpmX10;
     renderClockInfo();
     return;
@@ -1040,13 +1073,17 @@ function parseGlobalSettings(raw) {
   const devMode = raw[1];
   for (let i = 0; i < NUM_MODES_TOTAL; i++) {
     const b = GLOBAL_HEADER + i * MODE_SIZE;
+    const midiInCfg = decodeMidiInConfig(raw[b + 5]);
     modeSettings[i] = {
       scale:       raw[b + 0],
       rootNote:    raw[b + 1],
       tempo:       raw[b + 2],
       brightness:  raw[b + 3],
       midiChannel: raw[b + 4],
-      midiInChannel: raw[b + 5],
+      midiInChannel: midiInCfg.midiInChannel,
+      clockIn: midiInCfg.clockIn,
+      clockPriority: midiInCfg.clockPriority,
+      clockOut: midiInCfg.clockOut,
       density:     raw[b + 6],
       speed:       raw[b + 7],
     };
@@ -1090,6 +1127,9 @@ function selectSlot(idx, sendToDevice) {
   outBright.value  = shared.brightness;
   selChan.value    = shared.midiChannel;
   selInChan.value  = shared.midiInChannel;
+  selClockIn.value = shared.clockIn;
+  selClockPriority.value = shared.clockPriority;
+  selClockOut.value = shared.clockOut;
   slParam.value    = mode.density;
   outParam.value   = mode.density;
 
@@ -1140,7 +1180,34 @@ selInChan.addEventListener('change', () => {
   const v = parseInt(selInChan.value);
   for (let i = 0; i < NUM_SLOTS; i++) {
     modeSettings[i].midiInChannel = v;
-    sendParam(i, P_IN_CHANNEL, v);
+    sendParam(i, P_IN_CHANNEL, packMidiInConfig(modeSettings[i]));
+  }
+  scheduleSave();
+});
+
+selClockIn.addEventListener('change', () => {
+  const v = parseInt(selClockIn.value);
+  for (let i = 0; i < NUM_SLOTS; i++) {
+    modeSettings[i].clockIn = v;
+    sendParam(i, P_IN_CHANNEL, packMidiInConfig(modeSettings[i]));
+  }
+  scheduleSave();
+});
+
+selClockPriority.addEventListener('change', () => {
+  const v = parseInt(selClockPriority.value);
+  for (let i = 0; i < NUM_SLOTS; i++) {
+    modeSettings[i].clockPriority = v;
+    sendParam(i, P_IN_CHANNEL, packMidiInConfig(modeSettings[i]));
+  }
+  scheduleSave();
+});
+
+selClockOut.addEventListener('change', () => {
+  const v = parseInt(selClockOut.value);
+  for (let i = 0; i < NUM_SLOTS; i++) {
+    modeSettings[i].clockOut = v;
+    sendParam(i, P_IN_CHANNEL, packMidiInConfig(modeSettings[i]));
   }
   scheduleSave();
 });
