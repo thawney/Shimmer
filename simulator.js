@@ -14,29 +14,7 @@
 var COLS = 12;
 var ROWS = 12;
 
-var ALL_MODES = [
-  { name: 'Rain',      file: '00_rain.js',      desc: 'Drops fall from top to bottom. Tilt the device to add wind — each drop drifts sideways as it falls and the note it plays depends on where it lands. MIDI IN notes spawn targeted drops at the pitch column.', sound: 'Kalimba / Bell' },
-  { name: 'Euclid',    file: '01_euclid.js',    desc: 'Euclidean rhythm walks a scale. Density controls how many of 12 steps trigger notes. Tilt left/right biases melodic direction.', sound: 'Marimba / Mallet' },
-  { name: 'Breath',    file: '02_breath.js',    desc: 'Sustained drone voices swell slowly. Density selects chord voicing: minor/major/fifth/sus.', sound: 'Pad / String' },
-  { name: 'Stasis',    file: '03_stasis.js',    desc: 'Sustained chords hang and slowly voice-lead. Density controls spread and voice count.', sound: 'Organ / Deep Pad' },
-  { name: 'Drift',     file: '04_drift.js',     desc: '2–3 voices float on a 2D random walk. A note fires when a voice drifts ≥2 columns.', sound: 'Rhodes / Electric Piano' },
-  { name: 'Spark',     file: '05_spark.js',     desc: 'Particles bounce off walls. Left/right bounces fire notes pitched from vertical position.', sound: 'Plucked String / Pizzicato' },
-  { name: 'Cascade',   file: '06_cascade.js',   desc: 'Ripples spawn at random columns and expand outward across all rows. Origin fires a note. Tilt left/right drifts spawn zone over ~10s. Shake for a burst.', sound: 'Vibraphone / Glass' },
-  { name: 'Shift',     file: '07_shift.js',     desc: 'Shift register (width = grid columns). MSB fires a note; density controls lock (high=stable, low=chaotic).', sound: 'Lead Synth / Pulse Wave' },
-  { name: 'Cells',     file: '08_cells.js',     desc: 'Rule 30 cellular automaton. New live cells fire notes. History scrolls as rows.', sound: 'Pluck / Clavinet' },
-  { name: 'Loop',      file: '09_loop.js',      desc: 'A melodic phrase loops and slowly drifts. Density controls length (4–16 steps).', sound: 'Arp / Sequencer' },
-  { name: 'Weave',     file: '10_weave.js',     desc: 'Polyrhythmic row pulses — 12 rows with prime-ratio beat clocks. Cursor sweeps each row.', sound: 'Bell / Celeste' },
-  { name: 'Flock',     file: '11_flock.js',     desc: '1D boids flock and cluster. Dense clusters fire stacked chords on a tempo grid.', sound: 'Choir / Ensemble' },
-  { name: 'Scatter',   file: '12_scatter.js',   desc: 'Random note bursts scatter across the grid every beat. Density controls burst size.', sound: 'Harp / Pizzicato' },
-  { name: 'Walk',      file: '13_walk.js',      desc: 'Random melodic walk. Density controls leap size. Full column glows; dim cursor dot between steps.', sound: 'Flute / Solo Wind' },
-  { name: 'Pulse',     file: '14_pulse.js',     desc: 'Sparse stochastic pulses bloom as cross-shaped splashes. Very ambient and minimal.', sound: 'Pad / Ambient Texture' },
-  { name: 'Suspend',   file: '15_suspend.js',   desc: 'Harold Budd-style: 2–3 sustained voices slowly voice-lead. Each voice has its own hue.', sound: 'Piano / Rhodes' },
-  { name: 'Lean',      file: '16_lean.js',      desc: 'A point of light rests at the low corner of your tilt — left/right sets the note, up/down sets the velocity. Each beat it rings once from wherever it has settled.', sound: 'Bell / Marimba' },
-  { name: 'Haze',      file: '17_haze.js',      desc: 'A soft haze pools at the low edge, breathing slowly in and out.', sound: 'Pad / Choir' },
-  { name: 'MIDI Keys', file: '18_midi_keys.js', desc: 'Visual MIDI monitor. Each column is one chromatic semitone (C to B).', sound: 'None — visual only' },
-];
-
-var _thawneyModes = ALL_MODES;
+var _thawneyModes = [];
 var _userModes = [];
 
 function loadThawneyModes() {
@@ -45,21 +23,25 @@ function loadThawneyModes() {
     'https://api.github.com/repos/' + GITHUB_REPO + '/contents/modes',
     { headers: { Accept: 'application/vnd.github.v3+json' } }
   ).then(function(res) {
-    return res.ok ? res.json() : null;
+    return res.ok ? res.json() : [];
   }).then(function(files) {
-    if (!Array.isArray(files)) return ALL_MODES;
-    return files
+    if (!Array.isArray(files)) return [];
+    var fileNames = files
       .filter(function(f) { return f.type === 'file' && /^\d{2}_/.test(f.name) && f.name.endsWith('.js'); })
       .sort(function(a, b) { return a.name < b.name ? -1 : 1; })
-      .map(function(f) {
-        var hardcoded = ALL_MODES.find(function(m) { return m.file === f.name; });
-        return hardcoded || {
-          name: f.name.replace(/^\d+_/, '').replace(/\.js$/, '').replace(/[_-]/g, ' ')
-                       .replace(/\b\w/g, function(c) { return c.toUpperCase(); }),
-          file: f.name, desc: '', sound: '',
-        };
-      });
-  }).catch(function() { return ALL_MODES; });
+      .map(function(f) { return f.name; });
+
+    return Promise.all(fileNames.map(function(filename) {
+      return fetch('modes/' + filename)
+        .then(function(r) { return r.ok ? r.text() : Promise.reject(); })
+        .then(function(code) {
+          var meta = parseScriptMeta(code);
+          return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound };
+        }).catch(function() {
+          return { name: filename, file: filename, desc: '', sound: '' };
+        });
+    }));
+  }).catch(function() { return []; });
 }
 
 function loadUserModes() {

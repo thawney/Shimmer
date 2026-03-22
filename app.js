@@ -1,32 +1,5 @@
 'use strict';
 
-// ---------------------------------------------------------------------------
-// Built-in mode library (all scripts available for loading into any slot)
-// desc/sound are used for the picker preview; auto-detection from GitHub may
-// add new entries not yet listed here (they will appear without desc/sound).
-// ---------------------------------------------------------------------------
-const ALL_MODES = [
-  { name: 'Rain',      file: '00_rain.js',      desc: 'Drops fall from top to bottom. Tilt the device to add wind — each drop drifts sideways as it falls and the note it plays depends on where it lands. MIDI IN notes spawn targeted drops at the pitch column.', sound: 'Kalimba / Bell' },
-  { name: 'Euclid',    file: '01_euclid.js',    desc: 'Euclidean rhythm walks a scale. Density controls how many of 12 steps trigger notes. Tilt left/right biases melodic direction.', sound: 'Marimba / Mallet' },
-  { name: 'Breath',    file: '02_breath.js',    desc: 'Sustained drone voices swell slowly. Density selects chord voicing: minor/major/fifth/sus.', sound: 'Pad / String' },
-  { name: 'Stasis',    file: '03_stasis.js',    desc: 'Sustained chords hang and slowly voice-lead. Density controls spread and voice count.', sound: 'Organ / Deep Pad' },
-  { name: 'Drift',     file: '04_drift.js',     desc: '2–3 voices float on a 2D random walk. A note fires when a voice drifts ≥2 columns.', sound: 'Rhodes / Electric Piano' },
-  { name: 'Spark',     file: '05_spark.js',     desc: 'Particles bounce off walls. Left/right bounces fire notes pitched from vertical position.', sound: 'Plucked String / Pizzicato' },
-  { name: 'Cascade',   file: '06_cascade.js',   desc: 'Ripples spawn at random columns and expand outward across all rows. Origin fires a note. Tilt left/right drifts spawn zone over ~10s. Shake for a burst.', sound: 'Vibraphone / Glass' },
-  { name: 'Shift',     file: '07_shift.js',     desc: 'Shift register (width = grid columns). MSB fires a note; density controls lock (high=stable, low=chaotic).', sound: 'Lead Synth / Pulse Wave' },
-  { name: 'Cells',     file: '08_cells.js',     desc: 'Rule 30 cellular automaton. New live cells fire notes. History scrolls as rows.', sound: 'Pluck / Clavinet' },
-  { name: 'Loop',      file: '09_loop.js',      desc: 'A melodic phrase loops and slowly drifts. Density controls length (4–16 steps).', sound: 'Arp / Sequencer' },
-  { name: 'Weave',     file: '10_weave.js',     desc: 'Polyrhythmic row pulses — 12 rows with prime-ratio beat clocks. Cursor sweeps each row.', sound: 'Bell / Celeste' },
-  { name: 'Flock',     file: '11_flock.js',     desc: '1D boids flock and cluster. Dense clusters fire stacked chords on a tempo grid.', sound: 'Choir / Ensemble' },
-  { name: 'Scatter',   file: '12_scatter.js',   desc: 'Random note bursts scatter across the grid every beat. Density controls burst size.', sound: 'Harp / Pizzicato' },
-  { name: 'Walk',      file: '13_walk.js',       desc: 'Random melodic walk. Density controls leap size. Full column glows; dim cursor dot between steps.', sound: 'Flute / Solo Wind' },
-  { name: 'Pulse',     file: '14_pulse.js',     desc: 'Sparse stochastic pulses bloom as cross-shaped splashes. Very ambient and minimal.', sound: 'Pad / Ambient Texture' },
-  { name: 'Suspend',   file: '15_suspend.js',   desc: 'Harold Budd-style: 2–3 sustained voices slowly voice-lead. Each voice has its own hue.', sound: 'Piano / Rhodes' },
-  { name: 'Lean',      file: '16_lean.js',      desc: 'A point of light rests at the low corner of your tilt — left/right sets the note, up/down sets the velocity. Each beat it rings once from wherever it has settled.', sound: 'Bell / Marimba' },
-  { name: 'Haze',      file: '17_haze.js',      desc: 'A soft haze pools at the low edge, breathing slowly in and out.', sound: 'Pad / Choir' },
-  { name: 'MIDI Keys', file: '18_midi_keys.js', desc: 'Visual MIDI monitor. Each column is one chromatic semitone (C to B).', sound: 'None — visual only' },
-];
-
 // Default scripts for the 4 slots (matches data/scripts/ initial LittleFS image)
 // slot 0 = Rain, slot 1 = Stasis, slot 2 = Weave, slot 3 = Euclid
 const DEFAULT_FILES = [
@@ -163,10 +136,10 @@ function parseScriptMeta(code) {
   };
 }
 
-// Mode entries discovered dynamically from GitHub API at boot.
-// _thawneyModes falls back to ALL_MODES if the fetch fails (e.g. offline).
+// Mode entries discovered dynamically at boot — no hardcoded list needed.
+// GitHub API gives the file index; each script's own header supplies the metadata.
 const GITHUB_REPO = 'thawney/shimmer';
-let _thawneyModes = ALL_MODES;
+let _thawneyModes = [];
 let _userModes = [];
 
 async function loadThawneyModes() {
@@ -175,23 +148,25 @@ async function loadThawneyModes() {
       `https://api.github.com/repos/${GITHUB_REPO}/contents/modes`,
       { headers: { Accept: 'application/vnd.github.v3+json' } }
     );
-    if (!res.ok) return ALL_MODES;
+    if (!res.ok) return [];
     const files = await res.json();
-    const numbered = files
+    const fileNames = files
       .filter(f => f.type === 'file' && /^\d{2}_/.test(f.name) && f.name.endsWith('.js'))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    return numbered.map(f => {
-      // Prefer the hardcoded entry (which has desc/sound); fall back to name from filename
-      const hardcoded = ALL_MODES.find(m => m.file === f.name);
-      return hardcoded ?? {
-        name: f.name.replace(/^\d+_/, '').replace(/\.js$/, '').replace(/[_-]/g, ' ')
-                     .replace(/\b\w/g, c => c.toUpperCase()),
-        file: f.name,
-        desc: '',
-        sound: '',
-      };
-    });
-  } catch { return ALL_MODES; }
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(f => f.name);
+
+    // Fetch each script locally in parallel to parse its own @name / @description / @sound
+    return Promise.all(fileNames.map(async filename => {
+      try {
+        const r = await fetch(`modes/${filename}`);
+        if (!r.ok) throw new Error();
+        const meta = parseScriptMeta(await r.text());
+        return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound };
+      } catch {
+        return { name: filename, file: filename, desc: '', sound: '' };
+      }
+    }));
+  } catch { return []; }
 }
 
 // ---------------------------------------------------------------------------
@@ -907,7 +882,7 @@ function handleSysExFrame(data) {
       speed:       raw[6],
     };
     selectSlot(currentSlot, false);
-    setStatus(`Synced — ${ALL_MODES[modeIdx]?.name ?? ('mode ' + modeIdx)}`);
+    setStatus(`Synced — ${_thawneyModes[modeIdx]?.name ?? ('mode ' + modeIdx)}`);
     return;
   }
 
