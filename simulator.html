@@ -52,9 +52,11 @@
 
     <div class="editor-panel">
       <div class="editor-toolbar">
-        <select id="sim-mode-select">
-          <option value="">-- load a built-in script --</option>
-        </select>
+        <div class="script-search-wrap">
+          <input type="text" class="script-search" id="sim-script-search"
+            placeholder="search scripts…" autocomplete="off" spellcheck="false">
+          <ul class="script-results" id="sim-script-results"></ul>
+        </div>
         <button class="btn-run"  id="btn-run">▶ Run</button>
         <button class="btn-stop" id="btn-stop">■ Stop</button>
       </div>

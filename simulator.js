@@ -15,26 +15,74 @@ var COLS = 12;
 var ROWS = 12;
 
 var ALL_MODES = [
-  { name: 'Rain',         file: '00_rain.js'         },
-  { name: 'Euclid',       file: '01_euclid.js'       },
-  { name: 'Breath',       file: '02_breath.js'       },
-  { name: 'Stasis',       file: '03_stasis.js'       },
-  { name: 'Drift',        file: '04_drift.js'        },
-  { name: 'Spark',        file: '05_spark.js'        },
-  { name: 'Cascade',      file: '06_cascade.js'      },
-  { name: 'Shift',        file: '07_shift.js'        },
-  { name: 'Cells',        file: '08_cells.js'        },
-  { name: 'Loop',         file: '09_loop.js'         },
-  { name: 'Weave',        file: '10_weave.js'        },
-  { name: 'Flock',        file: '11_flock.js'        },
-  { name: 'Scatter',      file: '12_scatter.js'      },
-  { name: 'Walk',         file: '13_walk.js'         },
-  { name: 'Pulse',        file: '14_pulse.js'        },
-  { name: 'Suspend',      file: '15_suspend.js'      },
-  { name: 'Lean',         file: '16_lean.js'         },
-  { name: 'Haze',         file: '17_haze.js'         },
-  { name: 'MIDI Keys',    file: '18_midi_keys.js'    },
+  { name: 'Rain',      file: '00_rain.js',      desc: 'Drops fall from top to bottom. Tilt the device to add wind — each drop drifts sideways as it falls and the note it plays depends on where it lands. MIDI IN notes spawn targeted drops at the pitch column.', sound: 'Kalimba / Bell' },
+  { name: 'Euclid',    file: '01_euclid.js',    desc: 'Euclidean rhythm walks a scale. Density controls how many of 12 steps trigger notes. Tilt left/right biases melodic direction.', sound: 'Marimba / Mallet' },
+  { name: 'Breath',    file: '02_breath.js',    desc: 'Sustained drone voices swell slowly. Density selects chord voicing: minor/major/fifth/sus.', sound: 'Pad / String' },
+  { name: 'Stasis',    file: '03_stasis.js',    desc: 'Sustained chords hang and slowly voice-lead. Density controls spread and voice count.', sound: 'Organ / Deep Pad' },
+  { name: 'Drift',     file: '04_drift.js',     desc: '2–3 voices float on a 2D random walk. A note fires when a voice drifts ≥2 columns.', sound: 'Rhodes / Electric Piano' },
+  { name: 'Spark',     file: '05_spark.js',     desc: 'Particles bounce off walls. Left/right bounces fire notes pitched from vertical position.', sound: 'Plucked String / Pizzicato' },
+  { name: 'Cascade',   file: '06_cascade.js',   desc: 'Ripples spawn at random columns and expand outward across all rows. Origin fires a note. Tilt left/right drifts spawn zone over ~10s. Shake for a burst.', sound: 'Vibraphone / Glass' },
+  { name: 'Shift',     file: '07_shift.js',     desc: 'Shift register (width = grid columns). MSB fires a note; density controls lock (high=stable, low=chaotic).', sound: 'Lead Synth / Pulse Wave' },
+  { name: 'Cells',     file: '08_cells.js',     desc: 'Rule 30 cellular automaton. New live cells fire notes. History scrolls as rows.', sound: 'Pluck / Clavinet' },
+  { name: 'Loop',      file: '09_loop.js',      desc: 'A melodic phrase loops and slowly drifts. Density controls length (4–16 steps).', sound: 'Arp / Sequencer' },
+  { name: 'Weave',     file: '10_weave.js',     desc: 'Polyrhythmic row pulses — 12 rows with prime-ratio beat clocks. Cursor sweeps each row.', sound: 'Bell / Celeste' },
+  { name: 'Flock',     file: '11_flock.js',     desc: '1D boids flock and cluster. Dense clusters fire stacked chords on a tempo grid.', sound: 'Choir / Ensemble' },
+  { name: 'Scatter',   file: '12_scatter.js',   desc: 'Random note bursts scatter across the grid every beat. Density controls burst size.', sound: 'Harp / Pizzicato' },
+  { name: 'Walk',      file: '13_walk.js',      desc: 'Random melodic walk. Density controls leap size. Full column glows; dim cursor dot between steps.', sound: 'Flute / Solo Wind' },
+  { name: 'Pulse',     file: '14_pulse.js',     desc: 'Sparse stochastic pulses bloom as cross-shaped splashes. Very ambient and minimal.', sound: 'Pad / Ambient Texture' },
+  { name: 'Suspend',   file: '15_suspend.js',   desc: 'Harold Budd-style: 2–3 sustained voices slowly voice-lead. Each voice has its own hue.', sound: 'Piano / Rhodes' },
+  { name: 'Lean',      file: '16_lean.js',      desc: 'A point of light rests at the low corner of your tilt — left/right sets the note, up/down sets the velocity. Each beat it rings once from wherever it has settled.', sound: 'Bell / Marimba' },
+  { name: 'Haze',      file: '17_haze.js',      desc: 'A soft haze pools at the low edge, breathing slowly in and out.', sound: 'Pad / Choir' },
+  { name: 'MIDI Keys', file: '18_midi_keys.js', desc: 'Visual MIDI monitor. Each column is one chromatic semitone (C to B).', sound: 'None — visual only' },
 ];
+
+var _thawneyModes = ALL_MODES;
+var _userModes = [];
+
+function loadThawneyModes() {
+  var GITHUB_REPO = 'thawney/shimmer';
+  return fetch(
+    'https://api.github.com/repos/' + GITHUB_REPO + '/contents/modes',
+    { headers: { Accept: 'application/vnd.github.v3+json' } }
+  ).then(function(res) {
+    return res.ok ? res.json() : null;
+  }).then(function(files) {
+    if (!Array.isArray(files)) return ALL_MODES;
+    return files
+      .filter(function(f) { return f.type === 'file' && /^\d{2}_/.test(f.name) && f.name.endsWith('.js'); })
+      .sort(function(a, b) { return a.name < b.name ? -1 : 1; })
+      .map(function(f) {
+        var hardcoded = ALL_MODES.find(function(m) { return m.file === f.name; });
+        return hardcoded || {
+          name: f.name.replace(/^\d+_/, '').replace(/\.js$/, '').replace(/[_-]/g, ' ')
+                       .replace(/\b\w/g, function(c) { return c.toUpperCase(); }),
+          file: f.name, desc: '', sound: '',
+        };
+      });
+  }).catch(function() { return ALL_MODES; });
+}
+
+function loadUserModes() {
+  var GITHUB_REPO = 'thawney/shimmer';
+  return fetch(
+    'https://api.github.com/repos/' + GITHUB_REPO + '/contents/user-modes',
+    { headers: { Accept: 'application/vnd.github.v3+json' } }
+  ).then(function(res) {
+    return res.ok ? res.json() : [];
+  }).then(function(files) {
+    return Array.isArray(files)
+      ? files
+          .filter(function(f) { return f.type === 'file' && f.name.endsWith('.js'); })
+          .map(function(f) {
+            return {
+              name: f.name.replace(/\.js$/, '').replace(/[_-]/g, ' ')
+                          .replace(/\b\w/g, function(c) { return c.toUpperCase(); }),
+              file: f.name, desc: '', sound: '',
+            };
+          })
+      : [];
+  }).catch(function() { return []; });
+}
 
 var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
@@ -550,62 +598,112 @@ var editor = CodeMirror(document.getElementById('editor-container'), {
   autofocus:      false,
 });
 
-// ── Populate UI dropdowns ──────────────────────────────────────────────────────
+// ── Script search (mirrors app.js) ─────────────────────────────────────────────
 
-var selModeEl = document.getElementById('sim-mode-select');
-
-function buildModeDropdown(userModes) {
-  // Built-in modes
-  var builtinGroup = document.createElement('optgroup');
-  builtinGroup.label = 'Built-in';
-  ALL_MODES.forEach(function(m) {
-    var opt = document.createElement('option');
-    opt.value = 'modes/' + m.file;
-    opt.textContent = m.name;
-    builtinGroup.appendChild(opt);
+function buildSimScriptIndex() {
+  var thawney = _thawneyModes.map(function(m) {
+    return { name: m.name, file: 'modes/' + m.file, desc: m.desc || '', sound: m.sound || '', community: false };
   });
-  selModeEl.appendChild(builtinGroup);
-
-  // Community/user modes (if any discovered from GitHub)
-  if (userModes && userModes.length) {
-    var userGroup = document.createElement('optgroup');
-    userGroup.label = '⚠ Community (not by Thawney — use at own risk)';
-    userModes.forEach(function(m) {
-      var opt = document.createElement('option');
-      opt.value = 'user-modes/' + m.file;
-      opt.textContent = m.name + (m.author ? ' — ' + m.author : '');
-      userGroup.appendChild(opt);
-    });
-    selModeEl.appendChild(userGroup);
-  }
+  var community = _userModes.map(function(m) {
+    return { name: m.name, file: 'user-modes/' + m.file, desc: '', sound: '', community: true };
+  });
+  return thawney.concat(community);
 }
 
-// Discover user modes from GitHub API (same as app.js), then build dropdown.
-// Silently skips if network is unavailable.
-(function() {
-  var GITHUB_REPO = 'thawney/shimmer';
-  fetch(
-    'https://api.github.com/repos/' + GITHUB_REPO + '/contents/user-modes',
-    { headers: { Accept: 'application/vnd.github.v3+json' } }
-  ).then(function(res) {
-    return res.ok ? res.json() : [];
-  }).then(function(files) {
-    var userModes = Array.isArray(files)
-      ? files
-          .filter(function(f) { return f.type === 'file' && f.name.endsWith('.js'); })
-          .map(function(f) {
-            return {
-              name: f.name.replace(/\.js$/, '').replace(/[_-]/g, ' ')
-                          .replace(/\b\w/g, function(c) { return c.toUpperCase(); }),
-              file: f.name,
-            };
-          })
-      : [];
-    buildModeDropdown(userModes);
-  }).catch(function() {
-    buildModeDropdown([]);
+function filterSimScripts(query) {
+  var index = buildSimScriptIndex();
+  if (!query.trim()) return index;
+  var q = query.toLowerCase();
+  return index.filter(function(m) {
+    return m.name.toLowerCase().indexOf(q) !== -1 ||
+           m.desc.toLowerCase().indexOf(q) !== -1 ||
+           m.sound.toLowerCase().indexOf(q) !== -1;
   });
-}());
+}
+
+function renderSimSearchResults(results) {
+  var ul = document.getElementById('sim-script-results');
+  if (!ul) return;
+  ul.innerHTML = '';
+  if (!results.length) {
+    ul.innerHTML = '<li class="script-result-empty">no scripts found</li>';
+    ul.classList.add('open');
+    return;
+  }
+  results.forEach(function(m) {
+    var li = document.createElement('li');
+    li.className = 'script-result' + (m.community ? ' script-result--community' : '');
+    li.innerHTML =
+      '<span class="script-result-name">' + m.name + '</span>' +
+      (m.community ? '<span class="script-result-badge">community</span>' : '') +
+      (m.desc  ? '<span class="script-result-desc">'  + m.desc  + '</span>' : '') +
+      (m.sound ? '<span class="script-result-sound">' + m.sound + '</span>' : '');
+    li.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      var input = document.getElementById('sim-script-search');
+      if (input) input.value = '';
+      hideSimSearchResults();
+      fetch(m.file).then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.text();
+      }).then(function(code) {
+        editor.setValue(code);
+        runCurrentScript();
+      }).catch(function() {
+        setStatus('Script loading needs a web server — run: python3 -m http.server', 'error');
+      });
+    });
+    ul.appendChild(li);
+  });
+  ul.classList.add('open');
+}
+
+function hideSimSearchResults() {
+  var ul = document.getElementById('sim-script-results');
+  if (ul) ul.classList.remove('open');
+}
+
+function initSimSearch() {
+  var input = document.getElementById('sim-script-search');
+  if (!input) return;
+  input.addEventListener('focus', function() {
+    renderSimSearchResults(filterSimScripts(input.value));
+  });
+  input.addEventListener('input', function() {
+    renderSimSearchResults(filterSimScripts(input.value));
+  });
+  input.addEventListener('blur', function() {
+    setTimeout(hideSimSearchResults, 150);
+  });
+  input.addEventListener('keydown', function(e) {
+    var ul = document.getElementById('sim-script-results');
+    if (!ul) return;
+    var items = ul.querySelectorAll('.script-result');
+    var active = ul.querySelector('.script-result--active');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      var next = active ? active.nextElementSibling : items[0];
+      if (active) active.classList.remove('script-result--active');
+      if (next && next.classList.contains('script-result')) next.classList.add('script-result--active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      var prev = active ? active.previousElementSibling : null;
+      if (active) active.classList.remove('script-result--active');
+      if (prev && prev.classList.contains('script-result')) prev.classList.add('script-result--active');
+    } else if (e.key === 'Enter') {
+      if (active) { active.dispatchEvent(new MouseEvent('mousedown')); input.blur(); }
+    } else if (e.key === 'Escape') {
+      input.blur();
+    }
+  });
+}
+
+// Boot — discover Thawney + community scripts in parallel, then wire up search
+Promise.all([loadThawneyModes(), loadUserModes()]).then(function(results) {
+  _thawneyModes = results[0];
+  _userModes    = results[1];
+  initSimSearch();
+});
 
 var selRootEl = document.getElementById('sim-root');
 NOTE_NAMES.forEach(function(name, i) {
@@ -624,22 +722,6 @@ for (var ch = 0; ch < 16; ch++) {
 }
 
 // ── UI event wiring ────────────────────────────────────────────────────────────
-
-selModeEl.addEventListener('change', function() {
-  var file = selModeEl.value;
-  if (!file) return;
-
-  fetch(file).then(function(res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.text();
-  }).then(function(code) {
-    editor.setValue(code);
-    runCurrentScript();
-  }).catch(function() {
-    setStatus('Script loading needs a web server — run: python3 -m http.server', 'error');
-    selModeEl.value = '';
-  });
-});
 
 document.getElementById('btn-run').addEventListener('click', runCurrentScript);
 

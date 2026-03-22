@@ -2,27 +2,29 @@
 
 // ---------------------------------------------------------------------------
 // Built-in mode library (all scripts available for loading into any slot)
+// desc/sound are used for the picker preview; auto-detection from GitHub may
+// add new entries not yet listed here (they will appear without desc/sound).
 // ---------------------------------------------------------------------------
 const ALL_MODES = [
-  { name: 'Rain',      file: '00_rain.js'     },
-  { name: 'Euclid',    file: '01_euclid.js'   },
-  { name: 'Breath',    file: '02_breath.js'   },
-  { name: 'Stasis',    file: '03_stasis.js'   },
-  { name: 'Drift',     file: '04_drift.js'    },
-  { name: 'Spark',     file: '05_spark.js'    },
-  { name: 'Cascade',   file: '06_cascade.js'  },
-  { name: 'Shift',     file: '07_shift.js'    },
-  { name: 'Cells',     file: '08_cells.js'    },
-  { name: 'Loop',      file: '09_loop.js'     },
-  { name: 'Weave',     file: '10_weave.js'    },
-  { name: 'Flock',     file: '11_flock.js'    },
-  { name: 'Scatter',   file: '12_scatter.js'  },
-  { name: 'Walk',      file: '13_walk.js'     },
-  { name: 'Pulse',     file: '14_pulse.js'    },
-  { name: 'Suspend',   file: '15_suspend.js'  },
-  { name: 'Lean',      file: '16_lean.js'     },
-  { name: 'Haze',      file: '17_haze.js'     },
-  { name: 'MIDI Keys', file: '18_midi_keys.js' },
+  { name: 'Rain',      file: '00_rain.js',      desc: 'Drops fall from top to bottom. Tilt the device to add wind — each drop drifts sideways as it falls and the note it plays depends on where it lands. MIDI IN notes spawn targeted drops at the pitch column.', sound: 'Kalimba / Bell' },
+  { name: 'Euclid',    file: '01_euclid.js',    desc: 'Euclidean rhythm walks a scale. Density controls how many of 12 steps trigger notes. Tilt left/right biases melodic direction.', sound: 'Marimba / Mallet' },
+  { name: 'Breath',    file: '02_breath.js',    desc: 'Sustained drone voices swell slowly. Density selects chord voicing: minor/major/fifth/sus.', sound: 'Pad / String' },
+  { name: 'Stasis',    file: '03_stasis.js',    desc: 'Sustained chords hang and slowly voice-lead. Density controls spread and voice count.', sound: 'Organ / Deep Pad' },
+  { name: 'Drift',     file: '04_drift.js',     desc: '2–3 voices float on a 2D random walk. A note fires when a voice drifts ≥2 columns.', sound: 'Rhodes / Electric Piano' },
+  { name: 'Spark',     file: '05_spark.js',     desc: 'Particles bounce off walls. Left/right bounces fire notes pitched from vertical position.', sound: 'Plucked String / Pizzicato' },
+  { name: 'Cascade',   file: '06_cascade.js',   desc: 'Ripples spawn at random columns and expand outward across all rows. Origin fires a note. Tilt left/right drifts spawn zone over ~10s. Shake for a burst.', sound: 'Vibraphone / Glass' },
+  { name: 'Shift',     file: '07_shift.js',     desc: 'Shift register (width = grid columns). MSB fires a note; density controls lock (high=stable, low=chaotic).', sound: 'Lead Synth / Pulse Wave' },
+  { name: 'Cells',     file: '08_cells.js',     desc: 'Rule 30 cellular automaton. New live cells fire notes. History scrolls as rows.', sound: 'Pluck / Clavinet' },
+  { name: 'Loop',      file: '09_loop.js',      desc: 'A melodic phrase loops and slowly drifts. Density controls length (4–16 steps).', sound: 'Arp / Sequencer' },
+  { name: 'Weave',     file: '10_weave.js',     desc: 'Polyrhythmic row pulses — 12 rows with prime-ratio beat clocks. Cursor sweeps each row.', sound: 'Bell / Celeste' },
+  { name: 'Flock',     file: '11_flock.js',     desc: '1D boids flock and cluster. Dense clusters fire stacked chords on a tempo grid.', sound: 'Choir / Ensemble' },
+  { name: 'Scatter',   file: '12_scatter.js',   desc: 'Random note bursts scatter across the grid every beat. Density controls burst size.', sound: 'Harp / Pizzicato' },
+  { name: 'Walk',      file: '13_walk.js',       desc: 'Random melodic walk. Density controls leap size. Full column glows; dim cursor dot between steps.', sound: 'Flute / Solo Wind' },
+  { name: 'Pulse',     file: '14_pulse.js',     desc: 'Sparse stochastic pulses bloom as cross-shaped splashes. Very ambient and minimal.', sound: 'Pad / Ambient Texture' },
+  { name: 'Suspend',   file: '15_suspend.js',   desc: 'Harold Budd-style: 2–3 sustained voices slowly voice-lead. Each voice has its own hue.', sound: 'Piano / Rhodes' },
+  { name: 'Lean',      file: '16_lean.js',      desc: 'A point of light rests at the low corner of your tilt — left/right sets the note, up/down sets the velocity. Each beat it rings once from wherever it has settled.', sound: 'Bell / Marimba' },
+  { name: 'Haze',      file: '17_haze.js',      desc: 'A soft haze pools at the low edge, breathing slowly in and out.', sound: 'Pad / Choir' },
+  { name: 'MIDI Keys', file: '18_midi_keys.js', desc: 'Visual MIDI monitor. Each column is one chromatic semitone (C to B).', sound: 'None — visual only' },
 ];
 
 // Default scripts for the 4 slots (matches data/scripts/ initial LittleFS image)
@@ -161,9 +163,36 @@ function parseScriptMeta(code) {
   };
 }
 
-// User-mode entries discovered dynamically from GitHub API at boot
+// Mode entries discovered dynamically from GitHub API at boot.
+// _thawneyModes falls back to ALL_MODES if the fetch fails (e.g. offline).
 const GITHUB_REPO = 'thawney/shimmer';
+let _thawneyModes = ALL_MODES;
 let _userModes = [];
+
+async function loadThawneyModes() {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/modes`,
+      { headers: { Accept: 'application/vnd.github.v3+json' } }
+    );
+    if (!res.ok) return ALL_MODES;
+    const files = await res.json();
+    const numbered = files
+      .filter(f => f.type === 'file' && /^\d{2}_/.test(f.name) && f.name.endsWith('.js'))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return numbered.map(f => {
+      // Prefer the hardcoded entry (which has desc/sound); fall back to name from filename
+      const hardcoded = ALL_MODES.find(m => m.file === f.name);
+      return hardcoded ?? {
+        name: f.name.replace(/^\d+_/, '').replace(/\.js$/, '').replace(/[_-]/g, ' ')
+                     .replace(/\b\w/g, c => c.toUpperCase()),
+        file: f.name,
+        desc: '',
+        sound: '',
+      };
+    });
+  } catch { return ALL_MODES; }
+}
 
 // ---------------------------------------------------------------------------
 // State
@@ -306,12 +335,6 @@ function buildSlotCards() {
     card.className = 'slot-card';
     card.dataset.slot = i;
 
-    const userOptgroup = _userModes.length
-      ? `<optgroup label="⚠ Community (not by Thawney — use at own risk)">
-          ${_userModes.map(m => `<option value="user-modes/${m.file}">${m.name}${m.author ? ' — ' + m.author : ''}</option>`).join('')}
-         </optgroup>`
-      : '';
-
     card.innerHTML = `
       <div class="slot-header">
         <span class="slot-num">Slot ${i}</span>
@@ -320,13 +343,11 @@ function buildSlotCards() {
       </div>
       <p class="slot-desc" id="slot-desc-${i}">${slots[i].desc}</p>
       <div class="slot-picker">
-        <select id="slot-picker-${i}">
-          <option value="">— load a script —</option>
-          <optgroup label="Built-in (by Thawney)">
-            ${ALL_MODES.map(m => `<option value="modes/${m.file}">${m.name}</option>`).join('')}
-          </optgroup>
-          ${userOptgroup}
-        </select>
+        <div class="script-search-wrap">
+          <input type="text" class="script-search" id="slot-search-${i}"
+            placeholder="search scripts…" autocomplete="off" spellcheck="false">
+          <ul class="script-results" id="slot-results-${i}"></ul>
+        </div>
         <label class="file-label">browse… <input type="file" accept=".js" id="slot-file-${i}"></label>
       </div>
       <textarea class="slot-code" id="slot-code-${i}" spellcheck="false" autocomplete="off"
@@ -340,12 +361,8 @@ function buildSlotCards() {
 
     slotCardsEl.appendChild(card);
 
-    // Example picker
-    document.getElementById(`slot-picker-${i}`).addEventListener('change', async e => {
-      const file = e.target.value;
-      if (!file) return;
-      await loadScriptIntoSlot(i, file);
-    });
+    // Script search
+    initSearchForSlot(i);
 
     // File browser
     document.getElementById(`slot-file-${i}`).addEventListener('change', e => {
@@ -394,6 +411,103 @@ async function loadScriptIntoSlot(slotIdx, filePath) {
       ? 'Serve via HTTP to load examples (python3 -m http.server).'
       : 'Could not load: ' + err.message;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Script search — builds the full index and wires up the search UI per slot
+// ---------------------------------------------------------------------------
+function buildScriptIndex() {
+  const thawney = _thawneyModes.map(m => ({
+    name: m.name, file: `modes/${m.file}`,
+    desc: m.desc || '', sound: m.sound || '', community: false,
+  }));
+  const community = _userModes.map(m => ({
+    name: m.name, file: `user-modes/${m.file}`,
+    desc: '', sound: '', community: true,
+  }));
+  return [...thawney, ...community];
+}
+
+function filterScripts(query) {
+  const index = buildScriptIndex();
+  if (!query.trim()) return index;
+  const q = query.toLowerCase();
+  return index.filter(m =>
+    m.name.toLowerCase().includes(q) ||
+    m.desc.toLowerCase().includes(q) ||
+    m.sound.toLowerCase().includes(q)
+  );
+}
+
+function renderSearchResults(slotIdx, results) {
+  const ul = document.getElementById(`slot-results-${slotIdx}`);
+  if (!ul) return;
+  ul.innerHTML = '';
+  if (!results.length) {
+    ul.innerHTML = '<li class="script-result-empty">no scripts found</li>';
+    ul.classList.add('open');
+    return;
+  }
+  results.forEach(m => {
+    const li = document.createElement('li');
+    li.className = 'script-result' + (m.community ? ' script-result--community' : '');
+    li.innerHTML =
+      `<span class="script-result-name">${m.name}</span>` +
+      (m.community ? `<span class="script-result-badge">community</span>` : '') +
+      (m.desc  ? `<span class="script-result-desc">${m.desc}</span>` : '') +
+      (m.sound ? `<span class="script-result-sound">${m.sound}</span>` : '');
+    li.addEventListener('mousedown', async e => {
+      e.preventDefault(); // keep focus so blur doesn't fire first
+      const input = document.getElementById(`slot-search-${slotIdx}`);
+      if (input) input.value = '';
+      hideSearchResults(slotIdx);
+      await loadScriptIntoSlot(slotIdx, m.file);
+    });
+    ul.appendChild(li);
+  });
+  ul.classList.add('open');
+}
+
+function hideSearchResults(slotIdx) {
+  const ul = document.getElementById(`slot-results-${slotIdx}`);
+  if (ul) ul.classList.remove('open');
+}
+
+function initSearchForSlot(slotIdx) {
+  const input = document.getElementById(`slot-search-${slotIdx}`);
+  if (!input) return;
+
+  input.addEventListener('focus', () => {
+    renderSearchResults(slotIdx, filterScripts(input.value));
+  });
+  input.addEventListener('input', () => {
+    renderSearchResults(slotIdx, filterScripts(input.value));
+  });
+  input.addEventListener('blur', () => {
+    // small delay so mousedown on a result fires first
+    setTimeout(() => hideSearchResults(slotIdx), 150);
+  });
+  input.addEventListener('keydown', e => {
+    const ul = document.getElementById(`slot-results-${slotIdx}`);
+    if (!ul) return;
+    const items = ul.querySelectorAll('.script-result');
+    const active = ul.querySelector('.script-result--active');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = active ? active.nextElementSibling : items[0];
+      if (active) active.classList.remove('script-result--active');
+      if (next && next.classList.contains('script-result')) next.classList.add('script-result--active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = active ? active.previousElementSibling : null;
+      if (active) active.classList.remove('script-result--active');
+      if (prev && prev.classList.contains('script-result')) prev.classList.add('script-result--active');
+    } else if (e.key === 'Enter') {
+      if (active) { active.dispatchEvent(new MouseEvent('mousedown')); input.blur(); }
+    } else if (e.key === 'Escape') {
+      input.blur();
+    }
+  });
 }
 
 function setSlotCode(slotIdx, code) {
@@ -1369,7 +1483,7 @@ function initFirmwareTab() {
 }
 
 // ---------------------------------------------------------------------------
-// Boot — discover user-modes from GitHub API then build UI
+// Boot — discover built-in and community scripts from GitHub, then build UI
 // ---------------------------------------------------------------------------
 async function loadUserModes() {
   try {
@@ -1389,8 +1503,9 @@ async function loadUserModes() {
   } catch { return []; }
 }
 
-loadUserModes().then(list => {
-  _userModes = list;
+Promise.all([loadThawneyModes(), loadUserModes()]).then(([thawneyList, userList]) => {
+  _thawneyModes = thawneyList;
+  _userModes = userList;
   buildRootSelect();
   buildSlotCards();
   buildModePills();
