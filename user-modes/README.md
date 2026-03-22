@@ -70,7 +70,7 @@ function update(m) {
 | `m.density` | 0..255 | Per-slot density knob value |
 | `m.brightness` | 0..255 | Per-slot brightness value |
 | `m.rootNote` | 0..127 | Current root note used by scale-degree output |
-| `m.scale` | 0..4 | Current scale id: 0=Major 1=Minor 2=Dorian 3=Pentatonic 4=Chromatic |
+| `m.scale` | 0..9 | Current scale id: 0=Major 1=Minor 2=Dorian 3=Pentatonic 4=Chromatic 5=Mixolydian 6=Lydian 7=Phrygian 8=Harmonic Minor 9=Whole Tone |
 | `m.COLS` | 12 | Grid width |
 | `m.ROWS` | 12 | Grid height |
 | `m.accelX` | −128..127 | Tilt forward/back — **positive = top edge tilted down** |

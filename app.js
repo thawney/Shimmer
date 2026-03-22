@@ -12,7 +12,18 @@ const DEFAULT_FILES = [
 const NUM_SLOTS      = 4;    // UI-visible slots
 const NUM_MODES_TOTAL = 16;  // firmware struct size (always 16)
 
-const SCALE_NAMES = ['Major', 'Minor', 'Dorian', 'Pentatonic', 'Chromatic'];
+const SCALE_NAMES = [
+  'Major',
+  'Minor',
+  'Dorian',
+  'Pentatonic',
+  'Chromatic',
+  'Mixolydian',
+  'Lydian',
+  'Phrygian',
+  'Harmonic Minor',
+  'Whole Tone',
+];
 const NOTE_NAMES  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
 // SysEx constants

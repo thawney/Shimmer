@@ -15,11 +15,16 @@ var qzColOut = [0,0,0,0,0,0,0,0,0,0,0,0];
 var qzHeldInToOut = [];
 var qzOutRef      = [];
 var QZ_MASKS      = [
-  0xAD5, // major
-  0xB5A, // minor
-  0xB56, // dorian
-  0x8A5, // pentatonic
-  0xFFF  // chromatic
+  0xAB5, // major
+  0x5AD, // minor
+  0x6AD, // dorian
+  0x295, // pentatonic
+  0xFFF, // chromatic
+  0x6B5, // mixolydian
+  0xAD5, // lydian
+  0x5AB, // phrygian
+  0x9AD, // harmonic minor
+  0x555  // whole tone
 ];
 
 function qzMaskFor(scaleId) {

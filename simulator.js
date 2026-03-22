@@ -71,11 +71,16 @@ var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 // Scale interval bitmasks — bit N = semitone N is in scale, bit 0 = root.
 // Matches MidiEngine::SCALES[] in firmware exactly.
 var SCALES = [
-  0b101011010101, // 0 Major
-  0b101101011010, // 1 Minor
-  0b101101010110, // 2 Dorian
-  0b100010100101, // 3 Pentatonic (major)
+  0b101010110101, // 0 Major
+  0b010110101101, // 1 Minor
+  0b011010101101, // 2 Dorian
+  0b001010010101, // 3 Pentatonic (major)
   0b111111111111, // 4 Chromatic
+  0b011010110101, // 5 Mixolydian
+  0b101011010101, // 6 Lydian
+  0b010110101011, // 7 Phrygian
+  0b100110101101, // 8 Harmonic Minor
+  0b010101010101, // 9 Whole Tone
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -223,12 +228,137 @@ if (window.ResizeObserver) {
 // ── MIDI IN state (written by WebMIDI input handler, consumed per tick) ────────
 
 var _midiIn = { type: 0, channel: 0, byte1: 255, byte2: 0, bend: 0 };
+var MIDI_CLOCK = 0xF8;
+var MIDI_START = 0xFA;
+var MIDI_CONTINUE = 0xFB;
+var MIDI_STOP = 0xFC;
+var MIDI_CLOCK_TIMEOUT_MS = 750;
+
+var _clockIn = {
+  beatMs: 0,
+  pulseMs: 0,
+  lastClockAt: 0,
+  lastRealtimeAt: 0,
+  running: false,
+};
+
+var _clockOutTimer = null;
+var _clockOutNextAt = 0;
+var _clockOutStarted = false;
+
+function midiInputMatchesSelection(input) {
+  var selectedId = selMidiInEl ? selMidiInEl.value : '';
+  return !selectedId || (input && input.id === selectedId);
+}
+
+function externalClockActive(now) {
+  if (!now) now = performance.now();
+  return _clockIn.lastRealtimeAt > 0 && (now - _clockIn.lastRealtimeAt) <= MIDI_CLOCK_TIMEOUT_MS && _clockIn.beatMs > 0;
+}
+
+function effectiveBeatMs(now) {
+  if (externalClockActive(now)) return _clockIn.beatMs;
+  return 60000 / Math.max(1, settings.tempo);
+}
+
+function resetClockIn() {
+  _clockIn.beatMs = 0;
+  _clockIn.pulseMs = 0;
+  _clockIn.lastClockAt = 0;
+  _clockIn.lastRealtimeAt = 0;
+  _clockIn.running = false;
+}
+
+function sendRealtime(status) {
+  if (midiOut) midiOut.send([status & 0xFF]);
+}
+
+function stopClockOut(sendStop) {
+  if (_clockOutTimer !== null) {
+    clearTimeout(_clockOutTimer);
+    _clockOutTimer = null;
+  }
+  _clockOutNextAt = 0;
+  if (sendStop && _clockOutStarted && midiOut) sendRealtime(MIDI_STOP);
+  _clockOutStarted = false;
+}
+
+function scheduleClockOut(resetPhase) {
+  if (_clockOutTimer !== null) {
+    clearTimeout(_clockOutTimer);
+    _clockOutTimer = null;
+  }
+  if (!_handlers || !midiOut || externalClockActive()) {
+    _clockOutNextAt = 0;
+    return;
+  }
+
+  var intervalMs = (60000 / Math.max(1, settings.tempo)) / 24;
+  if (resetPhase || !_clockOutNextAt) _clockOutNextAt = performance.now();
+
+  function tickClockOut() {
+    if (!_handlers || !midiOut) {
+      stopClockOut(false);
+      return;
+    }
+    if (externalClockActive()) {
+      _clockOutTimer = setTimeout(tickClockOut, 50);
+      return;
+    }
+
+    var now = performance.now();
+    var pulseInterval = (60000 / Math.max(1, settings.tempo)) / 24;
+    if (!_clockOutStarted) {
+      sendRealtime(MIDI_START);
+      _clockOutStarted = true;
+    }
+    if (!_clockOutNextAt || _clockOutNextAt < now - pulseInterval * 4) _clockOutNextAt = now;
+    while (_clockOutNextAt <= now + 0.5) {
+      sendRealtime(MIDI_CLOCK);
+      _clockOutNextAt += pulseInterval;
+    }
+    _clockOutTimer = setTimeout(tickClockOut, Math.max(1, _clockOutNextAt - performance.now()));
+  }
+
+  _clockOutTimer = setTimeout(tickClockOut, Math.max(1, intervalMs));
+}
+
+function handleRealtime(status, now) {
+  if (!now) now = performance.now();
+  if (status === MIDI_CLOCK) {
+    if (_clockIn.lastClockAt > 0) {
+      var delta = now - _clockIn.lastClockAt;
+      if (delta > 0 && delta < 250) {
+        _clockIn.pulseMs = _clockIn.pulseMs > 0 ? (_clockIn.pulseMs * 0.8) + (delta * 0.2) : delta;
+        _clockIn.beatMs = _clockIn.pulseMs * 24;
+      }
+    }
+    _clockIn.lastClockAt = now;
+    _clockIn.lastRealtimeAt = now;
+    return;
+  }
+  if (status === MIDI_START || status === MIDI_CONTINUE) {
+    _clockIn.running = true;
+    _clockIn.lastRealtimeAt = now;
+    return;
+  }
+  if (status === MIDI_STOP) {
+    _clockIn.running = false;
+    _clockIn.lastRealtimeAt = now;
+  }
+}
 
 function _attachMidiInputs(access) {
   access.inputs.forEach(function(input) {
     input.onmidimessage = function(ev) {
       var d = ev.data;
-      if (!d || d.length < 3) return;
+      if (!midiInputMatchesSelection(input) || !d || d.length < 1) return;
+      var now = (typeof ev.timeStamp === 'number' && ev.timeStamp > 0) ? ev.timeStamp : performance.now();
+      if (d[0] >= 0xF8) {
+        handleRealtime(d[0], now);
+        return;
+      }
+      if (d.length < 3) return;
       var type = d[0] >> 4;
       var ch   = (d[0] & 0x0F) + 1;
       if (type === 0x9 && d[2] > 0) {
@@ -248,12 +378,13 @@ function _attachMidiInputs(access) {
 // ── Shared state ───────────────────────────────────────────────────────────────
 
 var settings = {
-  scale:       3,   // 0=Major 1=Minor 2=Dorian 3=Pentatonic 4=Chromatic
+  scale:       3,   // 0=Major 1=Minor 2=Dorian 3=Pentatonic 4=Chromatic 5=Mixolydian 6=Lydian 7=Phrygian 8=HarmonicMinor 9=WholeTone
   rootNote:    0,   // 0-11 pitch class (C=0)
   tempo:       120, // BPM
   brightness:  200, // 0-255
   density:     128, // 0-255 (the per-script "amount" parameter)
   midiChannel: 0,   // 0-based, 0=ch1
+  midiInChannel: 0, // 0-based, 0=ch1
 };
 
 // Script @hue / @sat — updated on each script load
@@ -330,7 +461,7 @@ function makeM() {
     get COLS()       { return COLS; },
     get ROWS()       { return ROWS; },
     get dt()         { return _dt; },
-    get beatMs()     { return 60000 / settings.tempo; },
+    get beatMs()     { return effectiveBeatMs(); },
     get density()    { return settings.density; },
     get brightness() { return settings.brightness; },
     get rootNote()   { return settings.rootNote; },
@@ -464,6 +595,7 @@ function startLoop(m, handlers) {
   _handlers = handlers;
   _lastTs   = null;
   setStatus('Running', 'running');
+  scheduleClockOut(true);
   _rafId = requestAnimationFrame(_tick);
 }
 
@@ -481,6 +613,7 @@ function stopLoop(clearGrid) {
     try { handlers.deactivate(m); } catch (e) {}
   }
   if (m) try { m.allOff(); } catch (e) {}
+  stopClockOut(true);
 
   if (clearGrid) { clearPixelBuf(); drawGrid(); }
 }
@@ -488,15 +621,23 @@ function stopLoop(clearGrid) {
 function _tick(ts) {
   if (_lastTs !== null) _dt = ts - _lastTs;
   _lastTs = ts;
+  if (!externalClockActive(ts)) {
+    _clockIn.beatMs = 0;
+    _clockIn.pulseMs = 0;
+    _clockIn.lastClockAt = 0;
+    if (_handlers && !_clockOutTimer && midiOut) scheduleClockOut(true);
+  }
 
   // Push MIDI IN state into the running script's m object, then consume.
-  _curM.midiType  = _midiIn.type;
-  _curM.midiChannel = _midiIn.type ? _midiIn.channel : 0;
-  _curM.midiNote  = _midiIn.byte1;
-  _curM.midiVel   = _midiIn.byte2;
-  _curM.midiCC    = _midiIn.byte1;
-  _curM.midiCCVal = _midiIn.byte2;
-  _curM.midiBend = _midiIn.bend;
+  var configuredInCh = (settings.midiInChannel & 0x0F) + 1;
+  var midiMatches = _midiIn.type !== 0 && _midiIn.channel === configuredInCh;
+  _curM.midiType = midiMatches ? _midiIn.type : 0;
+  _curM.midiChannel = midiMatches ? _midiIn.channel : 0;
+  _curM.midiNote = midiMatches ? _midiIn.byte1 : 255;
+  _curM.midiVel = midiMatches ? _midiIn.byte2 : 0;
+  _curM.midiCC = midiMatches ? _midiIn.byte1 : 255;
+  _curM.midiCCVal = midiMatches ? _midiIn.byte2 : 0;
+  _curM.midiBend = midiMatches ? _midiIn.bend : 0;
   _midiIn.type = 0;
   _midiIn.channel = 0;
   _midiIn.byte1 = 255;
@@ -570,11 +711,13 @@ function runCurrentScript() {
 
 // ── WebMIDI ────────────────────────────────────────────────────────────────────
 
+var selMidiInEl = document.getElementById('sim-midi-in-port');
 var selMidiEl   = document.getElementById('sim-midi-port');
 var _midiAccess = null;
 
 function initMidi() {
   if (!navigator.requestMIDIAccess) {
+    selMidiInEl.innerHTML = '<option value="">WebMIDI not supported in this browser</option>';
     selMidiEl.innerHTML = '<option value="">WebMIDI not supported in this browser</option>';
     return;
   }
@@ -587,19 +730,31 @@ function initMidi() {
       _attachMidiInputs(access);
     };
   }).catch(function() {
+    selMidiInEl.innerHTML = '<option value="">MIDI access denied</option>';
     selMidiEl.innerHTML = '<option value="">MIDI access denied</option>';
   });
 }
 
 function populateMidiPorts() {
+  var prevIn = selMidiInEl.value;
   var prev = selMidiEl.value;
+  selMidiInEl.innerHTML = '<option value="">-- any --</option>';
   selMidiEl.innerHTML = '<option value="">-- none (visual only) --</option>';
+  _midiAccess.inputs.forEach(function(port, id) {
+    var optIn = document.createElement('option');
+    optIn.value = id;
+    optIn.textContent = port.name;
+    selMidiInEl.appendChild(optIn);
+  });
   _midiAccess.outputs.forEach(function(port, id) {
     var opt = document.createElement('option');
     opt.value = id;
     opt.textContent = port.name;
     selMidiEl.appendChild(opt);
   });
+  if (prevIn && selMidiInEl.querySelector('option[value="' + prevIn + '"]')) {
+    selMidiInEl.value = prevIn;
+  }
   if (prev && selMidiEl.querySelector('option[value="' + prev + '"]')) {
     selMidiEl.value = prev;
   }
@@ -609,9 +764,15 @@ function populateMidiPorts() {
 function updateMidiOut() {
   var id = selMidiEl.value;
   midiOut = (id && _midiAccess) ? (_midiAccess.outputs.get(id) || null) : null;
+  stopClockOut(false);
+  if (_handlers) scheduleClockOut(true);
 }
 
 selMidiEl.addEventListener('change', updateMidiOut);
+selMidiInEl.addEventListener('change', function() {
+  resetClockIn();
+  if (_handlers) scheduleClockOut(true);
+});
 
 // ── CodeMirror 5 editor ────────────────────────────────────────────────────────
 
@@ -742,11 +903,16 @@ NOTE_NAMES.forEach(function(name, i) {
 });
 
 var selChanEl = document.getElementById('sim-channel');
+var selInChanEl = document.getElementById('sim-in-channel');
 for (var ch = 0; ch < 16; ch++) {
   var opt = document.createElement('option');
   opt.value = ch;
   opt.textContent = ch + 1;
   selChanEl.appendChild(opt);
+  var inOpt = document.createElement('option');
+  inOpt.value = ch;
+  inOpt.textContent = ch + 1;
+  selInChanEl.appendChild(inOpt);
 }
 
 // ── UI event wiring ────────────────────────────────────────────────────────────
@@ -764,6 +930,7 @@ function wireSlider(sliderId, outputId, key) {
   sl.addEventListener('input', function() {
     settings[key] = parseInt(sl.value, 10);
     out.textContent = sl.value;
+    if (key === 'tempo' && _handlers) scheduleClockOut(true);
   });
 }
 
@@ -779,6 +946,9 @@ selRootEl.addEventListener('change', function(e) {
 });
 selChanEl.addEventListener('change', function(e) {
   settings.midiChannel = parseInt(e.target.value, 10);
+});
+selInChanEl.addEventListener('change', function(e) {
+  settings.midiInChannel = parseInt(e.target.value, 10);
 });
 
 // ── Status display ─────────────────────────────────────────────────────────────

@@ -26,6 +26,10 @@
     </div>
     <div class="sim-header-right">
       <label class="port-label">
+        MIDI in
+        <select id="sim-midi-in-port"><option value="">-- any --</option></select>
+      </label>
+      <label class="port-label">
         MIDI out
         <select id="sim-midi-port"><option value="">-- none (visual only) --</option></select>
       </label>
@@ -74,6 +78,11 @@
         <option value="2">Dorian</option>
         <option value="3" selected>Pentatonic</option>
         <option value="4">Chromatic</option>
+        <option value="5">Mixolydian</option>
+        <option value="6">Lydian</option>
+        <option value="7">Phrygian</option>
+        <option value="8">Harmonic Minor</option>
+        <option value="9">Whole Tone</option>
       </select>
     </label>
     <label>Root
@@ -94,6 +103,9 @@
     </label>
     <label>MIDI Ch
       <select id="sim-channel"><!-- populated by JS --></select>
+    </label>
+    <label>MIDI In Ch
+      <select id="sim-in-channel"><!-- populated by JS --></select>
     </label>
     <label class="sim-toggle" for="sim-enable-3d">
       <input type="checkbox" id="sim-enable-3d">
