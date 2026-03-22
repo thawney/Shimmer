@@ -4,9 +4,7 @@
  * @hue 160
  * @sat 155
  * @param_label Drift Rate
- * @description A soft haze pools at the low edge, breathing slowly in and out.
- *              Lean to draw it across the grid. A chord falls on every beat from
- *              wherever it has settled.
+ * @description A soft haze pools at the low edge, breathing slowly in and out. Lean to draw it across the grid. A chord falls on every beat from wherever it has settled.
  * @sound Pad / Choir
  */
 

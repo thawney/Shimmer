@@ -4,8 +4,8 @@
  * @hue 180
  * @sat 200
  * @param_label Fire Probability
- * @description Sparse stochastic pulses bloom as cross-shaped splashes. Very ambient and minimal.
- *              MIDI IN notes trigger immediate splashes at the pitch-mapped column.
+ * @description Sparse stochastic pulses bloom as cross-shaped splashes. Very ambient and minimal. MIDI IN notes trigger immediate splashes at the pitch-mapped column.
+ * @midi_in true
  * @sound Pad / Ambient Texture
  */
 

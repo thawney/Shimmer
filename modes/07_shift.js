@@ -4,7 +4,7 @@
  * @hue 100
  * @sat 200
  * @param_label Lock Amount
- * @description Shift register (width = grid columns). MSB fires a note; density controls lock (high=stable, low=chaotic).
+ * @description A pulse loops through a feedback circuit. At full density the pattern locks into a repeating phrase; at low density it dissolves into chaos. The sweet spot — mid density — is a pattern that slowly mutates and never quite repeats.
  * @sound Lead Synth / Pulse Wave
  */
 

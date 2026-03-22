@@ -4,10 +4,8 @@
  * @hue 0
  * @sat 255
  * @param_label Fade Speed
- * @description Visual MIDI monitor. Each column is one chromatic semitone (C to B).
- *              Incoming notes light the column from the bottom; brightness = velocity.
- *              Hue sweeps chromatically — C is red, stepping around the wheel.
- *              Works with any MIDI keyboard or sequencer on the DIN IN jack.
+ * @description Visual MIDI monitor. Each column is one chromatic semitone (C to B). Incoming notes light the column from the bottom; brightness = velocity. Hue sweeps chromatically — C is red, stepping around the wheel. Works with any MIDI keyboard or sequencer on the DIN IN jack.
+ * @midi_in true
  * @sound None — visual only
  */
 

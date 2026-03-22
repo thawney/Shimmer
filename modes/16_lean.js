@@ -4,9 +4,7 @@
  * @hue 28
  * @sat 200
  * @param_label Tempo
- * @description A point of light rests at the low corner of your tilt — left/right
- *              sets the note, up/down sets the velocity. Each beat it rings once
- *              from wherever it has settled.
+ * @description A point of light rests at the low corner of your tilt — left/right sets the note, up/down sets the velocity. Each beat it rings once from wherever it has settled.
  * @sound Bell / Marimba
  */
 
