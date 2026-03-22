@@ -17,7 +17,7 @@ The web UI (this repo) lets you:
 - Upload custom scripts over SysEx
 - Flash firmware updates
 
-Physical MIDI in/out is available on the DIN connector. Incoming notes and CC messages are exposed to mode scripts via `m.midiNote`, `m.midiType`, etc. — see [`user-modes/README.md`](user-modes/README.md). MIDI output is sent simultaneously to both USB MIDI and the DIN connector.
+Physical MIDI in/out is available on the DIN connector. Incoming USB/DIN notes, CC, and pitch bend are exposed to mode scripts via `m.midiNote`, `m.midiType`, etc., and scripts can now emit absolute notes, CC, and pitch bend as well — see [`user-modes/README.md`](user-modes/README.md). MIDI output is sent simultaneously to both USB MIDI and the DIN connector.
 
 ## Adding your own scripts
 

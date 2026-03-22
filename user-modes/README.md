@@ -69,6 +69,8 @@ function update(m) {
 | `m.beatMs` | ms | Milliseconds per beat at current tempo |
 | `m.density` | 0..255 | Per-slot density knob value |
 | `m.brightness` | 0..255 | Per-slot brightness value |
+| `m.rootNote` | 0..127 | Current root note used by scale-degree output |
+| `m.scale` | 0..4 | Current scale id: 0=Major 1=Minor 2=Dorian 3=Pentatonic 4=Chromatic |
 | `m.COLS` | 12 | Grid width |
 | `m.ROWS` | 12 | Grid height |
 | `m.accelX` | −128..127 | Tilt forward/back — **positive = top edge tilted down** |
@@ -176,26 +178,34 @@ m.show()                         // push pixel buffer to LEDs — call once per 
 m.note(degree)                        // velocity 80, duration 1 beat
 m.note(degree, velocity)              // velocity 0..127
 m.note(degree, velocity, durationMs)
+m.noteMidi(note)                      // absolute MIDI note, velocity 80, duration 1 beat
+m.noteMidi(note, velocity)
+m.noteMidi(note, velocity, durationMs)
+m.noteOn(note, velocity)              // raw MIDI note-on, held until noteOff/allOff
+m.noteOff(note)                       // raw MIDI note-off
+m.cc(cc, value)                       // send CC on the current output channel
+m.pitchBend(value)                    // signed bend: -8192..8191
 m.allOff()                            // cancel all held notes
 ```
 
 `degree` maps through the active scale/root and wraps across octaves.
 Scale degrees 0–6 span one octave diatonically; 7–13 continue into the next.
+Use `m.noteMidi()` / `m.noteOn()` when a mode needs exact 0–127 MIDI pitch control.
 
----
+### MIDI In
 
-### Physical MIDI In
-
-Incoming DIN MIDI messages are available each frame via read-once properties.
+Incoming USB and DIN MIDI messages are available each frame via read-once properties.
 `midiType` resets to `0` after each frame — check it first before reading the other values.
 
 | Property | Type | Meaning |
 |---|---|---|
-| `m.midiType` | 0..3 | 0=none 1=noteOn 2=noteOff 3=CC |
+| `m.midiType` | 0..4 | 0=none 1=noteOn 2=noteOff 3=CC 4=pitchBend |
+| `m.midiChannel` | 0..16 | MIDI input channel, 1..16 when an event arrived |
 | `m.midiNote` | 0..127 or 255 | Note number (255 = no note event this frame) |
 | `m.midiVel` | 0..127 | Velocity (0 for noteOff) |
 | `m.midiCC` | 0..127 or 255 | CC number (255 = no CC event this frame) |
 | `m.midiCCVal` | 0..127 | CC value |
+| `m.midiBend` | -8192..8191 | Pitch bend amount (0 = centered) |
 
 **Pattern — react once per NoteOn:**
 ```js
@@ -209,7 +219,7 @@ function update(m) {
 ```
 
 In the simulator, all connected WebMIDI inputs are subscribed automatically.
-Send notes from any controller to test MIDI-in scripts without a physical device.
+Send notes, CC, or pitch bend from any controller to test MIDI-reactive scripts without a physical device.
 
 ### Timing and helpers
 

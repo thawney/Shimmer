@@ -222,7 +222,7 @@ if (window.ResizeObserver) {
 
 // ── MIDI IN state (written by WebMIDI input handler, consumed per tick) ────────
 
-var _midiIn = { type: 0, byte1: 255, byte2: 0 };
+var _midiIn = { type: 0, channel: 0, byte1: 255, byte2: 0, bend: 0 };
 
 function _attachMidiInputs(access) {
   access.inputs.forEach(function(input) {
@@ -230,12 +230,16 @@ function _attachMidiInputs(access) {
       var d = ev.data;
       if (!d || d.length < 3) return;
       var type = d[0] >> 4;
+      var ch   = (d[0] & 0x0F) + 1;
       if (type === 0x9 && d[2] > 0) {
-        _midiIn.type = 1; _midiIn.byte1 = d[1]; _midiIn.byte2 = d[2];
+        _midiIn.type = 1; _midiIn.channel = ch; _midiIn.byte1 = d[1]; _midiIn.byte2 = d[2]; _midiIn.bend = 0;
       } else if (type === 0x8 || (type === 0x9 && d[2] === 0)) {
-        _midiIn.type = 2; _midiIn.byte1 = d[1]; _midiIn.byte2 = 0;
+        _midiIn.type = 2; _midiIn.channel = ch; _midiIn.byte1 = d[1]; _midiIn.byte2 = 0; _midiIn.bend = 0;
       } else if (type === 0xB) {
-        _midiIn.type = 3; _midiIn.byte1 = d[1]; _midiIn.byte2 = d[2];
+        _midiIn.type = 3; _midiIn.channel = ch; _midiIn.byte1 = d[1]; _midiIn.byte2 = d[2]; _midiIn.bend = 0;
+      } else if (type === 0xE) {
+        _midiIn.type = 4; _midiIn.channel = ch; _midiIn.byte1 = 255; _midiIn.byte2 = 0;
+        _midiIn.bend = ((d[2] << 7) | d[1]) - 8192;
       }
     };
   });
@@ -314,6 +318,13 @@ function init3DSimulatorControls() {
 
 function makeM() {
   var ticks = {};
+  function sendRaw(status, d1, d2) {
+    if (!midiOut) return;
+    midiOut.send([status, d1 & 0x7F, d2 & 0x7F]);
+  }
+  function currentChannel() {
+    return settings.midiChannel & 0x0F;
+  }
 
   return {
     get COLS()       { return COLS; },
@@ -322,6 +333,8 @@ function makeM() {
     get beatMs()     { return 60000 / settings.tempo; },
     get density()    { return settings.density; },
     get brightness() { return settings.brightness; },
+    get rootNote()   { return settings.rootNote; },
+    get scale()      { return settings.scale; },
 
     // Sensor stubs — static defaults so sensor-aware scripts run without errors.
     // On real hardware these are updated every frame from the LIS3DH / AHT20.
@@ -332,13 +345,15 @@ function makeM() {
     temp:     22.0,
     humidity: 55.0,
 
-    // Physical MIDI IN — overwritten each tick from _midiIn before update() runs.
-    // type: 0=none 1=noteOn 2=noteOff 3=CC. Consumed (reset to 0) after each frame.
-    midiType:  0,
-    midiNote:  255,
-    midiVel:   0,
-    midiCC:    255,
-    midiCCVal: 0,
+    // MIDI IN — overwritten each tick from _midiIn before update() runs.
+    // type: 0=none 1=noteOn 2=noteOff 3=CC 4=pitchBend. Consumed after each frame.
+    midiType:    0,
+    midiChannel: 0,
+    midiNote:    255,
+    midiVel:     0,
+    midiCC:      255,
+    midiCCVal:   0,
+    midiBend:    0,
 
     // m.px(col, row, brightness)       — uses @hue/@sat defaults
     // m.px(col, row, hue, sat, val)    — explicit HSV
@@ -373,17 +388,42 @@ function makeM() {
       if (velocity  === undefined) velocity  = 80;
       if (durationMs == null)      durationMs = this.beatMs;
       var note = degreeToMidi(degree | 0, settings.rootNote, settings.scale);
-      var ch   = settings.midiChannel & 0x0F;
+      this.noteMidi(note, velocity, durationMs);
+    },
+
+    noteMidi: function(note, velocity, durationMs) {
+      if (velocity  === undefined) velocity  = 80;
+      if (durationMs == null)      durationMs = this.beatMs;
+      var ch   = currentChannel();
+      sendRaw(0x90 | ch, note | 0, velocity | 0);
       if (midiOut) {
-        midiOut.send([0x90 | ch, note, (velocity | 0) & 0x7F]);
         var out = midiOut;
-        setTimeout(function() { out.send([0x80 | ch, note, 0]); }, durationMs);
+        var offNote = note | 0;
+        setTimeout(function() { out.send([0x80 | ch, offNote & 0x7F, 0]); }, durationMs);
       }
     },
 
+    noteOn: function(note, velocity) {
+      if (velocity === undefined) velocity = 80;
+      sendRaw(0x90 | currentChannel(), note | 0, velocity | 0);
+    },
+
+    noteOff: function(note) {
+      sendRaw(0x80 | currentChannel(), note | 0, 0);
+    },
+
+    cc: function(cc, value) {
+      sendRaw(0xB0 | currentChannel(), cc | 0, value | 0);
+    },
+
+    pitchBend: function(value) {
+      value = Math.max(-8192, Math.min(8191, value | 0));
+      var bend14 = value + 8192;
+      sendRaw(0xE0 | currentChannel(), bend14 & 0x7F, (bend14 >> 7) & 0x7F);
+    },
+
     allOff: function() {
-      if (!midiOut) return;
-      midiOut.send([0xB0 | (settings.midiChannel & 0x0F), 123, 0]);
+      sendRaw(0xB0 | currentChannel(), 123, 0);
     },
 
     tick: function(id, intervalMs) {
@@ -451,11 +491,17 @@ function _tick(ts) {
 
   // Push MIDI IN state into the running script's m object, then consume.
   _curM.midiType  = _midiIn.type;
+  _curM.midiChannel = _midiIn.type ? _midiIn.channel : 0;
   _curM.midiNote  = _midiIn.byte1;
   _curM.midiVel   = _midiIn.byte2;
   _curM.midiCC    = _midiIn.byte1;
   _curM.midiCCVal = _midiIn.byte2;
+  _curM.midiBend = _midiIn.bend;
   _midiIn.type = 0;
+  _midiIn.channel = 0;
+  _midiIn.byte1 = 255;
+  _midiIn.byte2 = 0;
+  _midiIn.bend = 0;
 
   try {
     _handlers.update(_curM);

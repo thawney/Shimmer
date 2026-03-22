@@ -32,14 +32,17 @@ function rExcite(e, deg) {
 function update(m) {
   // ── MIDI in ──
   if (m.midiType === 1 && m.midiNote !== 255 && m.midiVel > 0) {
-    var deg = m.midiNote % RES_N;
-    var e   = Math.floor((m.midiVel / 127.0) * m.brightness);
-    rExcite(e,                     deg);
-    rExcite(Math.floor(e * 0.70), (deg + 7) % RES_N);
-    rExcite(Math.floor(e * 0.55), (deg + 4) % RES_N);
-    rExcite(Math.floor(e * 0.40), (deg + 3) % RES_N);
-    rExcite(Math.floor(e * 0.28), (deg + 9) % RES_N);
-    m.note(deg, m.midiVel, Math.floor(m.beatMs * 4.0));
+    var note = m.midiNote;
+    var row  = Math.floor(note * RES_N / 128);
+    if (row < 0) row = 0;
+    if (row >= RES_N) row = RES_N - 1;
+    var e    = Math.floor((m.midiVel / 127.0) * m.brightness);
+    rExcite(e,                     row);
+    rExcite(Math.floor(e * 0.70), (row + 7) % RES_N);
+    rExcite(Math.floor(e * 0.55), (row + 4) % RES_N);
+    rExcite(Math.floor(e * 0.40), (row + 3) % RES_N);
+    rExcite(Math.floor(e * 0.28), (row + 9) % RES_N);
+    m.noteMidi(note, m.midiVel, Math.floor(m.beatMs * 4.0));
   }
 
   // ── Idle: slow wave rolls across rows — clearly visible ──
