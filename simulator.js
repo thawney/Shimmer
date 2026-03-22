@@ -272,12 +272,51 @@ function renderClockInfo(now) {
   var bpm = ((usingExternalClock(now) ? _clockIn.beatMs : (60000 / Math.max(1, settings.tempo))) || 500);
   bpm = (60000 / bpm).toFixed(1).replace(/\.0$/, '');
   if (usingExternalClock(now)) {
-    el.textContent = _clockIn.running ? ('External clock ' + bpm + ' BPM') : 'External clock stopped';
+    el.textContent = _clockIn.running ? ('EXT ' + bpm) : 'EXT stop';
   } else if (extActive) {
-    el.textContent = 'Internal clock ' + bpm + ' BPM · ext present';
+    el.textContent = 'INT ' + bpm + ' · ext';
   } else {
-    el.textContent = 'Internal clock ' + bpm + ' BPM';
+    el.textContent = 'INT ' + bpm;
   }
+}
+
+var SIM_CLOCK_MODE_HELP = {
+  auto: 'Auto: follow external clock when present, otherwise run internal clock and send clock out.',
+  leader: 'Leader: ignore external clock and send simulator tempo out to other gear.',
+  follower: 'Follower: follow external clock and do not send your own clock out.',
+  internal: 'Internal: ignore external clock and do not send clock out.',
+};
+
+function clockModeForSettings(settings) {
+  if (settings.clockIn && settings.clockPriority && settings.clockOut) return 'auto';
+  if (!settings.clockIn && !settings.clockPriority && settings.clockOut) return 'leader';
+  if (settings.clockIn && settings.clockPriority && !settings.clockOut) return 'follower';
+  return 'internal';
+}
+
+function applyClockMode(settings, mode) {
+  if (mode === 'auto') {
+    settings.clockIn = 1;
+    settings.clockPriority = 1;
+    settings.clockOut = 1;
+  } else if (mode === 'leader') {
+    settings.clockIn = 0;
+    settings.clockPriority = 0;
+    settings.clockOut = 1;
+  } else if (mode === 'follower') {
+    settings.clockIn = 1;
+    settings.clockPriority = 1;
+    settings.clockOut = 0;
+  } else {
+    settings.clockIn = 0;
+    settings.clockPriority = 0;
+    settings.clockOut = 0;
+  }
+}
+
+function renderClockModeHelp(mode) {
+  var el = document.getElementById('sim-clock-mode-help');
+  if (el) el.textContent = SIM_CLOCK_MODE_HELP[mode] || SIM_CLOCK_MODE_HELP.auto;
 }
 
 function resetClockIn() {
@@ -932,9 +971,7 @@ NOTE_NAMES.forEach(function(name, i) {
 
 var selChanEl = document.getElementById('sim-channel');
 var selInChanEl = document.getElementById('sim-in-channel');
-var selClockInEl = document.getElementById('sim-clock-in');
-var selClockPriorityEl = document.getElementById('sim-clock-priority');
-var selClockOutEl = document.getElementById('sim-clock-out');
+var selClockModeEl = document.getElementById('sim-clock-mode');
 for (var ch = 0; ch < 16; ch++) {
   var opt = document.createElement('option');
   opt.value = ch;
@@ -981,20 +1018,13 @@ selChanEl.addEventListener('change', function(e) {
 selInChanEl.addEventListener('change', function(e) {
   settings.midiInChannel = parseInt(e.target.value, 10);
 });
-selClockInEl.addEventListener('change', function(e) {
-  settings.clockIn = parseInt(e.target.value, 10);
+selClockModeEl.value = clockModeForSettings(settings);
+renderClockModeHelp(selClockModeEl.value);
+selClockModeEl.addEventListener('change', function(e) {
+  applyClockMode(settings, e.target.value);
   if (!settings.clockIn) resetClockIn();
   if (_handlers) scheduleClockOut(true);
-  renderClockInfo();
-});
-selClockPriorityEl.addEventListener('change', function(e) {
-  settings.clockPriority = parseInt(e.target.value, 10);
-  if (_handlers) scheduleClockOut(true);
-  renderClockInfo();
-});
-selClockOutEl.addEventListener('change', function(e) {
-  settings.clockOut = parseInt(e.target.value, 10);
-  if (_handlers) scheduleClockOut(true);
+  renderClockModeHelp(e.target.value);
   renderClockInfo();
 });
 

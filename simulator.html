@@ -110,23 +110,16 @@
     <label>MIDI In Ch
       <select id="sim-in-channel"><!-- populated by JS --></select>
     </label>
-    <label>Clock In
-      <select id="sim-clock-in">
-        <option value="1">On</option>
-        <option value="0">Off</option>
-      </select>
-    </label>
-    <label>Prefer Ext
-      <select id="sim-clock-priority">
-        <option value="1">On</option>
-        <option value="0">Off</option>
-      </select>
-    </label>
-    <label>Clock Out
-      <select id="sim-clock-out">
-        <option value="1">On</option>
-        <option value="0">Off</option>
-      </select>
+    <label class="label-stack"><span>Clock Mode</span>
+      <div class="control-stack">
+        <select id="sim-clock-mode">
+          <option value="auto">Auto</option>
+          <option value="leader">Leader</option>
+          <option value="follower">Follower</option>
+          <option value="internal">Internal</option>
+        </select>
+        <span id="sim-clock-mode-help" class="control-note">Auto: follow external clock when present, otherwise run internal clock and send clock out.</span>
+      </div>
     </label>
     <label class="sim-toggle" for="sim-enable-3d">
       <input type="checkbox" id="sim-enable-3d">

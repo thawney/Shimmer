@@ -114,23 +114,16 @@
           <option value="14">15</option><option value="15">16</option>
         </select>
       </label>
-      <label>Clock In
-        <select id="p-clock-in">
-          <option value="1">On</option>
-          <option value="0">Off</option>
-        </select>
-      </label>
-      <label>Prefer Ext
-        <select id="p-clock-priority">
-          <option value="1">On</option>
-          <option value="0">Off</option>
-        </select>
-      </label>
-      <label>Clock Out
-        <select id="p-clock-out">
-          <option value="1">On</option>
-          <option value="0">Off</option>
-        </select>
+      <label class="label-stack"><span>Clock Mode</span>
+        <div class="control-stack">
+          <select id="p-clock-mode">
+            <option value="auto">Auto</option>
+            <option value="leader">Leader</option>
+            <option value="follower">Follower</option>
+            <option value="internal">Internal</option>
+          </select>
+          <span id="p-clock-mode-help" class="control-note">Auto: follow external clock when present, otherwise run internal clock and send clock out.</span>
+        </div>
       </label>
     </section>
 

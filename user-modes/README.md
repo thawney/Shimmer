@@ -222,12 +222,13 @@ function update(m) {
 In the simulator, all available WebMIDI inputs are attached, but the selected **MIDI in** port limits which input is accepted.
 Leave it on `-- any --` to listen to every connected controller, or choose a single port for cleaner testing.
 
-Clock behavior is controlled from the device/web Controls page per mode:
-- `Clock In`: allows external MIDI clock to be seen by the mode
-- `Prefer Ext`: actually uses external clock for `m.beatMs` when clock is present
-- `Clock Out`: sends internal MIDI clock when the mode is acting as leader
+Clock behavior is controlled from the device/web Controls page per mode via **Clock Mode**:
+- `Auto`: follow external clock when present, otherwise run internal clock and send clock out
+- `Leader`: ignore external clock and send your own clock out
+- `Follower`: follow external clock and do not send your own clock out
+- `Internal`: ignore external clock and do not send clock out
 
-The simulator now exposes the same `Clock In`, `Prefer Ext`, and `Clock Out` controls, so you can prototype leader/follower behavior there too.
+The simulator exposes the same **Clock Mode** control, so you can prototype leader/follower behavior there too.
 
 ### Timing and helpers
 

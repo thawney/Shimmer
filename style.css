@@ -651,6 +651,12 @@ label > span {
   gap: 10px;
 }
 
+.control-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .tempo-field input[type="range"] {
   flex: 1 1 240px;
 }
@@ -658,7 +664,7 @@ label > span {
 .control-note {
   color: var(--accent-yellow);
   font-size: 12px;
-  white-space: nowrap;
+  line-height: 1.35;
 }
 
 label select {
