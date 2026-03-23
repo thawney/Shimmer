@@ -65,8 +65,8 @@ function update(m) {
 
 | Property | Type | Meaning |
 |---|---|---|
-| `m.dt` | ms | Frame delta time |
-| `m.beatMs` | ms | Milliseconds per beat at current tempo, or external MIDI clock when the mode has `Clock In` and `Prefer Ext` enabled |
+| `m.dt` | ms | Frame delta time, clamped to `1..96ms` in the simulator and firmware runtime |
+| `m.beatMs` | ms | Milliseconds per beat at current tempo, or external MIDI clock when the mode has `Clock In` and `Prefer Ext` enabled, clamped to `40..4000ms` |
 | `m.density` | 0..255 | Per-slot density knob value |
 | `m.brightness` | 0..255 | Per-slot brightness value |
 | `m.rootNote` | 0..127 | Current root note used by scale-degree output |
@@ -251,6 +251,7 @@ m.map(v, inLo, inHi, outLo, outHi)  // linear float mapping
 - Use `m.tick()` for rhythmically stable events rather than manual elapsed timers.
 - Clamp unusually large `m.dt` values in timing-sensitive scripts, and clamp or sanity-check `m.beatMs` before dividing by it or feeding it into physics.
 - For particle or collision-heavy scripts, prefer bounded substeps over one giant physics step after a stall.
+- Use the current API names only: `m.dt`, `m.beatMs`, and `m.px()`. Old names like `m.delta` or `m.pixel()` are stale and should be treated as broken.
 - Max script size: **12288 bytes**.
 - Out-of-range pixel coordinates are silently ignored.
 - Avoid browser-only APIs like `setTimeout()`, `document`, `window`, or `fetch()`.
@@ -274,11 +275,12 @@ if (steps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
 
 - The **Simulator** and **Device** pages now show the same preflight warnings before run/upload.
 - Syntax errors, explicit infinite loops, oversize scripts, and missing `update(m)` block run/upload.
-- Risky patterns such as generic `while (...)` loops and browser-only APIs show warnings but do not block by themselves.
+- Risky patterns such as generic `while (...)` loops, browser-only APIs, and stale API names like `m.delta` / `m.pixel()` show warnings but do not block by themselves.
 - The bundled example scripts have been patched to cap catch-up loops, so they model the safer pattern above.
-- Uploading to the slot that is currently running now switches the device to a different slot first, so replacing a bad active script is easier.
+- The simulator and firmware runtime now clamp exposed timing values before scripts see them: `m.dt` is clamped to `1..96ms` and `m.beatMs` to `40..4000ms`.
+- During script upload, the device now shows a dedicated dim `#ffc60a` upload screen instead of leaving the active script running underneath the transfer.
 - During script upload, the firmware now pauses mode updates so otherwise functional but busy scripts are less likely to trigger false ACK timeouts.
-- If a slot faults on hardware, the device keeps that slot selected and shows a red warning with the slot number on the 12x12 grid instead of silently jumping away.
+- If a slot faults on hardware, the device keeps that slot selected and shows a red warning with the slot number on the 12x12 grid instead of silently jumping away. That red fault display is the only red device screen; normal startup and upload screens use a dim `#ffc60a` yellow.
 
 ---
 
@@ -290,6 +292,6 @@ if (steps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
 4. Review any safety warnings shown under the editor.
 5. Click **Upload to device**.
 
-If that slot is currently active, the web UI temporarily switches the device to another slot first so the replacement upload can complete reliably. Upload ACK timeouts should also be rarer now because mode execution pauses during transfer, but if the device is still busy you can retry once or switch to another slot first.
+If that slot is currently active, the device now shows an upload screen while the transfer is in progress. Upload ACK timeouts should also be rarer now because mode execution pauses during transfer, but if the device is still busy you can wait a moment and retry.
 
 Or prototype first in the [**Simulator**](../simulator.html) — no device required.

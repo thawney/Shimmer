@@ -1430,26 +1430,6 @@ function queueDownloadScript(slotIdx, cardSlot) {
   return queueScriptTransfer(cardSlot, 'Download', () => downloadScript(slotIdx, cardSlot));
 }
 
-function pickUploadRecoverySlot(excludeIdx) {
-  for (let i = 0; i < NUM_SLOTS; i++) {
-    if (i !== excludeIdx) return i;
-  }
-  return -1;
-}
-
-async function switchAwayForSafeUpload(targetSlot, statusEl) {
-  if (currentSlot !== targetSlot) return -1;
-  const recoverySlot = pickUploadRecoverySlot(targetSlot);
-  if (recoverySlot < 0) return -1;
-
-  if (statusEl) statusEl.textContent = `Switching to ${slots[recoverySlot].name} for safe upload…`;
-  await sendAndWaitAck([CMD_SET, VER, 0x00, P_G_MODE, 0x00, recoverySlot & 0x7F], CMD_SET, 1800);
-  selectSlot(recoverySlot, false);
-  setStatus(`Switched to ${slots[recoverySlot].name} so slot ${targetSlot} can be updated safely`);
-  await new Promise(resolve => setTimeout(resolve, 180));
-  return recoverySlot;
-}
-
 async function performScriptUpload(slotIdx, scriptText, uploadStatus) {
   const raw = Array.from(new TextEncoder().encode(scriptText));
   const totalLen = raw.length;
@@ -1537,16 +1517,9 @@ async function uploadScript(slotIdx, scriptText, cardSlot) {
 
   if (uploadBtn) uploadBtn.disabled = true;
   try {
-    let switchedTo = -1;
-    if (currentSlot === slotIdx) {
-      switchedTo = await switchAwayForSafeUpload(slotIdx, uploadStatus);
-    }
-
     await performScriptUpload(slotIdx, scriptText, uploadStatus);
     if (uploadStatus) {
-      uploadStatus.textContent = switchedTo >= 0
-        ? `Done — slot ${slotIdx} updated. Still on ${slots[switchedTo].name} for recovery.`
-        : `Done — slot ${slotIdx} updated.`;
+      uploadStatus.textContent = `Done — slot ${slotIdx} updated.`;
     }
 
     // Re-parse local metadata and re-fetch names from device
@@ -1555,7 +1528,7 @@ async function uploadScript(slotIdx, scriptText, cardSlot) {
   } catch (e) {
     if (uploadStatus) {
       const hint = /ACK timeout/.test(e.message)
-        ? ' The device may still be busy running the current script; try again or switch to another slot first.'
+        ? ' The device may still be busy finishing the transfer; wait a moment and retry.'
         : '';
       uploadStatus.textContent = `Error: ${e.message}${hint}`;
     }

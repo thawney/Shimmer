@@ -36,6 +36,20 @@ function abs(v) {
   return v < 0 ? -v : v;
 }
 
+function safeDt(m) {
+  var dt = m.dt;
+  if (dt < 1) dt = 1;
+  if (dt > 96) dt = 96;
+  return dt;
+}
+
+function safeBeatMs(m) {
+  var beatMs = m.beatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
+
 function desiredBallCount(m) {
   return MIN_BALLS + Math.floor((m.density * (MAX_BALLS - MIN_BALLS)) / 255);
 }
@@ -148,11 +162,10 @@ function clampWalls(m, ball) {
 }
 
 function update(m) {
+  var frameDt = safeDt(m);
+  var beatMs = safeBeatMs(m);
   var targetCount = desiredBallCount(m);
   if (targetCount !== ballCount) seedRack(m, targetCount);
-
-  smoothX += (m.accelY - smoothX) * (m.dt / 140.0);
-  smoothY += (-m.accelX - smoothY) * (m.dt / 140.0);
 
   var tilt = 1.0 - m.accelZ / 64.0;
   tilt = clamp(tilt, 0.0, 1.0);
@@ -164,14 +177,11 @@ function update(m) {
   var centerX = Math.floor(m.COLS / 2);
   var centerY = Math.floor(m.ROWS / 2);
 
-  var drag = 1.0 - (0.0019 - tilt * 0.0008) * m.dt;
-  if (drag < 0.90) drag = 0.90;
-
   var maxSpeed = 0.032 + tilt * 0.02;
   var strongestHit = 0.0;
   var strongestCol = Math.floor((m.COLS - 1) * 0.5);
 
-  if (noteCooldown > 0) noteCooldown -= m.dt;
+  if (noteCooldown > 0) noteCooldown -= frameDt;
   else noteCooldown = 0;
 
   if (m.motion > SHAKE_THRESHOLD && lastMotion <= SHAKE_THRESHOLD) {
@@ -185,37 +195,55 @@ function update(m) {
   }
   lastMotion = m.motion;
 
-  var gravityMix = clamp((tiltMag - STILL_TILT_DEADZONE) / 28.0, 0.0, 1.0);
-  var gx = smoothX * GRAVITY * gravityMix;
-  var gy = smoothY * GRAVITY * gravityMix;
+  var simRemaining = frameDt;
+  var substeps = 0;
+  while (simRemaining > 0 && substeps < 6) {
+    var dt = simRemaining > 16 ? 16 : simRemaining;
+    smoothX += (m.accelY - smoothX) * (dt / 140.0);
+    smoothY += (-m.accelX - smoothY) * (dt / 140.0);
 
-  for (var i = 0; i < ballCount; i++) {
-    var b = balls[i];
-    b.prevX = b.x;
-    b.prevY = b.y;
+    tiltMag = Math.sqrt(smoothX * smoothX + smoothY * smoothY);
+    var subStillness = 1.0 - clamp((tiltMag - 8.0) / 20.0, 0.0, 1.0);
+    var subCenterPull = subStillness * quiet * flatness;
+    var gravityMix = clamp((tiltMag - STILL_TILT_DEADZONE) / 28.0, 0.0, 1.0);
+    var gx = smoothX * GRAVITY * gravityMix;
+    var gy = smoothY * GRAVITY * gravityMix;
+    var drag = 1.0 - (0.0019 - tilt * 0.0008) * dt;
+    if (drag < 0.90) drag = 0.90;
 
-    b.vx += gx * m.dt;
-    b.vy += gy * m.dt;
-    b.vx += (centerX - b.x) * CENTER_PULL * centerPull * m.dt;
-    b.vy += (centerY - b.y) * CENTER_PULL * centerPull * m.dt;
-    b.vx *= drag;
-    b.vy *= drag;
+    for (var i = 0; i < ballCount; i++) {
+      var b = balls[i];
+      if (substeps === 0) {
+        b.prevX = b.x;
+        b.prevY = b.y;
+      }
 
-    var speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-    if (speed > maxSpeed && speed > 0.0) {
-      var sc = maxSpeed / speed;
-      b.vx *= sc;
-      b.vy *= sc;
+      b.vx += gx * dt;
+      b.vy += gy * dt;
+      b.vx += (centerX - b.x) * CENTER_PULL * subCenterPull * dt;
+      b.vy += (centerY - b.y) * CENTER_PULL * subCenterPull * dt;
+      b.vx *= drag;
+      b.vy *= drag;
+
+      var speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+      if (speed > maxSpeed && speed > 0.0) {
+        var sc = maxSpeed / speed;
+        b.vx *= sc;
+        b.vy *= sc;
+      }
+
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
     }
 
-    b.x += b.vx * m.dt;
-    b.y += b.vy * m.dt;
-  }
-
-  for (var a = 0; a < ballCount; a++) {
-    for (var j = a + 1; j < ballCount; j++) {
-      collidePair(balls[a], balls[j]);
+    for (var a = 0; a < ballCount; a++) {
+      for (var j = a + 1; j < ballCount; j++) {
+        collidePair(balls[a], balls[j]);
+      }
     }
+
+    simRemaining -= dt;
+    substeps++;
   }
 
   for (var n = 0; n < ballCount; n++) {
@@ -230,7 +258,7 @@ function update(m) {
     var deg = m.colToDegree(clamp(strongestCol, 0, m.COLS - 1));
     var vel = 44 + Math.floor(strongestHit * 1900.0);
     if (vel > 118) vel = 118;
-    m.note(deg, vel, Math.floor(m.beatMs * 0.28));
+    m.note(deg, vel, Math.floor(beatMs * 0.28));
     noteCooldown = 70;
   }
 

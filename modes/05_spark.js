@@ -17,6 +17,20 @@ var particleSpeed = 0.0;
 var initialized   = false;
 var lastMotionSp  = 0;
 
+function safeDt(m) {
+  var dt = m.dt;
+  if (dt < 1) dt = 1;
+  if (dt > 96) dt = 96;
+  return dt;
+}
+
+function safeBeatMs(m) {
+  var beatMs = m.beatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
+
 function activate(m) {
   initialized  = false;
   particleSpeed = 0.0;
@@ -41,7 +55,9 @@ function deactivate(m) {
 }
 
 function update(m) {
-  var tempoScale = 500.0 / m.beatMs;
+  var dt = safeDt(m);
+  var beatMs = safeBeatMs(m);
+  var tempoScale = 500.0 / beatMs;
   var targetSpeed = (0.008 + (m.density / 255.0) * 0.032) * tempoScale;
 
   if (!initialized) {
@@ -95,10 +111,10 @@ function update(m) {
     p[i].prevCol = Math.floor(p[i].x);
     p[i].prevRow = Math.floor(p[i].y);
 
-    p[i].vx += gx * m.dt;
-    p[i].vy += gy * m.dt;
-    p[i].x += p[i].vx * m.dt;
-    p[i].y += p[i].vy * m.dt;
+    p[i].vx += gx * dt;
+    p[i].vy += gy * dt;
+    p[i].x += p[i].vx * dt;
+    p[i].y += p[i].vy * dt;
 
     // Horizontal bounce → fire note
     var bouncedX = false;

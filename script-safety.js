@@ -74,6 +74,13 @@
     addRegexWarning(
       source,
       issues,
+      /\bm\.delta\b|\bm\.pixel\s*\(/,
+      'Old script API names like m.delta and m.pixel are not supported. Use m.dt and m.px().'
+    );
+
+    addRegexWarning(
+      source,
+      issues,
       /\beval\s*\(|\bnew\s+Function\b/,
       'Dynamic code generation is expensive and hard to recover from on hardware.'
     );

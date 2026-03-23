@@ -489,6 +489,20 @@ var midiOut = null;
 // Frame delta in ms for m.dt (updated each rAF tick)
 var _dt = 16;
 
+function safeScriptDt(rawDt) {
+  var dt = rawDt;
+  if (dt < 1) dt = 1;
+  if (dt > 96) dt = 96;
+  return dt;
+}
+
+function safeScriptBeatMs(rawBeatMs) {
+  var beatMs = rawBeatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
+
 // Shared mock sensor values, read by every running script.
 var sensorState = {
   accelX: 0,
@@ -553,8 +567,8 @@ function makeM() {
   return {
     get COLS()       { return COLS; },
     get ROWS()       { return ROWS; },
-    get dt()         { return _dt; },
-    get beatMs()     { return effectiveBeatMs(); },
+    get dt()         { return safeScriptDt(_dt); },
+    get beatMs()     { return safeScriptBeatMs(effectiveBeatMs()); },
     get density()    { return settings.density; },
     get brightness() { return settings.brightness; },
     get rootNote()   { return settings.rootNote; },

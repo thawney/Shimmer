@@ -16,6 +16,20 @@ var smoothWind   = 0.0;
 var spawnElapsed = 0;
 var MAX_SPAWN_CATCHUP = 6;
 
+function safeDt(m) {
+  var dt = m.dt;
+  if (dt < 1) dt = 1;
+  if (dt > 96) dt = 96;
+  return dt;
+}
+
+function safeBeatMs(m) {
+  var beatMs = m.beatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
+
 function activate(m) {
   drops        = [];
   spawnElapsed = 0;
@@ -34,23 +48,25 @@ function deactivate(m) {
 }
 
 function update(m) {
+  var dt = safeDt(m);
+  var beatMs = safeBeatMs(m);
   // Wind: 3s lag — noticeably responds to tilt within a few seconds
-  smoothWind += (m.accelY - smoothWind) * (m.dt / 3000.0);
+  smoothWind += (m.accelY - smoothWind) * (dt / 3000.0);
   // At full tilt (~80), drops drift ~5 columns over a full fall
   var wind = smoothWind * 0.000030;  // columns per millisecond
 
   // Fall speed scales with tempo
-  var tempoScale = 500.0 / m.beatMs;
+  var tempoScale = 500.0 / beatMs;
   var fallSpeed  = 5.25 * tempoScale;  // rows per second
-  var dy         = fallSpeed * m.dt / 1000.0;
+  var dy         = fallSpeed * dt / 1000.0;
 
   // Spawn new drops
   // spawnMs: density=0 -> ~1500ms, density=255 -> ~80ms
   var spawnMs = Math.floor(1500 / (1 + Math.floor((m.density * (m.COLS - 1)) / 255)));
-  spawnMs = Math.floor(spawnMs * m.beatMs / 500);
+  spawnMs = Math.floor(spawnMs * beatMs / 500);
   if (spawnMs < 80) spawnMs = 80;
 
-  spawnElapsed += m.dt;
+  spawnElapsed += dt;
   var spawned = 0;
   while (spawnElapsed >= spawnMs && drops.length < MAX_DROPS && spawned < MAX_SPAWN_CATCHUP) {
     spawnElapsed -= spawnMs;
@@ -65,7 +81,7 @@ function update(m) {
   }
 
   // Fade persistent grid (trails and landing splashes)
-  var fadeAmt = Math.floor((3 * m.dt + 8) / 16);
+  var fadeAmt = Math.floor((3 * dt + 8) / 16);
   if (fadeAmt < 1) fadeAmt = 1;
   for (var r = 0; r < m.ROWS; r++) {
     for (var c = 0; c < m.COLS; c++) {
@@ -77,7 +93,7 @@ function update(m) {
   // Update drops and stamp into grid
   for (var i = drops.length - 1; i >= 0; i--) {
     var d = drops[i];
-    d.x += wind * m.dt;
+    d.x += wind * dt;
     d.y += dy;
 
     // Wrap horizontally
@@ -91,7 +107,7 @@ function update(m) {
     if (d.y >= m.ROWS - 1) {
       // Landed — note pitch comes from landing column, so tilt changes the melody
       var deg = Math.floor((col * 6) / (m.COLS - 1));
-      m.note(deg, 65 + m.rnd(64), Math.floor(m.beatMs / 2));
+      m.note(deg, 65 + m.rnd(64), Math.floor(beatMs / 2));
       grid[m.ROWS - 1][col] = m.brightness;
       drops.splice(i, 1);
       continue;

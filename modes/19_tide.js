@@ -17,6 +17,20 @@ var prevLevel   = [];    // waterline row per column last frame
 var OMEGA_SQ = 0.0000025;   // per ms² (period ≈ 2.5s)
 var DAMP     = 0.0008;
 
+function safeDt(m) {
+  var dt = m.dt;
+  if (dt < 1) dt = 1;
+  if (dt > 96) dt = 96;
+  return dt;
+}
+
+function safeBeatMs(m) {
+  var beatMs = m.beatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
+
 function activate(m) {
   sloshAngle = 0.0;
   sloshVel   = 0.0;
@@ -29,15 +43,17 @@ function activate(m) {
 function deactivate(m) { m.allOff(); }
 
 function update(m) {
+  var dt = safeDt(m);
+  var beatMs = safeBeatMs(m);
   // Physics: tilt acts as a driving force on the slosh angle
   var targetSlosh = m.accelY * (0.015);   // accelY ≈ ±80 → ±1.2 rad of slope
-  sloshVel   += (-OMEGA_SQ * (sloshAngle - targetSlosh) - DAMP * sloshVel) * m.dt;
-  sloshAngle += sloshVel * m.dt;
+  sloshVel   += (-OMEGA_SQ * (sloshAngle - targetSlosh) - DAMP * sloshVel) * dt;
+  sloshAngle += sloshVel * dt;
 
   // Travelling wave on surface: speed and amplitude from density
   var waveAmp   = (m.density / 255.0) * 1.8;   // rows of wave height
   var waveSpeed = 0.002 + (m.density / 255.0) * 0.004;   // rad/ms
-  wavePhase    += waveSpeed * m.dt;
+  wavePhase    += waveSpeed * dt;
 
   var centre = (m.COLS - 1) / 2.0;
   var midRow = (m.ROWS - 1) / 2.0;
@@ -63,7 +79,7 @@ function update(m) {
       var deg = m.colToDegree(c);
       var vel = 40 + Math.floor(waveAmp * 25) + m.rnd(22);
       if (vel > 110) vel = 110;
-      m.note(deg, vel, Math.floor(m.beatMs * 1.2));
+      m.note(deg, vel, Math.floor(beatMs * 1.2));
     }
     prevLevel[c] = surfRow;
 

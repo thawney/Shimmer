@@ -13,6 +13,20 @@ var numVoices = 2;
 var v = [];
 var initialized = false;
 
+function safeDt(m) {
+  var dt = m.dt;
+  if (dt < 1) dt = 1;
+  if (dt > 96) dt = 96;
+  return dt;
+}
+
+function safeBeatMs(m) {
+  var beatMs = m.beatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
+
 function activate(m) {
   initialized = false;
   v = [];
@@ -37,7 +51,9 @@ function deactivate(m) {
 }
 
 function update(m) {
-  var tempoScale = 500.0 / m.beatMs;  // 1.0 at 120bpm
+  var dt = safeDt(m);
+  var beatMs = safeBeatMs(m);
+  var tempoScale = 500.0 / beatMs;  // 1.0 at 120bpm
 
   if (!initialized) {
     numVoices = (m.density < 128) ? 2 : 3;
@@ -78,8 +94,8 @@ function update(m) {
       v[i].vy *= sc;
     }
 
-    v[i].x += v[i].vx * m.dt;
-    v[i].y += v[i].vy * m.dt;
+    v[i].x += v[i].vx * dt;
+    v[i].y += v[i].vy * dt;
 
     // Bounce edges
     if (v[i].x < 0)          { v[i].x = 0;          v[i].vx =  Math.abs(v[i].vx); }

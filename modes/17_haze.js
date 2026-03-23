@@ -13,6 +13,20 @@ var smoothZ   = 64.0;
 var phase     = 0.0;
 var centreCol = 0.0;
 
+function safeDt(m) {
+  var dt = m.dt;
+  if (dt < 1) dt = 1;
+  if (dt > 96) dt = 96;
+  return dt;
+}
+
+function safeBeatMs(m) {
+  var beatMs = m.beatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
+
 function activate(m) {
   smoothX   = m.accelY;
   smoothZ   = m.accelZ;
@@ -29,20 +43,22 @@ function deactivate(m) {
 }
 
 function update(m) {
+  var dt = safeDt(m);
+  var beatMs = safeBeatMs(m);
   // density controls how quickly the haze follows the tilt
   var lag = 18000 - Math.floor((m.density * 12000) / 255);
   if (lag < 6000) lag = 6000;
-  smoothX += (m.accelY - smoothX) * (m.dt / lag);
+  smoothX += (m.accelY - smoothX) * (dt / lag);
 
   // accelZ: flat = slow breath, tilted = faster
-  smoothZ += (m.accelZ - smoothZ) * (m.dt / 5000.0);
+  smoothZ += (m.accelZ - smoothZ) * (dt / 5000.0);
   var tilt01 = 1.0 - smoothZ / 64.0;
   if (tilt01 < 0.0) tilt01 = 0.0;
   if (tilt01 > 1.0) tilt01 = 1.0;
   var period = Math.floor(5000 - tilt01 * 3200);
   if (period < 1800) period = 1800;
 
-  phase += m.dt / period;
+  phase += dt / period;
   if (phase >= 1.0) phase -= 1.0;
 
   centreCol = m.map(smoothX, -80, 80, 0, m.COLS - 1);
@@ -50,11 +66,11 @@ function update(m) {
   if (centreCol > m.COLS - 1) centreCol = m.COLS - 1;
 
   // Chord every beat from the settled column
-  if (m.tick(0, m.beatMs)) {
+  if (m.tick(0, beatMs)) {
     var centC = Math.floor(centreCol + 0.5);
     var root  = m.colToDegree(centC);
     var vel   = 50 + Math.floor((m.density * 40) / 255);
-    var dur   = Math.floor(m.beatMs * 0.7);
+    var dur   = Math.floor(beatMs * 0.7);
     m.note(root,     vel,      dur);
     m.note(root + 2, vel - 8,  dur);
     m.note(root + 4, vel - 14, dur);

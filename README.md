@@ -4,7 +4,7 @@ Generative MIDI + LED desktop instrument by [Thawney LTD](https://thawney.com).
 
 **[Open the web UI →](https://thawney.github.io/Shimmer)**
 
-> **Version tracking:** firmware version is indicated by the LED colour flash at startup. v0 flashes dim warm orange.
+> **Version tracking:** firmware version is indicated by the LED colour flash at startup. v0 flashes a dim warm yellow based on `#ffc60a`.
 
 ---
 
@@ -17,7 +17,7 @@ The web UI (this repo) lets you:
 - Upload custom scripts over SysEx
 - Flash firmware updates
 
-The script editor and simulator now share the same safety checks. They warn about risky runtime patterns before you run or upload, the bundled example scripts have been patched to cap catch-up loops, uploads to the currently active slot temporarily switch the device to another slot first so recovering from a bad script is less painful, and the firmware pauses mode execution during script transfer so busy-but-valid scripts are less likely to hit false ACK timeouts.
+The script editor and simulator now share the same safety checks. They warn about risky runtime patterns before you run or upload, the bundled example scripts have been patched to cap catch-up loops, the device now shows a dedicated dim `#ffc60a` upload screen during script transfer, and the firmware pauses mode execution during script transfer so busy-but-valid scripts are less likely to hit false ACK timeouts. The only red device screen is the fault warning display.
 
 Physical MIDI in/out is available on the DIN connector. Incoming USB/DIN notes, CC, and pitch bend are exposed to mode scripts via `m.midiNote`, `m.midiType`, etc., and scripts can emit absolute notes, CC, and pitch bend as well. `m.beatMs` can follow external MIDI clock, but that is now configurable per mode from the Controls page with `Clock In`, `Prefer Ext`, and `Clock Out`, alongside separate MIDI output and input channel selection — see [`user-modes/README.md`](user-modes/README.md). MIDI output is sent simultaneously to both USB MIDI and the DIN connector. The browser simulator now mirrors that more closely too, with separate MIDI in/out port selection, a dedicated MIDI input channel selector, and external MIDI clock driving simulated tempo.
 
