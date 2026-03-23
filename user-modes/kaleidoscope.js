@@ -9,7 +9,7 @@
  */
 
 var KM=6,kn=0,kx=[],ky=[],ktx=[],kty=[],kh=[],kth=[],kb=[],ku=[],ks=[],kv=[];
-var kp=0.0,kc=0.0,kk=0.0,km=0,kb0=0,kl=0,kr=1,kf=0,kax=0.0,kay=0.0;
+var kp=0.0,kc=0.0,kk=0.0,km=0,kb0=0,kl=0,kr=1,kf=0,kax=0.0,kay=0.0,knb=0,ksf=0;
 var SH=[[0,2,4,6,8],[0,2,4,5,7],[0,1,4,6,7],[0,2,3,5,7],[0,2,5,7,9]];
 
 function ca(v){return v<0?-v:v;}
@@ -59,7 +59,7 @@ function init(i,m){
 }
 
 function resize(m){
-  var want=4+Math.floor(m.density*5/255); if(want<4) want=4; if(want>KM) want=KM;
+  var want=3+Math.floor(m.density*4/255); if(want<3) want=3; if(want>KM) want=KM;
   while(kn<want){ init(kn,m); kn++; }
   while(kn>want) kn--;
 }
@@ -74,6 +74,15 @@ function comp(){
 }
 function voices(c){var v=2+Math.floor(c*1.7); return v>3?3:v;}
 
+function note(m,dg,nv,dur){
+  if(knb<=0) return;
+  if(dg>13) dg=13;
+  if(nv<26) nv=26; if(nv>120) nv=120;
+  if(dur<70) dur=70;
+  m.note(dg,nv,dur);
+  knb--;
+}
+
 function adv(m,hard){
   var d=0;
   if(kay>0.28) d=1; else if(kay<-0.28) d=-1; else if(hard||m.rnd(3)===0) d=m.rnd(2)===0?-1:1;
@@ -86,8 +95,8 @@ function chord(m,c,still,accent,beat){
   if(dur<140) dur=140;
   for(var i=0;i<v;i++){
     var dg=kr+sh[i],nv=vel-i*7+m.rnd(8);
-    if(dg>13) dg=13; if(nv<34) nv=34; if(nv>120) nv=120;
-    m.note(dg,nv,dur);
+    if(nv<34) nv=34;
+    note(m,dg,nv,dur);
   }
 }
 
@@ -98,8 +107,8 @@ function melody(m,c,beat){
   a=span%v; b=v-1-a; d0=kr+sh[a]; d1=kr+sh[b]; if(d0>13) d0=13; if(d1>13) d1=13;
   v0=38+Math.floor(c*28)+Math.floor(ky[i]*4)+m.rnd(12); v1=v0-10+Math.floor((kx[i]+0.5)*3);
   dur=Math.floor(beat*(0.42+c*0.18)); if(dur<80) dur=80;
-  m.note(d0,v0,dur);
-  if(v>3||b!==a){ if(v1<26) v1=26; m.note(d1,v1,dur); }
+  note(m,d0,v0,dur);
+  if(v>3||b!==a){ if(v1<26) v1=26; note(m,d1,v1,dur); }
 }
 
 function shock(m,beat){
@@ -110,6 +119,7 @@ function shock(m,beat){
 
 function activate(m){
   kn=0; kp=0.0; kc=0.0; kk=0.0; km=0; kb0=0; kl=0; kr=1+m.rnd(3); kf=m.rnd(SH.length);
+  knb=0; ksf=3;
   ku=[]; ks=[]; kv=[];
   kax=m.accelX/72.0; kay=m.accelY/72.0; resize(m); m.clear(); m.show();
 }
@@ -118,12 +128,13 @@ function deactivate(m){ m.allOff(); }
 
 function update(m){
   var d=cdt(m),beat=cbm(m),c,still,sub,glow,sh;
+  knb=ksf>0?0:3;
   resize(m);
   kax+=((m.accelX/72.0)-kax)*(d/900.0);
   kay+=((m.accelY/72.0)-kay)*(d/900.0);
   if(m.motion<16) kc+=d; else kc=0;
   still=kc>320;
-  if(m.motion>148&&km<=148) shock(m,beat);
+  if(ksf===0&&m.motion>148&&km<=148) shock(m,beat);
   km=m.motion;
   if(kk>0){ kk-=d; if(kk<0) kk=0; }
   c=comp();
@@ -163,5 +174,6 @@ function update(m){
     var i0=r*m.COLS+col;
     if(kv[i0]>0) m.px(col,r,ku[i0],ks[i0],kv[i0]); else m.px(col,r,0);
   }
+  if(ksf>0) ksf--;
   m.show();
 }
