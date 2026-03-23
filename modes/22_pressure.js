@@ -132,25 +132,51 @@ function update(m) {
   // ── Draw ──
   m.clear();
   var center = Math.floor(m.COLS / 2);
+  var midRow = Math.floor(m.ROWS / 2);
 
-  // Central pressure glow when charging
   if (!releasing && energy > 0) {
-    var halfW = Math.floor((energy / 255.0) * 10);
     var peakBr = Math.floor((energy / 255.0) * m.brightness);
-    for (var c = 0; c < m.COLS; c++) {
-      var dist = c - center;
-      if (dist < 0) dist = -dist;
-      if (dist <= halfW) {
-        var dimmed = Math.floor(peakBr * (halfW - dist + 1) / (halfW + 1));
-        for (var r = 0; r < m.ROWS; r++) m.px(c, r, dimmed);
+    var radius = 1 + Math.floor((energy / 255.0) * 9);
+    for (var r = 0; r < m.ROWS; r++) {
+      for (var c = 0; c < m.COLS; c++) {
+        var dx = c - center;
+        var dy = r - midRow;
+        if (dx < 0) dx = -dx;
+        if (dy < 0) dy = -dy;
+        var dist = dx + dy;
+        if (dist <= radius) {
+          var dimmed = peakBr - dist * 18;
+          if (dimmed > 0) {
+            var hue = (dist >= radius - 1) ? 24 : 6;
+            var sat = 235 - dist * 12;
+            m.px(c, r, hue, sat, dimmed);
+          }
+        }
       }
     }
   }
 
-  // Release burst columns
   for (var c = 0; c < m.COLS; c++) {
     if (glowCols[c] > 0) {
-      for (var r = 0; r < m.ROWS; r++) m.px(c, r, glowCols[c]);
+      for (var r = 0; r < m.ROWS; r++) {
+        var dr = r - midRow;
+        if (dr < 0) dr = -dr;
+        var br = glowCols[c] - dr * 12;
+        if (br > 0) {
+          m.px(c, r, 16, 230, br);
+          if (c > 0) m.px(c - 1, r, 24, 120, br - 80);
+          if (c + 1 < m.COLS) m.px(c + 1, r, 24, 120, br - 80);
+        }
+      }
+    }
+  }
+
+  if (releasing && releaseIdx < releaseQueue.length) {
+    var headCol = releaseQueue[releaseIdx];
+    var headBr = Math.floor(m.brightness * 0.8);
+    for (var r = 0; r < m.ROWS; r++) {
+      var tail = headBr - Math.abs(r - midRow) * 18;
+      if (tail > 0) m.px(headCol, r, 34, 235, tail);
     }
   }
 

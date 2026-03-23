@@ -14,6 +14,9 @@ var qzColIn  = [0,0,0,0,0,0,0,0,0,0,0,0];
 var qzColOut = [0,0,0,0,0,0,0,0,0,0,0,0];
 var qzHeldInToOut = [];
 var qzOutRef      = [];
+var qzBridgeIn    = -1;
+var qzBridgeOut   = -1;
+var qzBridgeMs    = 0;
 var QZ_MASKS      = [
   0xAB5, // major
   0x5AD, // minor
@@ -71,6 +74,9 @@ function activate(m) {
   for (var c = 0; c < m.COLS; c++) { qzColIn[c] = 0; qzColOut[c] = 0; }
   qzHeldInToOut = [];
   qzOutRef = [];
+  qzBridgeIn = -1;
+  qzBridgeOut = -1;
+  qzBridgeMs = 0;
   for (i = 0; i < 128; i++) { qzHeldInToOut[i] = -1; qzOutRef[i] = 0; }
   m.clear(); m.show();
 }
@@ -107,7 +113,10 @@ function update(m) {
       if (qzOutRef[outNote] === 0) m.noteOn(outNote, m.midiVel);
       qzOutRef[outNote]++;
 
-      qzColOut[qzNoteToCol(outNote, m.COLS)] = m.brightness;
+      qzBridgeIn = inCol;
+      qzBridgeOut = qzNoteToCol(outNote, m.COLS);
+      qzBridgeMs = 380;
+      qzColOut[qzBridgeOut] = m.brightness;
     } else {
       var heldOut = qzHeldInToOut[inNote];
       if (heldOut >= 0) {
@@ -117,7 +126,10 @@ function update(m) {
           qzOutRef[heldOut] = 0;
           m.noteOff(heldOut);
         }
-        qzColOut[qzNoteToCol(heldOut, m.COLS)] = Math.floor(m.brightness * 0.6);
+        qzBridgeIn = inCol;
+        qzBridgeOut = qzNoteToCol(heldOut, m.COLS);
+        qzBridgeMs = 260;
+        qzColOut[qzBridgeOut] = Math.floor(m.brightness * 0.6);
       }
     }
   }
@@ -129,23 +141,55 @@ function update(m) {
     if (qzColIn[c]  > fd) qzColIn[c]  -= fd; else qzColIn[c]  = 0;
     if (qzColOut[c] > fd) qzColOut[c] -= fd; else qzColOut[c] = 0;
   }
+  if (qzBridgeMs > 0) {
+    qzBridgeMs -= m.dt;
+    if (qzBridgeMs < 0) qzBridgeMs = 0;
+  }
 
   m.clear();
-  var splitRow = Math.floor(m.ROWS / 2);
+  var inBottom = 4;
+  var bridgeTop = 5;
+  var bridgeBottom = 6;
+  var outTop = 7;
+  var bridgeGlow = qzBridgeMs > 0 ? Math.floor(m.brightness * qzBridgeMs / 380.0) : 0;
 
-  // Top half: raw input pitch position (dim)
   for (var c = 0; c < m.COLS; c++)
     if (qzColIn[c] > 0)
-      for (var r = 0; r < splitRow; r++) m.px(c, r, qzColIn[c]);
+      for (var r = 0; r <= inBottom; r++) {
+        var inBr = qzColIn[c] - Math.floor((inBottom - r) * 16);
+        if (inBr > 0) m.px(c, r, 170, 205, inBr);
+      }
 
-  // Divider
-  for (var c = 0; c < m.COLS; c++)
-    m.px(c, splitRow, Math.floor(m.brightness * 0.07));
+  for (var c = 0; c < m.COLS; c++) {
+    m.px(c, bridgeTop, 145, 80, Math.floor(m.brightness * 0.05));
+    m.px(c, bridgeBottom, 26, 90, Math.floor(m.brightness * 0.05));
+  }
 
-  // Bottom half: quantised output (bright)
   for (var c = 0; c < m.COLS; c++)
     if (qzColOut[c] > 0)
-      for (var r = splitRow + 1; r < m.ROWS; r++) m.px(c, r, qzColOut[c]);
+      for (var r = outTop; r < m.ROWS; r++) {
+        var outBr = qzColOut[c] - Math.floor((r - outTop) * 10);
+        if (outBr > 0) {
+          m.px(c, r, 24, 220, outBr);
+          if (r === outTop) m.px(c, r, 34, 235, outBr);
+        }
+      }
+
+  if (bridgeGlow > 0 && qzBridgeIn >= 0 && qzBridgeOut >= 0) {
+    for (var row = bridgeTop; row <= outTop; row++) {
+      var frac = (row - bridgeTop) / (outTop - bridgeTop);
+      var col = Math.floor(qzBridgeIn + (qzBridgeOut - qzBridgeIn) * frac + 0.5);
+      if (col >= 0 && col < m.COLS) {
+        var hue = 170 + Math.floor(110 * frac);
+        var br = bridgeGlow - Math.floor((row - bridgeTop) * 18);
+        if (br > 0) {
+          m.px(col, row, hue, 210, br);
+          if (col > 0) m.px(col - 1, row, hue, 130, br - 70);
+          if (col + 1 < m.COLS) m.px(col + 1, row, hue, 130, br - 70);
+        }
+      }
+    }
+  }
 
   m.show();
 }
