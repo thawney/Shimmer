@@ -19,6 +19,7 @@ var driftPhase     = 0.0;
 var initialized    = false;
 var smoothWind     = 0;    // slow-drift accelX → flock centroid bias (~15s lag)
 var lastMotionFl   = 0;
+var MAX_CATCHUP_STEPS = 6;
 
 function activate(m) {
   initialized  = false;
@@ -139,8 +140,10 @@ function update(m) {
   var eventStepMs = Math.floor(m.beatMs / 2);
   if (eventStepMs < 90) eventStepMs = 90;
 
-  while (eventElapsed >= eventStepMs) {
+  var catchUps = 0;
+  while (eventElapsed >= eventStepMs && catchUps < MAX_CATCHUP_STEPS) {
     eventElapsed -= eventStepMs;
+    catchUps++;
 
     var bestCol = -1, bestNearby = 0;
     for (var col = 0; col < m.COLS; col++) {
@@ -163,6 +166,7 @@ function update(m) {
       colDebounce[bestCol] = eventStepMs;
     }
   }
+  if (catchUps === MAX_CATCHUP_STEPS && eventElapsed >= eventStepMs) eventElapsed = eventStepMs - 1;
 
   // Fade: (3*dt+8)/16
   var fadeAmt = Math.floor((3 * m.dt + 8) / 16);

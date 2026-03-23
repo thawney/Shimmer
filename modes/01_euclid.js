@@ -15,6 +15,7 @@ var elapsed = 0;
 var step = 0;
 var degree = 6;
 var seeded = false;
+var MAX_CATCHUP_STEPS = 8;
 
 function isHit(s, k) {
   if (k === 0) return false;
@@ -46,8 +47,10 @@ function update(m) {
   var jumpRange = 1 + Math.floor((m.density * 3) / 255);
 
   elapsed += m.dt;
-  while (elapsed >= stepMs) {
+  var catchUps = 0;
+  while (elapsed >= stepMs && catchUps < MAX_CATCHUP_STEPS) {
     elapsed -= stepMs;
+    catchUps++;
 
     if (isHit(step, k)) {
       // accelX biases direction: tilt right → walks up, tilt left → walks down
@@ -67,6 +70,7 @@ function update(m) {
 
     step = (step + 1) % N_STEPS;
   }
+  if (catchUps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
 
   var fadeAmt = Math.floor((2 * m.dt + 8) / 16);
   if (fadeAmt < 1) fadeAmt = 1;

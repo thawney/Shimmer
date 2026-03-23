@@ -17,6 +17,7 @@ var bright  = [0, 0, 0, 0];
 var initialized = false;
 var changeElapsed  = 0;
 var changeInterval = 5000;
+var MAX_CATCHUP_STEPS = 6;
 
 function numVoices(density) {
   if (density < 64)  return 2;
@@ -89,11 +90,14 @@ function update(m) {
   }
 
   changeElapsed += m.dt;
-  while (changeElapsed >= changeInterval) {
+  var catchUps = 0;
+  while (changeElapsed >= changeInterval && catchUps < MAX_CATCHUP_STEPS) {
     changeElapsed -= changeInterval;
     changeInterval = voiceChangeInterval(m.density);
     changeVoice(m);
+    catchUps++;
   }
+  if (catchUps === MAX_CATCHUP_STEPS && changeElapsed >= changeInterval) changeElapsed = changeInterval - 1;
 
   // Fade toward SUSTAIN_BR: (2*dt+8)/16
   var fadeAmt = Math.floor((2 * m.dt + 8) / 16);

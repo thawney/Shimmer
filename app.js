@@ -52,6 +52,7 @@ const FW_STATUS_ERROR    = 3;
 
 const FW_CHUNK_BYTES = 7000; // 1000 complete 7-byte groups → 8000 encoded bytes → 8007-byte SysEx msg
 const MAX_SCRIPT_BYTES = 12288;
+const SCRIPT_SAFETY = window.ShimmerScriptSafety || null;
 
 const SYSEX_SCRIPT_BEGIN     = 0x20;
 const SYSEX_SCRIPT_CHUNK     = 0x21;
@@ -240,6 +241,44 @@ function parseScriptMeta(code) {
     desc:       get('description') ?? '',
     sound:      get('sound')       ?? '',
   };
+}
+
+function analyzeScriptSafety(code) {
+  if (!SCRIPT_SAFETY) {
+    return { issues: [], hasErrors: false, hasWarnings: false, bytes: 0, maxBytes: MAX_SCRIPT_BYTES };
+  }
+  return SCRIPT_SAFETY.analyze(code, { maxBytes: MAX_SCRIPT_BYTES });
+}
+
+function renderSafetyMessage(el, report, options = {}) {
+  if (!el) return;
+  if (!report || !report.issues || !report.issues.length) {
+    el.textContent = '';
+    el.className = options.baseClass || 'slot-safety';
+    return;
+  }
+
+  const baseClass = options.baseClass || 'slot-safety';
+  const summary = SCRIPT_SAFETY
+    ? SCRIPT_SAFETY.summarize(report, { maxItems: options.maxItems || 2 })
+    : report.issues.slice(0, 2).map(issue => issue.message).join(' ');
+
+  el.textContent = summary;
+  el.className = baseClass;
+  if (report.hasErrors) el.classList.add(`${baseClass}--error`);
+  else if (report.hasWarnings) el.classList.add(`${baseClass}--warn`);
+}
+
+function renderSlotSafety(slotIdx, code) {
+  const safetyEl = document.getElementById(`slot-safety-${slotIdx}`);
+  if (!safetyEl) return null;
+  if (!code || !code.trim()) {
+    renderSafetyMessage(safetyEl, null);
+    return null;
+  }
+  const report = analyzeScriptSafety(code);
+  renderSafetyMessage(safetyEl, report);
+  return report;
 }
 
 // Mode entries discovered dynamically at boot — no hardcoded list needed.
@@ -451,6 +490,7 @@ function buildSlotCards() {
       </div>
       <textarea class="slot-code" id="slot-code-${i}" spellcheck="false" autocomplete="off"
         placeholder="// Load a script above or paste your own here…"></textarea>
+      <div class="slot-safety" id="slot-safety-${i}"></div>
       <div class="slot-footer">
         <button class="slot-upload-btn" id="slot-upload-${i}">Upload to device</button>
         <button class="slot-dl-btn" id="slot-dl-${i}">From device</button>
@@ -479,6 +519,7 @@ function buildSlotCards() {
     document.getElementById(`slot-code-${i}`).addEventListener('input', () => {
       const code = document.getElementById(`slot-code-${i}`).value;
       applySlotMeta(i, parseScriptMeta(code));
+      renderSlotSafety(i, code);
     });
 
     // Upload button
@@ -615,6 +656,7 @@ function setSlotCode(slotIdx, code) {
   applySlotMeta(slotIdx, meta);
   const ta = document.getElementById(`slot-code-${slotIdx}`);
   if (ta) ta.value = code;
+  renderSlotSafety(slotIdx, code);
 }
 
 function applySlotMeta(slotIdx, meta) {
@@ -1303,6 +1345,9 @@ if (btnRandomizeKey) btnRandomizeKey.addEventListener('click', randomizeKey);
 // SysEx msg — comfortably within the device's 8192-byte SysEx receive buffer.
 // Matches the decoded[3100] buffer in SysExHandler.cpp.
 const CHUNK_BYTES = 3000;
+const SCRIPT_BEGIN_ACK_TIMEOUT_MS = 2500;
+const SCRIPT_CHUNK_ACK_TIMEOUT_MS = 2500;
+const SCRIPT_END_ACK_TIMEOUT_MS = 3000;
 
 function queueScriptTransfer(cardSlot, label, run) {
   const statusEl = document.getElementById(`slot-status-${cardSlot}`);
@@ -1385,6 +1430,63 @@ function queueDownloadScript(slotIdx, cardSlot) {
   return queueScriptTransfer(cardSlot, 'Download', () => downloadScript(slotIdx, cardSlot));
 }
 
+function pickUploadRecoverySlot(excludeIdx) {
+  for (let i = 0; i < NUM_SLOTS; i++) {
+    if (i !== excludeIdx) return i;
+  }
+  return -1;
+}
+
+async function switchAwayForSafeUpload(targetSlot, statusEl) {
+  if (currentSlot !== targetSlot) return -1;
+  const recoverySlot = pickUploadRecoverySlot(targetSlot);
+  if (recoverySlot < 0) return -1;
+
+  if (statusEl) statusEl.textContent = `Switching to ${slots[recoverySlot].name} for safe upload…`;
+  await sendAndWaitAck([CMD_SET, VER, 0x00, P_G_MODE, 0x00, recoverySlot & 0x7F], CMD_SET, 1800);
+  selectSlot(recoverySlot, false);
+  setStatus(`Switched to ${slots[recoverySlot].name} so slot ${targetSlot} can be updated safely`);
+  await new Promise(resolve => setTimeout(resolve, 180));
+  return recoverySlot;
+}
+
+async function performScriptUpload(slotIdx, scriptText, uploadStatus) {
+  const raw = Array.from(new TextEncoder().encode(scriptText));
+  const totalLen = raw.length;
+  const lenHi7 = (totalLen >> 7) & 0x7F;
+  const lenLo7 = totalLen & 0x7F;
+
+  if (uploadStatus) uploadStatus.textContent = 'Starting…';
+  await sendAndWaitAck(
+    [SYSEX_SCRIPT_BEGIN, VER, slotIdx & 0x0F, lenHi7, lenLo7],
+    SYSEX_SCRIPT_BEGIN,
+    SCRIPT_BEGIN_ACK_TIMEOUT_MS,
+    { totalLen }
+  );
+
+  let seq = 0;
+  for (let off = 0; off < totalLen; off += CHUNK_BYTES) {
+    const chunk = raw.slice(off, off + CHUNK_BYTES);
+    const encoded = encode8to7(chunk);
+    const seqHi7 = (seq >> 7) & 0x7F;
+    const seqLo7 = seq & 0x7F;
+    await sendAndWaitAck(
+      [SYSEX_SCRIPT_CHUNK, VER, seqHi7, seqLo7, ...encoded],
+      SYSEX_SCRIPT_CHUNK,
+      SCRIPT_CHUNK_ACK_TIMEOUT_MS
+    );
+    seq++;
+    const pct = Math.round((off + chunk.length) / totalLen * 100);
+    if (uploadStatus) uploadStatus.textContent = `Uploading… ${pct}%`;
+  }
+
+  await sendAndWaitAck(
+    [SYSEX_SCRIPT_END, VER, slotIdx & 0x0F],
+    SYSEX_SCRIPT_END,
+    SCRIPT_END_ACK_TIMEOUT_MS
+  );
+}
+
 async function downloadScript(slotIdx, cardSlot) {
   const dlBtn = document.getElementById(`slot-dl-${cardSlot}`);
   const dlStatus = document.getElementById(`slot-status-${cardSlot}`);
@@ -1419,43 +1521,44 @@ async function uploadScript(slotIdx, scriptText, cardSlot) {
   const uploadStatus = document.getElementById(`slot-status-${cardSlot}`);
 
   if (!midiOut) { if (uploadStatus) uploadStatus.textContent = 'No device connected.'; return; }
+  clearTimeout(_saveTimer);
 
-  const raw = Array.from(new TextEncoder().encode(scriptText));
-  const totalLen = raw.length;
+  const safety = analyzeScriptSafety(scriptText);
+  renderSlotSafety(cardSlot, scriptText);
+  if (safety.hasErrors) {
+    if (uploadStatus) uploadStatus.textContent = SCRIPT_SAFETY
+      ? SCRIPT_SAFETY.summarize(safety, { maxItems: 1 })
+      : 'Fix script issues before uploading.';
+    return;
+  }
+
+  const totalLen = new TextEncoder().encode(scriptText).length;
   if (totalLen === 0) { if (uploadStatus) uploadStatus.textContent = 'Script is empty.'; return; }
 
   if (uploadBtn) uploadBtn.disabled = true;
   try {
-    const lenHi7 = (totalLen >> 7) & 0x7F;
-    const lenLo7 = totalLen & 0x7F;
-    if (uploadStatus) uploadStatus.textContent = 'Starting…';
-    await sendAndWaitAck(
-      [SYSEX_SCRIPT_BEGIN, VER, slotIdx & 0x0F, lenHi7, lenLo7],
-      SYSEX_SCRIPT_BEGIN,
-      1500,
-      { totalLen }
-    );
-
-    let seq = 0;
-    for (let off = 0; off < totalLen; off += CHUNK_BYTES) {
-      const chunk = raw.slice(off, off + CHUNK_BYTES);
-      const encoded = encode8to7(chunk);
-      const seqHi7 = (seq >> 7) & 0x7F;
-      const seqLo7 = seq & 0x7F;
-      await sendAndWaitAck([SYSEX_SCRIPT_CHUNK, VER, seqHi7, seqLo7, ...encoded], SYSEX_SCRIPT_CHUNK, 1500);
-      seq++;
-      const pct = Math.round((off + chunk.length) / totalLen * 100);
-      if (uploadStatus) uploadStatus.textContent = `Uploading… ${pct}%`;
+    let switchedTo = -1;
+    if (currentSlot === slotIdx) {
+      switchedTo = await switchAwayForSafeUpload(slotIdx, uploadStatus);
     }
 
-    await sendAndWaitAck([SYSEX_SCRIPT_END, VER, slotIdx & 0x0F], SYSEX_SCRIPT_END, 1500);
-    if (uploadStatus) uploadStatus.textContent = `Done — slot ${slotIdx} updated.`;
+    await performScriptUpload(slotIdx, scriptText, uploadStatus);
+    if (uploadStatus) {
+      uploadStatus.textContent = switchedTo >= 0
+        ? `Done — slot ${slotIdx} updated. Still on ${slots[switchedTo].name} for recovery.`
+        : `Done — slot ${slotIdx} updated.`;
+    }
 
     // Re-parse local metadata and re-fetch names from device
     applySlotMeta(slotIdx, parseScriptMeta(scriptText));
     setTimeout(() => send([CMD_GET_SLOT_NAMES, VER]), 300);
   } catch (e) {
-    if (uploadStatus) uploadStatus.textContent = `Error: ${e.message}`;
+    if (uploadStatus) {
+      const hint = /ACK timeout/.test(e.message)
+        ? ' The device may still be busy running the current script; try again or switch to another slot first.'
+        : '';
+      uploadStatus.textContent = `Error: ${e.message}${hint}`;
+    }
   } finally {
     if (uploadBtn) uploadBtn.disabled = false;
   }

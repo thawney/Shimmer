@@ -14,6 +14,7 @@ var drops        = [];   // {x, y} — both floats; x wraps horizontally
 var grid         = [];   // persistent brightness for fade trails
 var smoothWind   = 0.0;
 var spawnElapsed = 0;
+var MAX_SPAWN_CATCHUP = 6;
 
 function activate(m) {
   drops        = [];
@@ -50,10 +51,13 @@ function update(m) {
   if (spawnMs < 80) spawnMs = 80;
 
   spawnElapsed += m.dt;
-  while (spawnElapsed >= spawnMs && drops.length < MAX_DROPS) {
+  var spawned = 0;
+  while (spawnElapsed >= spawnMs && drops.length < MAX_DROPS && spawned < MAX_SPAWN_CATCHUP) {
     spawnElapsed -= spawnMs;
     drops.push({ x: m.rnd(m.COLS), y: 0.0 });
+    spawned++;
   }
+  if (spawned === MAX_SPAWN_CATCHUP && spawnElapsed >= spawnMs) spawnElapsed = spawnMs - 1;
 
   // MIDI IN: NoteOn spawns a targeted drop at the pitch-mapped column
   if (m.midiType === 1 && drops.length < MAX_DROPS) {

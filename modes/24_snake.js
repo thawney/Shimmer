@@ -23,6 +23,7 @@ var isDead     = false;
 var deadMs     = 0;
 var foodPhase  = 0.0;
 var snakeScore = 0;
+var MAX_CATCHUP_STEPS = 6;
 
 function snakeSpawnFood(m) {
   var tries = 150;
@@ -91,8 +92,10 @@ function update(m) {
   if (stepMs < 55) stepMs = 55;
 
   snakeMs += m.dt;
-  while (snakeMs >= stepMs) {
+  var catchUps = 0;
+  while (snakeMs >= stepMs && catchUps < MAX_CATCHUP_STEPS) {
     snakeMs -= stepMs;
+    catchUps++;
 
     // New head — wrap edges
     var hx = (snakeX[0] + DX[snakeDir] + m.COLS) % m.COLS;
@@ -131,6 +134,7 @@ function update(m) {
       snakeSpawnFood(m);
     }
   }
+  if (catchUps === MAX_CATCHUP_STEPS && snakeMs >= stepMs) snakeMs = stepMs - 1;
 
   // Draw
   m.clear();

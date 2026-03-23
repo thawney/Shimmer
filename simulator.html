@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
   <!-- Inherit design tokens (colors, fonts, sliders, selects) from main stylesheet -->
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
   <!-- CodeMirror 5 — MIT licensed, plain script tags, no build step required -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-  <link rel="stylesheet" href="simulator.css">
+  <link rel="stylesheet" href="simulator.css?v=1">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
   <script src="vendor/three.min.js"></script>
@@ -65,6 +65,7 @@
         <button class="btn-run"  id="btn-run">▶ Run</button>
         <button class="btn-stop" id="btn-stop">■ Stop</button>
       </div>
+      <div id="sim-safety" class="sim-safety"></div>
       <div id="editor-container"></div>
     </div>
 
@@ -131,6 +132,7 @@
   </div>
 
   <script src="simulator-3d.js"></script>
-  <script src="simulator.js"></script>
+  <script src="script-safety.js?v=1"></script>
+  <script src="simulator.js?v=1"></script>
 </body>
 </html>

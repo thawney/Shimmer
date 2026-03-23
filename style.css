@@ -453,6 +453,21 @@ body.boot-locked .tab-content {
   outline-offset: 1px;
 }
 
+.slot-safety {
+  min-height: 2.3em;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #98d7ff;
+}
+
+.slot-safety--warn {
+  color: #ffe08a;
+}
+
+.slot-safety--error {
+  color: #ff9f9f;
+}
+
 .slot-footer {
   display: flex;
   align-items: center;

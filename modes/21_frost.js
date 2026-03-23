@@ -14,6 +14,7 @@ var growElapsed  = 0;
 var shattering   = false;
 
 var MAX_FILL;  // set in activate
+var MAX_CATCHUP_STEPS = 6;
 
 function activate(m) {
   MAX_FILL = Math.floor(m.COLS * m.ROWS * 8 / 10);
@@ -102,10 +103,13 @@ function update(m) {
   var growInterval = Math.max(40, Math.floor(m.beatMs / 8));
 
   growElapsed += m.dt;
-  while (growElapsed >= growInterval && crystalCount < m.COLS * m.ROWS) {
+  var catchUps = 0;
+  while (growElapsed >= growInterval && crystalCount < m.COLS * m.ROWS && catchUps < MAX_CATCHUP_STEPS) {
     growElapsed -= growInterval;
     tryGrow(m);
+    catchUps++;
   }
+  if (catchUps === MAX_CATCHUP_STEPS && growElapsed >= growInterval) growElapsed = growInterval - 1;
 
   if (crystalCount >= MAX_FILL) shattering = true;
 

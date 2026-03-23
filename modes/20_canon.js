@@ -115,6 +115,7 @@ function update(m) {
     // Wrap cnStep to avoid unbounded growth
     if (cnStep > 10000) cnStep = cnStep % (cnLen * 4);
   }
+  if (steps === 8 && cnElapsed >= m.beatMs) cnElapsed = m.beatMs - 1;
 
   // Fade flashes
   var fd = Math.floor((3 * m.dt + 8) / 16);

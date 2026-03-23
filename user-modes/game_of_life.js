@@ -11,6 +11,7 @@
 var life = [];    // life[row][col] = 0 or 1
 var next = [];    // scratch buffer
 var elapsed = 0;
+var MAX_CATCHUP_STEPS = 4;
 
 function clearBoards(m) {
   life = [];
@@ -136,10 +137,13 @@ function update(m) {
   var stepMs = Math.max(80, Math.floor(m.beatMs / 2));
 
   elapsed += m.dt;
-  while (elapsed >= stepMs) {
+  var steps = 0;
+  while (elapsed >= stepMs && steps < MAX_CATCHUP_STEPS) {
     elapsed -= stepMs;
     step(m);
+    steps++;
   }
+  if (steps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
 
   draw(m);
   m.show();

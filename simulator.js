@@ -14,6 +14,7 @@
 var COLS = 12;
 var ROWS = 12;
 var MAX_SCRIPT_BYTES = 12288;
+var SCRIPT_SAFETY = window.ShimmerScriptSafety || null;
 var _textEncoder = new TextEncoder();
 
 var _thawneyModes = [];
@@ -111,6 +112,30 @@ function parseScriptMeta(code) {
     hue:        hueStr != null ? parseInt(hueStr, 10) : 0,
     sat:        satStr != null ? parseInt(satStr, 10) : 255,
   };
+}
+
+function analyzeScriptSafety(code) {
+  if (!SCRIPT_SAFETY) {
+    return { issues: [], hasErrors: false, hasWarnings: false, bytes: 0, maxBytes: MAX_SCRIPT_BYTES };
+  }
+  return SCRIPT_SAFETY.analyze(code, { maxBytes: MAX_SCRIPT_BYTES });
+}
+
+function renderSimSafety(report) {
+  var el = document.getElementById('sim-safety');
+  if (!el) return;
+  if (!report || !report.issues || !report.issues.length) {
+    el.textContent = 'Simulator safety notes mirror the device upload checks.';
+    el.className = 'sim-safety';
+    return;
+  }
+  var summary = SCRIPT_SAFETY
+    ? SCRIPT_SAFETY.summarize(report, { maxItems: 2 })
+    : report.issues.slice(0, 2).map(function(issue) { return issue.message; }).join(' ');
+  el.textContent = summary;
+  el.className = 'sim-safety';
+  if (report.hasErrors) el.classList.add('sim-safety--error');
+  else if (report.hasWarnings) el.classList.add('sim-safety--warn');
 }
 
 // FastLED-compatible HSV→RGB. All inputs and outputs 0–255.
@@ -745,6 +770,13 @@ function runCurrentScript() {
   var code = editor.getValue().trim();
   if (!code) { setStatus('Editor is empty', 'error'); return; }
 
+  var safety = analyzeScriptSafety(code);
+  renderSimSafety(safety);
+  if (safety.hasErrors) {
+    setStatus('Fix script issues before running', 'error');
+    return;
+  }
+
   var newMeta = parseScriptMeta(code);
   meta.hue = newMeta.hue;
   meta.sat = newMeta.sat;
@@ -859,11 +891,15 @@ var editor = CodeMirror(document.getElementById('editor-container'), {
 function updateSimByteCounter() {
   var el = document.getElementById('sim-byte-counter');
   if (!el) return;
-  var bytes = _textEncoder.encode(editor.getValue()).length;
+  var code = editor.getValue();
+  var report = analyzeScriptSafety(code);
+  var bytes = _textEncoder.encode(code).length;
   el.textContent = bytes + ' / ' + MAX_SCRIPT_BYTES + ' bytes';
   el.className = 'sim-byte-counter';
   if (bytes > MAX_SCRIPT_BYTES) el.classList.add('sim-byte-counter--danger');
   else if (bytes > Math.floor(MAX_SCRIPT_BYTES * 0.9)) el.classList.add('sim-byte-counter--warn');
+  if (code.trim()) renderSimSafety(report);
+  else renderSimSafety(null);
 }
 
 editor.on('change', updateSimByteCounter);

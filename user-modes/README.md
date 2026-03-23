@@ -251,6 +251,32 @@ m.map(v, inLo, inHi, outLo, outHi)  // linear float mapping
 - Use `m.tick()` for rhythmically stable events rather than manual elapsed timers.
 - Max script size: **12288 bytes**.
 - Out-of-range pixel coordinates are silently ignored.
+- Avoid browser-only APIs like `setTimeout()`, `document`, `window`, or `fetch()`.
+- Treat `while (...)` loops with care. Add an explicit cap so catch-up work cannot run forever after a long frame.
+
+**Recommended pattern for elapsed-time catch-up loops:**
+```js
+var MAX_CATCHUP_STEPS = 6;
+var steps = 0;
+while (elapsed >= stepMs && steps < MAX_CATCHUP_STEPS) {
+  elapsed -= stepMs;
+  // advance simulation...
+  steps++;
+}
+if (steps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
+```
+
+---
+
+## Safety checks
+
+- The **Simulator** and **Device** pages now show the same preflight warnings before run/upload.
+- Syntax errors, explicit infinite loops, oversize scripts, and missing `update(m)` block run/upload.
+- Risky patterns such as generic `while (...)` loops and browser-only APIs show warnings but do not block by themselves.
+- The bundled example scripts have been patched to cap catch-up loops, so they model the safer pattern above.
+- Uploading to the slot that is currently running now switches the device to a different slot first, so replacing a bad active script is easier.
+- During script upload, the firmware now pauses mode updates so otherwise functional but busy scripts are less likely to trigger false ACK timeouts.
+- If a slot faults on hardware, the device keeps that slot selected and shows a red warning with the slot number on the 12x12 grid instead of silently jumping away.
 
 ---
 
@@ -259,6 +285,9 @@ m.map(v, inLo, inHi, outLo, outHi)  // linear float mapping
 1. Open the web UI and connect your device.
 2. Go to **Scripts**.
 3. Paste or edit code in a slot card.
-4. Click **Upload to device** — takes effect immediately, no reboot needed.
+4. Review any safety warnings shown under the editor.
+5. Click **Upload to device**.
+
+If that slot is currently active, the web UI temporarily switches the device to another slot first so the replacement upload can complete reliably. Upload ACK timeouts should also be rarer now because mode execution pauses during transfer, but if the device is still busy you can retry once or switch to another slot first.
 
 Or prototype first in the [**Simulator**](../simulator.html) — no device required.

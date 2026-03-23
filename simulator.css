@@ -451,6 +451,25 @@ body {
   border-color: rgba(255, 107, 107, 0.34);
 }
 
+.sim-safety {
+  min-height: 22px;
+  padding: 6px 10px 7px;
+  font-size: 12px;
+  color: #98d7ff;
+  background: rgba(18, 32, 43, 0.9);
+  border-bottom: 1px solid rgba(255, 198, 10, 0.12);
+}
+
+.sim-safety--warn {
+  color: #ffe08a;
+  background: rgba(76, 57, 16, 0.9);
+}
+
+.sim-safety--error {
+  color: #ffb3b3;
+  background: rgba(82, 22, 22, 0.92);
+}
+
 .editor-toolbar select {
   flex: 1;
   min-width: 0;

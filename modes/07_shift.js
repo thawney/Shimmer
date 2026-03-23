@@ -12,6 +12,7 @@ var REG_MASK;  // set in activate() to (1 << m.COLS) - 1
 
 var reg = 0;
 var elapsed = 0;
+var MAX_CATCHUP_STEPS = 8;
 
 function popcount28(v) {
   v = v & REG_MASK;
@@ -39,8 +40,10 @@ function update(m) {
   var stepMs = m.beatMs;
 
   elapsed += m.dt;
-  while (elapsed >= stepMs) {
+  var catchUps = 0;
+  while (elapsed >= stepMs && catchUps < MAX_CATCHUP_STEPS) {
     elapsed -= stepMs;
+    catchUps++;
 
     // Use scale length ~7 (diatonic default)
     var sl = 7;
@@ -59,6 +62,7 @@ function update(m) {
 
     reg = (((reg << 1) | new_bit) >>> 0) & REG_MASK;
   }
+  if (catchUps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
 
   // Render: lit bits bright, unlit bits black
   for (var col = 0; col < m.COLS; col++) {
