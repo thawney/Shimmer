@@ -284,8 +284,10 @@ if (steps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
 - The simulator and firmware runtime now clamp exposed timing values before scripts see them: `m.dt` is clamped to `1..96ms` and `m.beatMs` to `40..4000ms`.
 - During script upload, the device now shows a dedicated dim `#ffc60a` upload screen instead of leaving the active script running underneath the transfer.
 - During script upload, the firmware now pauses mode updates so otherwise functional but busy scripts are less likely to trigger false ACK timeouts.
-- If a slot faults on hardware, the device keeps that slot selected and shows a red warning with the slot number on the 12x12 grid instead of silently jumping away. That red fault display is the only red device screen; normal startup and upload screens use a dim `#ffc60a` yellow.
+- If a slot faults on hardware, the device keeps that slot selected and shows a red `!` with the slot number on the 12x12 grid instead of silently jumping away. That red fault display is the only red device screen; normal startup and upload screens use a dim `#ffc60a` yellow.
 - After you leave a faulted slot, button-based mode stepping skips that slot until its script contents change again. Uploading a new script to that slot clears the skip and lets it be selected normally.
+- Empty slots now show an amber `?` with the slot number, so they are visibly different from real script faults.
+- Holding the device button during boot wipes the on-device script files and leaves the unit on an amber recovery screen marked with `R` until at least one script is uploaded again. Use this to escape a bad boot loop without opening the enclosure.
 
 ---
 
