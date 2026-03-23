@@ -8,7 +8,7 @@
  * @sound Glass pad / choir
  */
 
-var KM=9,kn=0,kx=[],ky=[],ktx=[],kty=[],kh=[],kth=[],kb=[],ku=[],ks=[],kv=[];
+var KM=6,kn=0,kx=[],ky=[],ktx=[],kty=[],kh=[],kth=[],kb=[],ku=[],ks=[],kv=[];
 var kp=0.0,kc=0.0,kk=0.0,km=0,kb0=0,kl=0,kr=1,kf=0,kax=0.0,kay=0.0;
 var SH=[[0,2,4,6,8],[0,2,4,5,7],[0,1,4,6,7],[0,2,3,5,7],[0,2,5,7,9]];
 
@@ -36,7 +36,6 @@ function kern(m,x,y,h,s,v){
 }
 function burst(m,x,y,h,s,v){
   kern(m,x,y,h,s,v);
-  kern(m,5.5+(x-5.5)*0.56,5.5+(y-5.5)*0.56,(h+8)&255,s-45,Math.floor(v*0.45));
 }
 function plot8(m,x,y,h,s,v){
   burst(m,x,y,h,s,v); burst(m,11-x,y,h,s,v); burst(m,x,11-y,h,s,v); burst(m,11-x,11-y,h,s,v);
@@ -73,7 +72,7 @@ function comp(){
   var v=((kn-4)/5.0)*0.45+s*0.55;
   return v<0?0:v>1?1:v;
 }
-function voices(c){var v=3+Math.floor(c*2.9); return v>5?5:v;}
+function voices(c){var v=2+Math.floor(c*1.7); return v>3?3:v;}
 
 function adv(m,hard){
   var d=0;
@@ -111,6 +110,7 @@ function shock(m,beat){
 
 function activate(m){
   kn=0; kp=0.0; kc=0.0; kk=0.0; km=0; kb0=0; kl=0; kr=1+m.rnd(3); kf=m.rnd(SH.length);
+  ku=[]; ks=[]; kv=[];
   kax=m.accelX/72.0; kay=m.accelY/72.0; resize(m); m.clear(); m.show();
 }
 
@@ -130,7 +130,7 @@ function update(m){
   sub=Math.floor(beat/(2+Math.floor(c*2.2))); if(sub<70) sub=70;
 
   if(m.tick(0,sub)){
-    var edits=still?1:(2+(m.motion>80?1:0));
+    var edits=1;
     for(var n=0;n<edits;n++) target((kl+n+m.rnd(kn))%kn,m,0);
     melody(m,c,beat);
   }

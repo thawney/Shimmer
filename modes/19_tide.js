@@ -12,6 +12,7 @@ var sloshAngle  = 0.0;   // current surface tilt (radians; + = right side up)
 var sloshVel    = 0.0;   // rate of change
 var wavePhase   = 0.0;   // travelling wave phase
 var prevLevel   = [];    // waterline row per column last frame
+var settleFrames = 0;    // suppress startup note storms for the first couple frames
 
 // Natural sloshing frequency ω² = g/L; for aesthetic period ~ 2s
 var OMEGA_SQ = 0.0000025;   // per ms² (period ≈ 2.5s)
@@ -35,6 +36,7 @@ function activate(m) {
   sloshAngle = 0.0;
   sloshVel   = 0.0;
   wavePhase  = 0.0;
+  settleFrames = 2;
   prevLevel  = [];
   for (var c = 0; c < m.COLS; c++) prevLevel[c] = Math.floor(m.ROWS / 2);
   m.clear(); m.show();
@@ -62,6 +64,7 @@ function update(m) {
   // Positive sloshAngle → right side higher (lower row index)
   // slope: how many rows per column
   var slope = sloshAngle * (m.ROWS / m.COLS);
+  var noteBudget = settleFrames > 0 ? 0 : 3;
 
   m.clear();
 
@@ -74,12 +77,13 @@ function update(m) {
     if (surfRow > m.ROWS)  surfRow = m.ROWS;   // off bottom = fully submerged
 
     // Note when surface rises to cover a new row
-    if (surfRow < prevLevel[c]) {
+    if (noteBudget > 0 && surfRow + 1 < prevLevel[c]) {
       // Newly submerged — surface came up in this column
       var deg = m.colToDegree(c);
       var vel = 40 + Math.floor(waveAmp * 25) + m.rnd(22);
       if (vel > 110) vel = 110;
       m.note(deg, vel, Math.floor(beatMs * 1.2));
+      noteBudget--;
     }
     prevLevel[c] = surfRow;
 
@@ -100,5 +104,6 @@ function update(m) {
     }
   }
 
+  if (settleFrames > 0) settleFrames--;
   m.show();
 }

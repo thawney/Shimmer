@@ -8,10 +8,10 @@
  * @sound Bell Pluck / Glass Keys
  */
 
-var MB=12,BR=0.30,BG=0.0000011,EG=0.0000018,SA=0.000000022,SF=0.00022,SM=0.0085;
-var KT=150,ST=220,PA=0.42,PP=24.0,WS=6,WH=0.42,WO=0.95;
+var MB=8,BR=0.30,BG=0.0000011,EG=0.0000018,SA=0.000000022,SF=0.00022,SM=0.0085;
+var KT=150,ST=220,PA=0.42,PP=24.0,WS=6,ED=7;
 var MS=[0xAB5,0x5AD,0x6AD,0x295,0xFFF,0x6B5,0xAD5,0x5AB,0x9AD,0x555];
-var bs=[],sx=0.0,sy=0.0,sv=0.0,ph=-1.57079,lm=0;
+var bs=[],sx=0.0,sy=0.0,sv=0.0,ph=-1.57079,lm=0,sf=0,nb=0;
 
 function cl(v,l,h){return v<l?l:v>h?h:v;}
 function dt(m){var v=m.dt;return v<1?1:v>96?96:v;}
@@ -47,29 +47,26 @@ function midiDeg(m,note){
 }
 
 function wall(m,x0,y0,rad,rot,br){
-  var vs=[],step=6.28318/WS,reach=WH+WO;
+  var step=6.28318/WS,core=Math.floor(br*0.62),glow=Math.floor(br*0.22);
   for(var i=0;i<WS;i++){
-    var a=rot+i*step;
-    vs[i]={x:x0+Math.cos(a)*rad,y:y0+Math.sin(a)*rad};
-  }
-  for(var r=0;r<m.ROWS;r++) for(var c=0;c<m.COLS;c++){
-    var best=0.0;
-    for(var s=0;s<WS;s++){
-      var a0=vs[s],b0=vs[(s+1)%WS],d=seg(c,r,a0.x,a0.y,b0.x,b0.y),mix=1.0-d/reach;
-      if(mix<=0.0) continue;
-      mix=mix*mix*(3.0-2.0*mix);
-      if(mix>best) best=mix;
+    var a0=rot+i*step,a1=a0+step;
+    var x0s=x0+Math.cos(a0)*rad,y0s=y0+Math.sin(a0)*rad,x1s=x0+Math.cos(a1)*rad,y1s=y0+Math.sin(a1)*rad;
+    for(var t=0;t<=ED;t++){
+      var u=t/ED,x=x0s+(x1s-x0s)*u,y=y0s+(y1s-y0s)*u,c=Math.floor(x+0.5),r=Math.floor(y+0.5);
+      m.px(c,r,0,0,core);
+      if(glow>0){ m.px(c+1,r,0,0,glow); m.px(c-1,r,0,0,glow); m.px(c,r+1,0,0,glow); m.px(c,r-1,0,0,glow); }
     }
-    if(best>0.03) m.px(c,r,0,0,Math.floor(br*best+0.5));
   }
+  m.px(Math.floor(x0+0.5),Math.floor(y0+0.5),0,0,Math.floor(br*0.18));
 }
 
 function hit(m,b,v,beat){
-  if(b.c>0) return;
+  if(b.c>0||nb<=0) return;
   if(v<44) v=44;
   if(v>118) v=118;
   m.note(b.d,v,Math.floor(beat*0.28));
   b.c=90;
+  nb--;
 }
 
 function kick(m,x0,y0,ir,turn,beat){
@@ -109,12 +106,14 @@ function collide(a,b){
 
 function activate(m){
   sx=m.accelY; sy=m.accelX; sv=0.0; ph=-1.57079; lm=m.motion;
+  sf=3; nb=0;
   seed(m); m.clear(); m.show();
 }
 
 function update(m){
   var fd=dt(m),beat=bm(m),x0=cx(m),y0=cy(m),dr=rr(m),ir=dr-BR;
   var bo=0.62+(m.density/255.0)*0.34,mr=0.0012+(m.density/255.0)*0.0008;
+  nb=sf>0?0:3;
   if(m.motion>ST&&lm<=ST) bs=[];
   else if(m.motion>KT&&lm<=KT) add(m,m.rnd(14));
   if(m.midiType===1&&m.midiNote!==255) add(m,midiDeg(m,m.midiNote));
@@ -123,7 +122,7 @@ function update(m){
   var pulseMs=beat/PP,pulse=m.tick(7,pulseMs>6.0?pulseMs:6.0),rem=fd,steps=0,turn=sv*dr;
   m.fade(18);
 
-  while(rem>0&&steps<6){
+  while(rem>0&&steps<4){
     var d=rem>16?16:rem,drag=1.0-(0.0017-(m.density/255.0)*0.0005)*d;
     if(drag<0.965) drag=0.965;
     sx+=(m.accelY-sx)*(d/130.0);
@@ -167,7 +166,7 @@ function update(m){
     rem-=d; steps++;
   }
 
-  if(pulse) kick(m,x0,y0,ir,turn,beat);
+  if(pulse&&sf===0) kick(m,x0,y0,ir,turn,beat);
   wall(m,x0,y0,dr,ph,m.brightness);
 
   for(var z=0;z<bs.length;z++){
@@ -176,5 +175,6 @@ function update(m){
     m.px(c,r,h,220,m.brightness);
   }
   if(!bs.length) m.px(Math.floor(x0+0.5),Math.floor(y0+0.5),20,80,100);
+  if(sf>0) sf--;
   m.show();
 }

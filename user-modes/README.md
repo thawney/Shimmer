@@ -251,6 +251,8 @@ m.map(v, inLo, inHi, outLo, outHi)  // linear float mapping
 - Use `m.tick()` for rhythmically stable events rather than manual elapsed timers.
 - Clamp unusually large `m.dt` values in timing-sensitive scripts, and clamp or sanity-check `m.beatMs` before dividing by it or feeding it into physics.
 - For particle or collision-heavy scripts, prefer bounded substeps over one giant physics step after a stall.
+- Avoid “startup storms”: don’t emit a full-grid burst of notes on the first update after `activate()`. Seed visual state first, then enable note triggers after a frame or two if needed.
+- In physics-heavy modes, cap note output per frame as well as simulation steps. A pile of simultaneous impacts can be just as destabilising as the physics itself.
 - Use the current API names only: `m.dt`, `m.beatMs`, and `m.px()`. Old names like `m.delta` or `m.pixel()` are stale and should be treated as broken.
 - Max script size: **12288 bytes**.
 - Out-of-range pixel coordinates are silently ignored.
