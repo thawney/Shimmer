@@ -1,6 +1,6 @@
 /**
  * @name Ball Bearings
- * @author Thawney
+ * @author Tony Nacho
  * @hue 150
  * @sat 180
  * @param_label Bearings
