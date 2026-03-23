@@ -37,6 +37,20 @@ function clamp(v, lo, hi) {
   return v;
 }
 
+function safeDt(m) {
+  var dt = m.dt;
+  if (dt < 1) dt = 1;
+  if (dt > 96) dt = 96;
+  return dt;
+}
+
+function safeBeatMs(m) {
+  var beatMs = m.beatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
+
 function wrapAngle(a) {
   while (a <= -3.14159) a += 6.28318;
   while (a > 3.14159) a -= 6.28318;
@@ -150,15 +164,15 @@ function drawWall(m, cx, cy, radius, rot, br) {
   }
 }
 
-function strikeBall(m, ball, vel) {
+function strikeBall(m, ball, vel, beatMs) {
   if (ball.cool > 0) return;
   if (vel < 44) vel = 44;
   if (vel > 118) vel = 118;
-  m.note(ball.deg, vel, Math.floor(m.beatMs * 0.28));
+  m.note(ball.deg, vel, Math.floor(beatMs * 0.28));
   ball.cool = 90;
 }
 
-function kickRimBalls(m, cx, cy, innerR, wallTurn) {
+function kickRimBalls(m, cx, cy, innerR, wallTurn, beatMs) {
   var edgeBand = innerR - 0.22;
   var launchSpeed = 0.0105 + (m.density / 255.0) * 0.0065;
   var inwardMin = launchSpeed * 0.28;
@@ -186,7 +200,7 @@ function kickRimBalls(m, cx, cy, innerR, wallTurn) {
     ball.y -= ny * launchInset;
     ball.vx = tx * targetTangential - nx * launchSpeed;
     ball.vy = ty * targetTangential - ny * launchSpeed;
-    strikeBall(m, ball, 72 + Math.floor(launchSpeed * 2600.0));
+    strikeBall(m, ball, 72 + Math.floor(launchSpeed * 2600.0), beatMs);
   }
 }
 
@@ -270,21 +284,14 @@ function activate(m) {
 }
 
 function update(m) {
+  var frameDt = safeDt(m);
+  var beatMs = safeBeatMs(m);
   var cx = centerX(m);
   var cy = centerY(m);
   var drumR = radiusFor(m);
   var innerR = drumR - BALL_R;
   var bounce = 0.62 + (m.density / 255.0) * 0.34;
   var minRebound = 0.0012 + (m.density / 255.0) * 0.0008;
-  var drag = 1.0 - (0.0017 - (m.density / 255.0) * 0.0005) * m.dt;
-  if (drag < 0.965) drag = 0.965;
-
-  smoothSpin += (m.accelY - smoothSpin) * (m.dt / 130.0);
-  smoothGrav += (m.accelX - smoothGrav) * (m.dt / 130.0);
-  spinVel += smoothSpin * SPIN_ACCEL * m.dt;
-  spinVel *= 1.0 - SPIN_FRICTION * m.dt;
-  spinVel = clamp(spinVel, -SPIN_VEL_MAX, SPIN_VEL_MAX);
-  phase = wrapAngle(phase + spinVel * m.dt);
 
   if (m.motion > SHAKE_THRESHOLD && lastMotion <= SHAKE_THRESHOLD) {
     balls = [];
@@ -296,91 +303,113 @@ function update(m) {
   }
   lastMotion = m.motion;
 
-  var gravMix = clamp((smoothGrav + 128.0) / 255.0, 0.0, 1.0);
-  var gy = BASE_GRAVITY + gravMix * EXTRA_GRAVITY;
-  var wallTurn = spinVel * drumR;
-  var clockPulseMs = m.beatMs / CLOCK_PPQN;
+  var clockPulseMs = beatMs / CLOCK_PPQN;
   var clockPulse = m.tick(7, clockPulseMs > 6.0 ? clockPulseMs : 6.0);
+  var simRemaining = frameDt;
+  var substeps = 0;
+  var wallTurn = spinVel * drumR;
 
   m.fade(18);
-  drawWall(m, cx, cy, drumR, phase, m.brightness);
+  while (simRemaining > 0 && substeps < 6) {
+    var dt = simRemaining > 16 ? 16 : simRemaining;
+    var drag = 1.0 - (0.0017 - (m.density / 255.0) * 0.0005) * dt;
+    if (drag < 0.965) drag = 0.965;
 
-  for (var i = 0; i < balls.length; i++) {
-    var b = balls[i];
-    b.prevX = b.x;
-    b.prevY = b.y;
-    if (b.cool > 0) b.cool -= m.dt;
-    else b.cool = 0;
+    smoothSpin += (m.accelY - smoothSpin) * (dt / 130.0);
+    smoothGrav += (m.accelX - smoothGrav) * (dt / 130.0);
+    spinVel += smoothSpin * SPIN_ACCEL * dt;
+    spinVel *= 1.0 - SPIN_FRICTION * dt;
+    spinVel = clamp(spinVel, -SPIN_VEL_MAX, SPIN_VEL_MAX);
+    phase = wrapAngle(phase + spinVel * dt);
 
-    var rx = b.x - cx;
-    var ry = b.y - cy;
-    var radial = Math.sqrt(rx * rx + ry * ry);
-    var wallMix = clamp((radial / innerR - 0.35) / 0.65, 0.0, 1.0);
-    var targetVx = -ry * spinVel;
-    var targetVy = rx * spinVel;
-    var carry = (0.00045 + wallMix * 0.0022) * m.dt;
-    b.vx += (targetVx - b.vx) * carry;
-    b.vy += (targetVy - b.vy) * carry;
-    b.vy += gy * m.dt;
-    b.vx *= drag;
-    b.vy *= drag;
-    b.x += b.vx * m.dt;
-    b.y += b.vy * m.dt;
-  }
+    var gravMix = clamp((smoothGrav + 128.0) / 255.0, 0.0, 1.0);
+    var gy = BASE_GRAVITY + gravMix * EXTRA_GRAVITY;
+    wallTurn = spinVel * drumR;
 
-  for (var a = 0; a < balls.length; a++) {
-    for (var j = a + 1; j < balls.length; j++) {
-      collidePair(balls[a], balls[j]);
+    for (var i = 0; i < balls.length; i++) {
+      var b = balls[i];
+      if (substeps === 0) {
+        b.prevX = b.x;
+        b.prevY = b.y;
+      }
+      if (b.cool > 0) b.cool -= dt;
+      else b.cool = 0;
+
+      var rx = b.x - cx;
+      var ry = b.y - cy;
+      var radial = Math.sqrt(rx * rx + ry * ry);
+      var wallMix = clamp((radial / innerR - 0.35) / 0.65, 0.0, 1.0);
+      var targetVx = -ry * spinVel;
+      var targetVy = rx * spinVel;
+      var carry = (0.00045 + wallMix * 0.0022) * dt;
+      b.vx += (targetVx - b.vx) * carry;
+      b.vy += (targetVy - b.vy) * carry;
+      b.vy += gy * dt;
+      b.vx *= drag;
+      b.vy *= drag;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
     }
-  }
 
-  for (var n = 0; n < balls.length; n++) {
-    var ball = balls[n];
-    var dx = ball.x - cx;
-    var dy = ball.y - cy;
-    var distSq = dx * dx + dy * dy;
+    for (var a = 0; a < balls.length; a++) {
+      for (var j = a + 1; j < balls.length; j++) {
+        collidePair(balls[a], balls[j]);
+      }
+    }
 
-    if (distSq >= innerR * innerR) {
-      var dist = Math.sqrt(distSq);
-      var nx = dx / dist;
-      var ny = dy / dist;
-      var ang2 = Math.atan2(dy, dx);
-      var vn = ball.vx * nx + ball.vy * ny;
+    for (var n = 0; n < balls.length; n++) {
+      var ball = balls[n];
+      var dx = ball.x - cx;
+      var dy = ball.y - cy;
+      var distSq = dx * dx + dy * dy;
 
-      ball.x = cx + nx * innerR;
-      ball.y = cy + ny * innerR;
+      if (distSq >= innerR * innerR) {
+        var dist = Math.sqrt(distSq);
+        var nx = dx / dist;
+        var ny = dy / dist;
+        var ang2 = Math.atan2(dy, dx);
+        var vn = ball.vx * nx + ball.vy * ny;
 
-      if (vn > 0) {
-        var rebound = -vn * bounce;
-        if (rebound < minRebound) rebound = minRebound;
+        ball.x = cx + nx * innerR;
+        ball.y = cy + ny * innerR;
 
-        ball.vx -= (1.0 + bounce) * vn * nx;
-        ball.vy -= (1.0 + bounce) * vn * ny;
+        if (vn > 0) {
+          var rebound = -vn * bounce;
+          if (rebound < minRebound) rebound = minRebound;
 
-        // The rotating cage drags the ball tangentially at the rim.
-        var tx = -ny;
-        var ty = nx;
-        var vt = ball.vx * tx + ball.vy * ty;
-        var wallVt = wallTurn;
-        ball.vx += tx * (wallVt - vt) * 0.82;
-        ball.vy += ty * (wallVt - vt) * 0.82;
+          ball.vx -= (1.0 + bounce) * vn * nx;
+          ball.vy -= (1.0 + bounce) * vn * ny;
 
-        // Give slow wall contacts a small inward kick so they do not dead-stick to the rim.
-        var rimVt = ball.vx * tx + ball.vy * ty;
-        ball.vx = tx * rimVt - nx * rebound;
-        ball.vy = ty * rimVt - ny * rebound;
+          // The rotating cage drags the ball tangentially at the rim.
+          var tx = -ny;
+          var ty = nx;
+          var vt = ball.vx * tx + ball.vy * ty;
+          var wallVt = wallTurn;
+          ball.vx += tx * (wallVt - vt) * 0.82;
+          ball.vy += ty * (wallVt - vt) * 0.82;
 
-        if (ball.cool <= 0 && wrapAngle(ang2 - phase) < PICKUP_ARC && wrapAngle(ang2 - phase) > -PICKUP_ARC) {
-          var vel = 56 + Math.floor(vn * 2600.0);
-          strikeBall(m, ball, vel);
+          // Give slow wall contacts a small inward kick so they do not dead-stick to the rim.
+          var rimVt = ball.vx * tx + ball.vy * ty;
+          ball.vx = tx * rimVt - nx * rebound;
+          ball.vy = ty * rimVt - ny * rebound;
+
+          if (ball.cool <= 0 && wrapAngle(ang2 - phase) < PICKUP_ARC && wrapAngle(ang2 - phase) > -PICKUP_ARC) {
+            var vel = 56 + Math.floor(vn * 2600.0);
+            strikeBall(m, ball, vel, beatMs);
+          }
         }
       }
     }
+
+    simRemaining -= dt;
+    substeps++;
   }
 
   if (clockPulse) {
-    kickRimBalls(m, cx, cy, innerR, wallTurn);
+    kickRimBalls(m, cx, cy, innerR, wallTurn, beatMs);
   }
+
+  drawWall(m, cx, cy, drumR, phase, m.brightness);
 
   for (var q = 0; q < balls.length; q++) {
     var draw = balls[q];

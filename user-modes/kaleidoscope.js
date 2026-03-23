@@ -25,6 +25,18 @@ var KSH = [
 
 function kAbs(v) { return v < 0 ? -v : v; }
 function kClamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+function kSafeDt(m) {
+  var dt = m.dt;
+  if (dt < 1) dt = 1;
+  if (dt > 96) dt = 96;
+  return dt;
+}
+function kSafeBeatMs(m) {
+  var beatMs = m.beatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
 
 function kResetCanvas(m) {
   for (var i = 0, n = m.COLS * m.ROWS; i < n; i++) {
@@ -151,11 +163,11 @@ function kAdvanceHarmony(m, hard) {
   if (kRoot > 4) kRoot = 4;
 }
 
-function kChord(m, comp, still, accent) {
+function kChord(m, comp, still, accent, beatMs) {
   var sh = KSH[kFam];
   var voices = kVoices(comp + (accent ? 0.18 : 0.0));
   var vel = 50 + Math.floor(comp * 30) + (accent ? 18 : 0);
-  var dur = Math.floor(m.beatMs * (still ? 1.35 : 0.95));
+  var dur = Math.floor(beatMs * (still ? 1.35 : 0.95));
   if (dur < 140) dur = 140;
   for (var i = 0; i < voices; i++) {
     var deg = kRoot + sh[i];
@@ -167,7 +179,7 @@ function kChord(m, comp, still, accent) {
   }
 }
 
-function kMelody(m, comp) {
+function kMelody(m, comp, beatMs) {
   if (kN < 1) return;
   var sh = KSH[kFam];
   var voices = kVoices(comp);
@@ -183,7 +195,7 @@ function kMelody(m, comp) {
   if (degB > 13) degB = 13;
   var velA = 38 + Math.floor(comp * 28) + Math.floor(kY[idx] * 4) + m.rnd(12);
   var velB = velA - 10 + Math.floor((kX[idx] + 0.5) * 3);
-  var dur = Math.floor(m.beatMs * (0.42 + comp * 0.18));
+  var dur = Math.floor(beatMs * (0.42 + comp * 0.18));
   if (dur < 80) dur = 80;
   m.note(degA, velA, dur);
   if (voices > 3 || b !== a) {
@@ -192,12 +204,12 @@ function kMelody(m, comp) {
   }
 }
 
-function kShock(m) {
+function kShock(m, beatMs) {
   kShockMs = 900;
   kAdvanceHarmony(m, 1);
   kFam = (kFam + 1 + m.rnd(KSH.length - 1)) % KSH.length;
   for (var i = 0; i < kN; i++) kRetarget(i, m, 1);
-  kChord(m, kComplex(), 0, 1);
+  kChord(m, kComplex(), 0, 1, beatMs);
 }
 
 function activate(m) {
@@ -220,40 +232,42 @@ function activate(m) {
 function deactivate(m) { m.allOff(); }
 
 function update(m) {
+  var dt = kSafeDt(m);
+  var beatMs = kSafeBeatMs(m);
   kResize(m);
-  kTiltX += ((m.accelX / 72.0) - kTiltX) * (m.dt / 900.0);
-  kTiltY += ((m.accelY / 72.0) - kTiltY) * (m.dt / 900.0);
+  kTiltX += ((m.accelX / 72.0) - kTiltX) * (dt / 900.0);
+  kTiltY += ((m.accelY / 72.0) - kTiltY) * (dt / 900.0);
 
-  if (m.motion < 16) kCalmMs += m.dt;
+  if (m.motion < 16) kCalmMs += dt;
   else               kCalmMs = 0;
   var still = kCalmMs > 320;
 
-  if (m.motion > 148 && kLastMotion <= 148) kShock(m);
+  if (m.motion > 148 && kLastMotion <= 148) kShock(m, beatMs);
   kLastMotion = m.motion;
   if (kShockMs > 0) {
-    kShockMs -= m.dt;
+    kShockMs -= dt;
     if (kShockMs < 0) kShockMs = 0;
   }
 
   var comp = kComplex();
-  var subMs = Math.floor(m.beatMs / (2 + Math.floor(comp * 2.2)));
+  var subMs = Math.floor(beatMs / (2 + Math.floor(comp * 2.2)));
   if (subMs < 70) subMs = 70;
 
   if (m.tick(0, subMs)) {
     var edits = still ? 1 : (2 + (m.motion > 80 ? 1 : 0));
     for (var n = 0; n < edits; n++) kRetarget((kMel + n + m.rnd(kN)) % kN, m, 0);
-    kMelody(m, comp);
+    kMelody(m, comp, beatMs);
   }
 
-  if (m.tick(1, m.beatMs)) {
+  if (m.tick(1, beatMs)) {
     kBeat++;
     if ((kBeat & 3) === 0 || m.motion > 60) kAdvanceHarmony(m, 0);
-    kChord(m, comp, still, 0);
+    kChord(m, comp, still, 0, beatMs);
   }
 
   kResetCanvas(m);
-  kPhase += m.dt / m.beatMs;
-  while (kPhase >= 1.0) kPhase -= 1.0;
+  kPhase += dt / beatMs;
+  if (kPhase >= 1.0) kPhase -= Math.floor(kPhase);
   var beatGlow = 0.55 + 0.45 * Math.sin(kPhase * 6.28318);
   var shock = kShockMs > 0 ? kShockMs / 900.0 : 0.0;
 
@@ -265,12 +279,12 @@ function update(m) {
   for (var i = 0; i < kN; i++) {
     var lag = still ? 850.0 : 280.0;
     var hLag = still ? 1600.0 : 420.0;
-    kX[i] += (kTX[i] - kX[i]) * (m.dt / lag);
-    kY[i] += (kTY[i] - kY[i]) * (m.dt / lag);
+    kX[i] += (kTX[i] - kX[i]) * (dt / lag);
+    kY[i] += (kTY[i] - kY[i]) * (dt / lag);
     var dh = kTH[i] - kH[i];
     if (dh > 128) dh -= 256;
     if (dh < -128) dh += 256;
-    kH[i] += dh * (m.dt / hLag);
+    kH[i] += dh * (dt / hLag);
     if (kH[i] < 0) kH[i] += 256;
     if (kH[i] >= 256) kH[i] -= 256;
 

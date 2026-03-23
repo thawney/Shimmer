@@ -31,6 +31,20 @@ function clamp(v, lo, hi) {
   return v < lo ? lo : (v > hi ? hi : v);
 }
 
+function safeDt(m) {
+  var dt = m.dt;
+  if (dt < 1) dt = 1;
+  if (dt > 80) dt = 80;
+  return dt;
+}
+
+function safeBeatMs(m) {
+  var beatMs = m.beatMs;
+  if (beatMs < 40) beatMs = 40;
+  if (beatMs > 4000) beatMs = 4000;
+  return beatMs;
+}
+
 function activate(m) {
   smoothX =  m.accelY;
   smoothY = -m.accelX;
@@ -52,6 +66,8 @@ function activate(m) {
 
 function update(m) {
   var sparkle = m.density / 255.0;
+  var dt = safeDt(m);
+  var beatMs = safeBeatMs(m);
 
   // Steeper tilt = faster response
   var tiltX = m.accelY < 0 ? -m.accelY : m.accelY;
@@ -60,8 +76,8 @@ function update(m) {
   var lagY = 600 - Math.floor(tiltY * 5);
   if (lagX < 100) lagX = 100;
   if (lagY < 100) lagY = 100;
-  smoothX += (m.accelY  - smoothX) * (m.dt / lagX);
-  smoothY += (-m.accelX - smoothY) * (m.dt / lagY);
+  smoothX += (m.accelY  - smoothX) * (dt / lagX);
+  smoothY += (-m.accelX - smoothY) * (dt / lagY);
 
   var col = Math.floor(m.map(smoothX, -80, 80, 0, m.COLS - 1));
   if (col < 0)           col = 0;
@@ -80,7 +96,7 @@ function update(m) {
   lastCol = col;
   lastRow = row;
 
-  if (m.tick(0, m.beatMs)) {
+  if (m.tick(0, beatMs)) {
     var deg = m.colToDegree(col);
     // Row position shades velocity: top (row 0) = soft, bottom = loud
     var rowFrac = (m.ROWS > 1) ? row / (m.ROWS - 1) : 0.5;
@@ -88,7 +104,7 @@ function update(m) {
               Math.floor(moveGlow * 0.12) +
               Math.floor((m.density * 16) / 255);
     if (vel > 120) vel = 120;
-    var dur = Math.floor(m.beatMs * (0.55 + rowFrac * 0.25));
+    var dur = Math.floor(beatMs * (0.55 + rowFrac * 0.25));
     if (dur < 120) dur = 120;
     m.note(deg, vel, dur);
     pix[row][col] = m.brightness;
@@ -96,7 +112,7 @@ function update(m) {
 
     if (sparkle > 0.08) {
       echoPending = true;
-      echoDelay = Math.floor(m.beatMs * (0.22 - 0.08 * sparkle));
+      echoDelay = Math.floor(beatMs * (0.22 - 0.08 * sparkle));
       if (echoDelay < 70) echoDelay = 70;
       echoDeg = deg + 2 + Math.floor(sparkle * 3) + (stepMove > 1 ? 1 : 0);
       echoVel = vel - 18 + Math.floor(moveGlow / 24);
@@ -111,9 +127,9 @@ function update(m) {
   }
 
   if (echoPending) {
-    if (echoDelay > m.dt) echoDelay -= m.dt;
+    if (echoDelay > dt) echoDelay -= dt;
     else {
-      m.note(echoDeg, echoVel, Math.floor(m.beatMs * 0.35));
+      m.note(echoDeg, echoVel, Math.floor(beatMs * 0.35));
       pix[echoRow][echoCol] = Math.floor(m.brightness * (0.45 + 0.25 * sparkle));
       flashBr += Math.floor(m.brightness * 0.10);
       if (flashBr > m.brightness) flashBr = m.brightness;
@@ -121,7 +137,7 @@ function update(m) {
     }
   }
 
-  var fadeAmt = Math.floor((3 * m.dt + 8) / 16);
+  var fadeAmt = Math.floor((3 * dt + 8) / 16);
   if (fadeAmt < 1) fadeAmt = 1;
   if (flashBr > fadeAmt) flashBr -= fadeAmt;
   else flashBr = 0;
