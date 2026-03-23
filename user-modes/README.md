@@ -271,6 +271,40 @@ while (elapsed >= stepMs && steps < MAX_CATCHUP_STEPS) {
 if (steps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
 ```
 
+**What “hard budget” means:**
+It just means an explicit script-side cap. Don’t let a mode decide to do “as much as needed”; tell it the maximum amount of work it may do in one frame.
+
+Examples:
+```js
+// Max 3 notes in one frame:
+var notesLeft = 3;
+function safeNote(m, degree, vel, dur) {
+  if (notesLeft <= 0) return;
+  m.note(degree, vel, dur);
+  notesLeft--;
+}
+```
+
+```js
+// Ignore expensive triggers for the first 2 frames after activate():
+var settleFrames = 0;
+function activate(m) {
+  settleFrames = 2;
+}
+function update(m) {
+  if (settleFrames > 0) {
+    settleFrames--;
+    // draw only, no bursty notes/physics triggers yet
+  }
+}
+```
+
+Common hard budgets:
+- max physics substeps per frame
+- max collisions handled per frame
+- max notes triggered per frame
+- max particles/objects alive at once
+
 ---
 
 ## Safety checks
