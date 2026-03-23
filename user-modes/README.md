@@ -249,7 +249,7 @@ m.map(v, inLo, inHi, outLo, outHi)  // linear float mapping
 - Script globals persist while the mode is active; reset them in `activate()`.
 - Use `m.dt` for all movement so speed is frame-rate-independent.
 - Use `m.tick()` for rhythmically stable events rather than manual elapsed timers.
-- Max script size: **8192 bytes**.
+- Max script size: **12288 bytes**.
 - Out-of-range pixel coordinates are silently ignored.
 
 ---

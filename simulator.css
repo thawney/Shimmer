@@ -428,6 +428,29 @@ body {
   border-bottom: 1px solid rgba(255,198,10,0.15);
 }
 
+.sim-byte-counter {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9dd7ff;
+  white-space: nowrap;
+  background: rgba(28, 56, 78, 0.75);
+  border: 1px solid rgba(120, 190, 255, 0.24);
+  border-radius: var(--pill);
+}
+
+.sim-byte-counter--warn {
+  color: #ffe08a;
+  background: rgba(94, 67, 16, 0.72);
+  border-color: rgba(255, 198, 10, 0.30);
+}
+
+.sim-byte-counter--danger {
+  color: #ffb3b3;
+  background: rgba(90, 24, 24, 0.82);
+  border-color: rgba(255, 107, 107, 0.34);
+}
+
 .editor-toolbar select {
   flex: 1;
   min-width: 0;
@@ -596,5 +619,10 @@ body {
   .sim-sensor-readout,
   .sim-3d-hint {
     font-size: 11px;
+  }
+
+  .sim-byte-counter {
+    width: 100%;
+    text-align: center;
   }
 }

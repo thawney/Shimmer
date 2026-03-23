@@ -51,6 +51,7 @@ const FW_STATUS_DONE     = 2;
 const FW_STATUS_ERROR    = 3;
 
 const FW_CHUNK_BYTES = 7000; // 1000 complete 7-byte groups → 8000 encoded bytes → 8007-byte SysEx msg
+const MAX_SCRIPT_BYTES = 12288;
 
 const SYSEX_SCRIPT_BEGIN     = 0x20;
 const SYSEX_SCRIPT_CHUNK     = 0x21;
@@ -83,6 +84,37 @@ const MODE_MIDI_IN_CH_MASK = 0x0F;
 const MODE_CLOCK_IN_ENABLE_BIT = 0x10;
 const MODE_CLOCK_PREFER_EXTERNAL_BIT = 0x20;
 const MODE_CLOCK_OUT_ENABLE_BIT = 0x40;
+
+function formatAckError(cmd, status, meta = {}) {
+  if (cmd === SYSEX_SCRIPT_BEGIN) {
+    if (status === 0x01) return 'Script upload could not start due to an invalid begin packet.';
+    if (status === 0x02) {
+      const actual = typeof meta.totalLen === 'number' ? `${meta.totalLen} bytes` : 'this size';
+      return `Script is too large: ${actual}. Max is ${MAX_SCRIPT_BYTES} bytes.`;
+    }
+    if (status === 0x03) return 'Device ran out of memory while starting the script upload.';
+  }
+
+  if (cmd === SYSEX_SCRIPT_CHUNK) {
+    if (status === 0x01) return 'Script upload chunk was rejected because no upload is active.';
+    if (status === 0x02) return 'Script upload chunk arrived out of order. Try uploading again.';
+    if (status === 0x03) return 'Script upload exceeded the size announced at the start.';
+  }
+
+  if (cmd === SYSEX_SCRIPT_END) {
+    if (status === 0x01) return 'Script upload could not finish because no upload is active.';
+    if (status === 0x04) return 'Device could not save the uploaded script to storage.';
+    if (status === 0x05) return 'Script upload targeted an invalid slot.';
+  }
+
+  if (cmd === CMD_GET_SCRIPT) {
+    if (status === 0x01) return 'Script download request was malformed.';
+    if (status === 0x02) return 'No script file was found in that slot on the device.';
+    if (status === 0x03) return 'Device reported an invalid script size for that slot.';
+  }
+
+  return `Device error 0x${status.toString(16)} for cmd 0x${cmd.toString(16)}`;
+}
 
 function tempoStoredToBpm(stored) {
   const t = stored & 0xFF;
@@ -918,14 +950,14 @@ function handleSysExFrame(data) {
       else { _fwAckQueue.push(status); }
     } else {
       if (_pendingAck && _pendingAck.cmd === acked) {
-        const { timer, resolve, reject, cmd } = _pendingAck;
+        const { timer, resolve, reject, cmd, meta } = _pendingAck;
         _pendingAck = null;
         clearTimeout(timer);
         if (status === 0x00) resolve();
-        else reject(new Error(`Device error 0x${status.toString(16)} for cmd 0x${cmd.toString(16)}`));
+        else reject(new Error(formatAckError(cmd, status, meta)));
       }
       if (acked === CMD_GET_SCRIPT && status !== 0x00 && _dlReject) {
-        failActiveDownload(`Device error 0x${status.toString(16)} for cmd 0x${acked.toString(16)}`);
+        failActiveDownload(formatAckError(acked, status));
       }
       if (_awaitingModeSwitchAck && acked === CMD_SET) {
         _awaitingModeSwitchAck = false;
@@ -1304,7 +1336,7 @@ function failActiveDownload(message) {
   if (reject) reject(new Error(message));
 }
 
-function waitAck(cmd, timeoutMs = 1200) {
+function waitAck(cmd, timeoutMs = 1200, meta = null) {
   return new Promise((resolve, reject) => {
     if (_pendingAck) {
       reject(new Error(`Internal ACK waiter conflict (waiting for 0x${_pendingAck.cmd.toString(16)})`));
@@ -1314,12 +1346,12 @@ function waitAck(cmd, timeoutMs = 1200) {
       _pendingAck = null;
       reject(new Error(`ACK timeout (cmd 0x${cmd.toString(16)})`));
     }, timeoutMs);
-    _pendingAck = { cmd, timer, resolve, reject };
+    _pendingAck = { cmd, timer, resolve, reject, meta };
   });
 }
 
-async function sendAndWaitAck(bytes, ackCmd, timeoutMs = 1200) {
-  const ackPromise = waitAck(ackCmd, timeoutMs);
+async function sendAndWaitAck(bytes, ackCmd, timeoutMs = 1200, meta = null) {
+  const ackPromise = waitAck(ackCmd, timeoutMs, meta);
   send(bytes);
   await ackPromise;
 }
@@ -1397,7 +1429,12 @@ async function uploadScript(slotIdx, scriptText, cardSlot) {
     const lenHi7 = (totalLen >> 7) & 0x7F;
     const lenLo7 = totalLen & 0x7F;
     if (uploadStatus) uploadStatus.textContent = 'Starting…';
-    await sendAndWaitAck([SYSEX_SCRIPT_BEGIN, VER, slotIdx & 0x0F, lenHi7, lenLo7], SYSEX_SCRIPT_BEGIN, 1500);
+    await sendAndWaitAck(
+      [SYSEX_SCRIPT_BEGIN, VER, slotIdx & 0x0F, lenHi7, lenLo7],
+      SYSEX_SCRIPT_BEGIN,
+      1500,
+      { totalLen }
+    );
 
     let seq = 0;
     for (let off = 0; off < totalLen; off += CHUNK_BYTES) {

@@ -13,6 +13,8 @@
 
 var COLS = 12;
 var ROWS = 12;
+var MAX_SCRIPT_BYTES = 12288;
+var _textEncoder = new TextEncoder();
 
 var _thawneyModes = [];
 var _userModes = [];
@@ -853,6 +855,19 @@ var editor = CodeMirror(document.getElementById('editor-container'), {
   lineWrapping:   false,
   autofocus:      false,
 });
+
+function updateSimByteCounter() {
+  var el = document.getElementById('sim-byte-counter');
+  if (!el) return;
+  var bytes = _textEncoder.encode(editor.getValue()).length;
+  el.textContent = bytes + ' / ' + MAX_SCRIPT_BYTES + ' bytes';
+  el.className = 'sim-byte-counter';
+  if (bytes > MAX_SCRIPT_BYTES) el.classList.add('sim-byte-counter--danger');
+  else if (bytes > Math.floor(MAX_SCRIPT_BYTES * 0.9)) el.classList.add('sim-byte-counter--warn');
+}
+
+editor.on('change', updateSimByteCounter);
+updateSimByteCounter();
 
 // ── Script search (mirrors app.js) ─────────────────────────────────────────────
 
