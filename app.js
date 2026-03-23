@@ -1,12 +1,12 @@
 'use strict';
 
 // Default scripts for the 4 slots (matches data/scripts/ initial LittleFS image)
-// slot 0 = Rain, slot 1 = Lean, slot 2 = Canon, slot 3 = Haze
+// slot 0 = Rain, slot 1 = Lean, slot 2 = Tide, slot 3 = Canon
 const DEFAULT_FILES = [
   'modes/00_rain.js',
   'modes/16_lean.js',
-  'modes/22_canon.js',
-  'modes/17_haze.js',
+  'modes/19_tide.js',
+  'modes/20_canon.js',
 ];
 
 const NUM_SLOTS      = 4;    // UI-visible slots
