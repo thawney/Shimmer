@@ -276,11 +276,14 @@ if (steps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
 - The **Simulator** and **Device** pages now show the same preflight warnings before run/upload.
 - Syntax errors, explicit infinite loops, oversize scripts, and missing `update(m)` block run/upload.
 - Risky patterns such as generic `while (...)` loops, browser-only APIs, and stale API names like `m.delta` / `m.pixel()` show warnings but do not block by themselves.
+- The hard upload cap is `12,288` bytes, but the practical limit is lower for heavy scripts. Once a script is above roughly `6 KB`, trim comments, helper duplication, and large state if you can.
+- The firmware now keeps the script engine heap in internal SRAM, which helps heavier user modes switch more reliably, but smaller scripts are still the safest target.
 - The bundled example scripts have been patched to cap catch-up loops, so they model the safer pattern above.
 - The simulator and firmware runtime now clamp exposed timing values before scripts see them: `m.dt` is clamped to `1..96ms` and `m.beatMs` to `40..4000ms`.
 - During script upload, the device now shows a dedicated dim `#ffc60a` upload screen instead of leaving the active script running underneath the transfer.
 - During script upload, the firmware now pauses mode updates so otherwise functional but busy scripts are less likely to trigger false ACK timeouts.
 - If a slot faults on hardware, the device keeps that slot selected and shows a red warning with the slot number on the 12x12 grid instead of silently jumping away. That red fault display is the only red device screen; normal startup and upload screens use a dim `#ffc60a` yellow.
+- After you leave a faulted slot, button-based mode stepping skips that slot until its script contents change again. Uploading a new script to that slot clears the skip and lets it be selected normally.
 
 ---
 

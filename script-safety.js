@@ -2,6 +2,7 @@
   'use strict';
 
   var DEFAULT_MAX_SCRIPT_BYTES = 12288;
+  var PRACTICAL_WARN_SCRIPT_BYTES = 6000;
   var encoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
 
   function byteLength(text) {
@@ -32,6 +33,8 @@
 
     if (bytes > maxBytes) {
       pushIssue(issues, 'error', 'Script exceeds the ' + maxBytes + ' byte device limit.');
+    } else if (bytes > PRACTICAL_WARN_SCRIPT_BYTES) {
+      pushIssue(issues, 'warn', 'Large scripts above ' + PRACTICAL_WARN_SCRIPT_BYTES + ' bytes can compile unreliably on hardware. Trim comments, helper duplication, and state if you can.');
     }
 
     try {
@@ -110,6 +113,7 @@
 
   global.ShimmerScriptSafety = {
     DEFAULT_MAX_SCRIPT_BYTES: DEFAULT_MAX_SCRIPT_BYTES,
+    PRACTICAL_WARN_SCRIPT_BYTES: PRACTICAL_WARN_SCRIPT_BYTES,
     analyze: analyze,
     summarize: summarize,
   };
