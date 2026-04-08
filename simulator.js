@@ -575,7 +575,7 @@ function makeM() {
     get scale()      { return settings.scale; },
 
     // Sensor stubs — static defaults so sensor-aware scripts run without errors.
-    // On real hardware these are updated every frame from the LIS3DH / AHT20.
+    // On real hardware these are updated every frame from the LIS3DH / AM2302.
     get accelX()   { return sensorState.accelX; },
     get accelY()   { return sensorState.accelY; },
     get accelZ()   { return sensorState.accelZ; },   // ~+64 = 1g pointing down when device is flat/upright

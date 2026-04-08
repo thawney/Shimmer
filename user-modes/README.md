@@ -78,7 +78,7 @@ function update(m) {
 | `m.accelZ` | −128..127 | **~+64 when flat**, decreases as device tilts onto its side |
 | `m.motion` | 0..255 | Motion magnitude — spikes transiently on knock or shake |
 
-> `m.temp` and `m.humidity` are present but return −50 °C / 0% — the AHT20 sensor on current hardware is defective. Do not use them.
+> On `AM2302`-equipped hardware, `m.temp` and `m.humidity` expose live temperature and humidity readings. Older `AHT20` builds may still be unreliable.
 
 ---
 
