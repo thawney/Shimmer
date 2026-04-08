@@ -5,14 +5,14 @@
  * @sat 170
  * @param_label Voicing
  * @description Slow Minecrafty chords using the global scale. Tempo controls timing; density changes voicing.
- * @sound Soft stacked chords
+ * @sound Soft warm block chords
  */
 
 var chordIdx = 0;
 var glow = 0;
 var drift = 0;
 
-// All notes are scale degrees, so they follow the device's internal/global scale.
+// scale degrees, follows global/internal scale
 var progression = [
   [0, 2, 4],
   [5, 7, 9],
@@ -37,45 +37,65 @@ function playChord(m, chord, voicing, dur) {
   var third = chord[1];
   var fifth = chord[2];
 
-  // density = voicing, not speed
   if (voicing === 0) {
-    // close + low
-    m.note(root, 70, dur);
-    m.note(third + 2, 52, dur);
-    m.note(fifth + 4, 42, dur);
+    // compact and warm
+    m.note(root - 7, 78, dur);
+    m.note(third, 50, dur);
+    m.note(fifth + 7, 38, dur);
   } else if (voicing === 1) {
-    // open
-    m.note(root, 70, dur);
-    m.note(third + 7, 54, dur);
-    m.note(fifth + 14, 46, dur);
+    // open but still connected
+    m.note(root - 7, 78, dur);
+    m.note(third + 7, 46, dur);
+    m.note(fifth + 14, 34, dur);
   } else {
-    // high, airy
-    m.note(root + 7, 62, dur);
-    m.note(third + 14, 50, dur);
-    m.note(fifth + 21, 40, dur);
+    // airy, but less extreme than before
+    m.note(root - 7, 74, dur);
+    m.note(fifth + 7, 42, dur);
+    m.note(third + 14, 32, dur);
   }
+}
+
+function playSoftTop(m, chord, voicing, dur) {
+  var top;
+
+  if (voicing === 0) {
+    top = chord[2] + 7;
+  } else if (voicing === 1) {
+    top = chord[2] + 14;
+  } else {
+    top = chord[1] + 14;
+  }
+
+  m.note(top, 20, dur);
 }
 
 function update(m) {
   var beatMs = Math.max(80, Math.min(4000, m.beatMs));
 
-  // Much slower: one chord every 4 beats
-  var chordMs = beatMs * 4;
+  // very slow chord movement
+  var chordMs = beatMs * 8;
 
-  // Density now chooses voicing only
+  // occasional soft reinforcement, not a separate melody
+  var topMs = beatMs * 4;
+
   var voicing = Math.min(2, Math.floor(m.density / 86));
 
   if (m.tick(0, chordMs)) {
-    playChord(m, progression[chordIdx], voicing, Math.floor(chordMs * 0.9));
-    chordIdx = (chordIdx + 1) % progression.length;
+    playChord(m, progression[chordIdx], voicing, Math.floor(chordMs * 0.95));
     glow = 255;
+    chordIdx = (chordIdx + 1) % progression.length;
   }
 
-  if (m.tick(1, Math.max(120, Math.floor(beatMs)))) {
+  // only reinforce the current chord softly in between
+  if (m.tick(1, topMs)) {
+    playSoftTop(m, progression[chordIdx], voicing, Math.floor(topMs * 0.65));
+  }
+
+  if (m.tick(2, beatMs)) {
     drift = (drift + 1) % 12;
   }
 
-  glow -= 6;
+  glow -= 4;
   if (glow < 0) glow = 0;
 
   m.clear();
@@ -86,16 +106,17 @@ function update(m) {
       var dy = y - 5.5;
       var dist = Math.sqrt(dx * dx + dy * dy);
 
-      var base = 92 - dist * 10;
+      var base = 88 - dist * 9;
       var wave = ((x + drift) % 6) * 4 + ((y + drift) % 5) * 2;
-      var pulse = glow * 0.18;
+      var pulse = glow * 0.16;
       var v = base + wave + pulse;
 
+      if (y < 3) v += 8;
       if (v < 0) v = 0;
       if (v > m.brightness) v = m.brightness;
 
       var hue = 18 + ((x + y) % 5) * 3;
-      var sat = 130 + (y % 3) * 18;
+      var sat = 120 + (y % 4) * 16;
 
       m.px(x, y, hue, sat, Math.floor(v));
     }
