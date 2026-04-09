@@ -69,7 +69,7 @@ function update(m) {
   var spd = (0.5 + (m.density / 255.0) * 4.0) * tempoScale;
   if (spd < 0.35) spd = 0.35;
 
-  // Knock scatters the flock — they re-converge naturally over a few seconds
+  // Knock scatters the flock - they re-converge naturally over a few seconds
   if (m.motion > 160 && lastMotionFl <= 160) {
     for (var i = 0; i < nb; i++)
       boids[i].vel = (m.rnd(255) < 128 ? 1.0 : -1.0) * spd;

@@ -4,11 +4,11 @@
  * @hue 213
  * @sat 220
  * @param_label Active Rows
- * @description Polyrhythmic row pulses — 12 rows with prime-ratio beat clocks. Cursor sweeps each row.
+ * @description Polyrhythmic row pulses - 12 rows with prime-ratio beat clocks. Cursor sweeps each row.
  * @sound Bell / Celeste
  */
 
-// Row beat divisors (prime ratios) and degree offsets — set in activate()
+// Row beat divisors (prime ratios) and degree offsets - set in activate()
 var ROW_DIV = [];
 var ROW_DEG = [];
 
@@ -26,7 +26,7 @@ function activate(m) {
   ROW_DEG = [];
   for (var r = 0; r < m.ROWS; r++) {
     ROW_DIV[r]    = PRIMES[r % PRIMES.length];
-    ROW_DEG[r]    = r;  // unique degree per row — avoids cross-row note cancellation
+    ROW_DEG[r]    = r;  // unique degree per row - avoids cross-row note cancellation
     rowElapsed[r] = 0;
     rowBright[r]  = 0;
   }

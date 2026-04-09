@@ -128,7 +128,7 @@ function update(m) {
       bouncedX = true;
     }
 
-    // Vertical bounce — no note
+    // Vertical bounce - no note
     if (p[i].y < 0)          { p[i].y = 0;          p[i].vy =  Math.abs(p[i].vy); }
     if (p[i].y > m.ROWS - 1) { p[i].y = m.ROWS - 1; p[i].vy = -Math.abs(p[i].vy); }
 

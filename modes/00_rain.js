@@ -4,13 +4,13 @@
  * @hue 128
  * @sat 180
  * @param_label Drop Density
- * @description Drops fall from top to bottom. Tilt the device to add wind — each drop drifts sideways as it falls and the note it plays depends on where it lands. MIDI IN notes spawn targeted drops at the pitch column.
+ * @description Drops fall from top to bottom. Tilt the device to add wind - each drop drifts sideways as it falls and the note it plays depends on where it lands. MIDI IN notes spawn targeted drops at the pitch column.
  * @midi_in true
  * @sound Kalimba / Bell
  */
 
 var MAX_DROPS    = 24;
-var drops        = [];   // {x, y} — both floats; x wraps horizontally
+var drops        = [];   // {x, y} - both floats; x wraps horizontally
 var grid         = [];   // persistent brightness for fade trails
 var smoothWind   = 0.0;
 var spawnElapsed = 0;
@@ -50,7 +50,7 @@ function deactivate(m) {
 function update(m) {
   var dt = safeDt(m);
   var beatMs = safeBeatMs(m);
-  // Wind: 3s lag — noticeably responds to tilt within a few seconds
+  // Wind: 3s lag - noticeably responds to tilt within a few seconds
   smoothWind += (m.accelY - smoothWind) * (dt / 3000.0);
   // At full tilt (~80), drops drift ~5 columns over a full fall
   var wind = smoothWind * 0.000030;  // columns per millisecond
@@ -105,7 +105,7 @@ function update(m) {
     if (col > m.COLS - 1) col = m.COLS - 1;
 
     if (d.y >= m.ROWS - 1) {
-      // Landed — note pitch comes from landing column, so tilt changes the melody
+      // Landed - note pitch comes from landing column, so tilt changes the melody
       var deg = Math.floor((col * 6) / (m.COLS - 1));
       m.note(deg, 65 + m.rnd(64), Math.floor(beatMs / 2));
       grid[m.ROWS - 1][col] = m.brightness;

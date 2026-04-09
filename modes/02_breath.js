@@ -8,7 +8,7 @@
  * @sound Pad / String
  */
 
-// Three voices, staggered phases — rows spread across full grid height
+// Three voices, staggered phases - rows spread across full grid height
 var VOICE_ROW = [];
 var MAX_V = 3;
 
@@ -66,7 +66,7 @@ function update(m) {
     // Peak crossing: phase decreased (rollover)
     var peaked = (phase[v] < prevPhase);
 
-    // Fire on first frame (!heldNote) OR on peak rollover — matches C++ (!_held || peakCrossed)
+    // Fire on first frame (!heldNote) OR on peak rollover - matches C++ (!_held || peakCrossed)
     if (peaked || !heldNote[v]) {
       // ~10% harmonic drift on each peak (not on initial fire)
       if (peaked && m.rnd(255) < 26) {

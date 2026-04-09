@@ -4,7 +4,7 @@
  * @hue 200
  * @sat 200
  * @param_label Choppiness
- * @description Water fills the grid. Tilt tips the surface like a tank — left tilts the water left, right tilts it right. Density adds choppiness: waves appear on the surface and notes fire as crests move across columns.
+ * @description Water fills the grid. Tilt tips the surface like a tank - left tilts the water left, right tilts it right. Density adds choppiness: waves appear on the surface and notes fire as crests move across columns.
  * @sound Rhodes / Pad
  */
 
@@ -86,7 +86,7 @@ function update(m) {
 
     // Note when surface rises to cover a new row
     if (noteBudget > 0 && noteCooldown[c] === 0 && surfRow < prevLevel[c]) {
-      // Newly submerged — surface came up in this column
+      // Newly submerged - surface came up in this column
       var deg = m.colToDegree(c);
       var vel = 40 + Math.floor(waveAmp * 25) + m.rnd(22);
       if (vel > 110) vel = 110;
@@ -99,12 +99,12 @@ function update(m) {
     // Draw: fill from surfRow downward (water below surface)
     for (var r = 0; r < m.ROWS; r++) {
       if (r < surfRow) {
-        // Above water — empty
+        // Above water - empty
       } else if (r === surfRow) {
-        // Surface row — bright
+        // Surface row - bright
         m.px(c, r, m.brightness);
       } else {
-        // Submerged — dim, deeper = dimmer
+        // Submerged - dim, deeper = dimmer
         var depth = r - surfRow;
         var dimmed = Math.floor(m.brightness * (0.55 - depth * 0.12));
         if (dimmed < 8) dimmed = 8;

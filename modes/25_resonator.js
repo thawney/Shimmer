@@ -45,7 +45,7 @@ function update(m) {
     m.noteMidi(note, m.midiVel, Math.floor(m.beatMs * 4.0));
   }
 
-  // ── Idle: slow wave rolls across rows — clearly visible ──
+  // ── Idle: slow wave rolls across rows - clearly visible ──
   rIdlePhase += m.dt * 0.0012;
   rIdleBeat  += m.dt;
   if (rIdleBeat >= m.beatMs * 4) {
@@ -67,7 +67,7 @@ function update(m) {
     var row = RES_N - 1 - i;
     if (row < 0 || row >= m.ROWS) continue;
 
-    // Idle glow: big rolling sine — clearly visible even without MIDI
+    // Idle glow: big rolling sine - clearly visible even without MIDI
     var idle = Math.floor(m.brightness * 0.28 *
                (0.5 + 0.5 * Math.sin(rIdlePhase - i * 0.52)));
     if (idle < 0) idle = 0;

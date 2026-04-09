@@ -4,7 +4,7 @@
  * @hue 100
  * @sat 200
  * @param_label Speed
- * @description Classic snake on a wrapped grid — edges connect, so no wall death. Tilt to steer. Eat the cross-shaped food to grow; each bite plays a note. Hit yourself to restart. Density controls speed.
+ * @description Classic snake on a wrapped grid - edges connect, so no wall death. Tilt to steer. Eat the cross-shaped food to grow; each bite plays a note. Hit yourself to restart. Density controls speed.
  * @sound Pluck / Marimba
  */
 
@@ -97,7 +97,7 @@ function update(m) {
     snakeMs -= stepMs;
     catchUps++;
 
-    // New head — wrap edges
+    // New head - wrap edges
     var hx = (snakeX[0] + DX[snakeDir] + m.COLS) % m.COLS;
     var hy = (snakeY[0] + DY[snakeDir] + m.ROWS) % m.ROWS;
 

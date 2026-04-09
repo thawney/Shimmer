@@ -9,7 +9,7 @@
  * @sound Any
  */
 
-// Pre-allocated arrays — never reassign in Duktape
+// Pre-allocated arrays - never reassign in Duktape
 var qzColIn  = [0,0,0,0,0,0,0,0,0,0,0,0];
 var qzColOut = [0,0,0,0,0,0,0,0,0,0,0,0];
 var qzHeldInToOut = [];
