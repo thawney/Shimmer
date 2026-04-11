@@ -4,14 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Shimmer Simulator</title>
+  <script>
+    try {
+      const theme = localStorage.getItem('shimmer-theme');
+      if (theme) document.documentElement.dataset.theme = theme;
+    } catch (e) {}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
   <!-- Inherit design tokens (colors, fonts, sliders, selects) from main stylesheet -->
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=6">
   <!-- CodeMirror 5 — MIT licensed, plain script tags, no build step required -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-  <link rel="stylesheet" href="simulator.css?v=1">
+  <link rel="stylesheet" href="simulator.css?v=3">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
   <script src="vendor/three.min.js"></script>
@@ -33,6 +39,7 @@
         MIDI out
         <select id="sim-midi-port"><option value="">-- none (visual only) --</option></select>
       </label>
+      <button type="button" class="home-link theme-toggle-link" data-theme-toggle aria-pressed="false">Dark mode</button>
       <a href="user-modes/README.md" class="home-link">Scripting docs</a>
       <a href="index.html" class="home-link">← Device</a>
     </div>
@@ -131,6 +138,7 @@
     <span id="sim-status" class="sim-status-idle">Stopped</span>
   </div>
 
+  <script src="theme.js?v=1"></script>
   <script src="simulator-3d.js"></script>
   <script src="script-safety.js?v=1"></script>
   <script src="simulator.js?v=1"></script>

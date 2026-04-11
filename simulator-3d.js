@@ -60,6 +60,63 @@
       interactiveMeshes: [],
     };
 
+    function getThemeName() {
+      if (!global.document || !global.document.documentElement) return 'light';
+      return global.document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    }
+
+    function get3DTheme() {
+      if (getThemeName() === 'dark') {
+        return {
+          labelFill: 'rgba(5, 5, 5, 0.72)',
+          hemiSky: 0xf7edc9,
+          hemiGround: 0x090909,
+          keyLight: 0xffe2a1,
+          rimLight: 0x8db7ff,
+          shadowColor: 0x110f0d,
+          shadowOpacity: 0.32,
+          bodyColor: 0x171717,
+          bodyRoughness: 0.74,
+          bezelColor: 0x060606,
+          bezelRoughness: 0.92,
+          edgeColor: 0x55451a,
+          edgeOpacity: 0.55,
+          guideColor: 0x666666,
+          guideOpacity: 0.2,
+          axisShellColor: 0xbababa,
+          axisShellOpacity: 0.12,
+          axisOriginColor: 0xf4ead2,
+          axisOriginOpacity: 0.95,
+          axisDeviceColor: 0xf6e8bc,
+          axisDeviceOpacity: 0.18,
+        };
+      }
+
+      return {
+        labelFill: 'rgba(243, 235, 221, 0.86)',
+        hemiSky: 0xf8efdc,
+        hemiGround: 0xd8c49a,
+        keyLight: 0xffe79d,
+        rimLight: 0xf3d26c,
+        shadowColor: 0xcab58a,
+        shadowOpacity: 0.26,
+        bodyColor: 0x8d6b15,
+        bodyRoughness: 0.82,
+        bezelColor: 0x221807,
+        bezelRoughness: 0.94,
+        edgeColor: 0xd7b44a,
+        edgeOpacity: 0.6,
+        guideColor: 0xbda775,
+        guideOpacity: 0.22,
+        axisShellColor: 0xc6b48d,
+        axisShellOpacity: 0.18,
+        axisOriginColor: 0xfff3d3,
+        axisOriginOpacity: 0.95,
+        axisDeviceColor: 0xffd76b,
+        axisDeviceOpacity: 0.24,
+      };
+    }
+
     function report3DError(msg) {
       if (enable3DEl) {
         enable3DEl.checked = false;
@@ -439,6 +496,7 @@
     }
 
     function makeLabelSprite(text, color, position) {
+      var theme = get3DTheme();
       var labelCanvas = document.createElement('canvas');
       labelCanvas.width = 192;
       labelCanvas.height = 192;
@@ -449,7 +507,7 @@
         var textColor = '#' + new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.3).getHexString();
 
         labelCtx.clearRect(0, 0, 192, 192);
-        labelCtx.fillStyle = 'rgba(5, 5, 5, 0.72)';
+        labelCtx.fillStyle = theme.labelFill;
         labelCtx.strokeStyle = ringColor;
         labelCtx.lineWidth = 12;
         labelCtx.beginPath();
@@ -492,6 +550,7 @@
       }
 
       try {
+        var theme = get3DTheme();
         threeStageEl.innerHTML = '';
 
         var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -512,22 +571,22 @@
         camera.position.set(3.0, 2.45, 3.1);
         camera.lookAt(0, 0.22, 0);
 
-        scene.add(new THREE.HemisphereLight(0xf7edc9, 0x090909, 1.5));
+        scene.add(new THREE.HemisphereLight(theme.hemiSky, theme.hemiGround, 1.5));
 
-        var keyLight = new THREE.DirectionalLight(0xffe2a1, 1.35);
+        var keyLight = new THREE.DirectionalLight(theme.keyLight, 1.35);
         keyLight.position.set(3.4, 5.0, 2.2);
         scene.add(keyLight);
 
-        var rimLight = new THREE.DirectionalLight(0x8db7ff, 0.35);
+        var rimLight = new THREE.DirectionalLight(theme.rimLight, 0.32);
         rimLight.position.set(-3.0, 2.0, -2.5);
         scene.add(rimLight);
 
         var shadow = new THREE.Mesh(
           new THREE.CircleGeometry(4.6, 64),
           new THREE.MeshBasicMaterial({
-            color: 0x110f0d,
+            color: theme.shadowColor,
             transparent: true,
-            opacity: 0.32,
+            opacity: theme.shadowOpacity,
             depthWrite: false,
           })
         );
@@ -543,9 +602,9 @@
         var body = new THREE.Mesh(
           new THREE.BoxGeometry(2.36, 0.28, 2.36),
           new THREE.MeshStandardMaterial({
-            color: 0x171717,
+            color: theme.bodyColor,
             metalness: 0.12,
-            roughness: 0.74,
+            roughness: theme.bodyRoughness,
           })
         );
         deviceGroup.add(body);
@@ -553,9 +612,9 @@
         var bezel = new THREE.Mesh(
           new THREE.BoxGeometry(2.12, 0.04, 2.12),
           new THREE.MeshStandardMaterial({
-            color: 0x060606,
+            color: theme.bezelColor,
             metalness: 0.08,
-            roughness: 0.92,
+            roughness: theme.bezelRoughness,
           })
         );
         bezel.position.y = 0.14;
@@ -563,7 +622,7 @@
 
         var edges = new THREE.LineSegments(
           new THREE.EdgesGeometry(new THREE.BoxGeometry(2.36, 0.28, 2.36)),
-          new THREE.LineBasicMaterial({ color: 0x55451a, transparent: true, opacity: 0.55 })
+          new THREE.LineBasicMaterial({ color: theme.edgeColor, transparent: true, opacity: theme.edgeOpacity })
         );
         deviceGroup.add(edges);
 
@@ -599,7 +658,7 @@
           var ring = new THREE.Group();
           var guide = new THREE.Mesh(
             new THREE.TorusGeometry(1.02, 0.012, 10, 96),
-            new THREE.MeshBasicMaterial({ color: 0x666666, transparent: true, opacity: 0.2 })
+            new THREE.MeshBasicMaterial({ color: theme.guideColor, transparent: true, opacity: theme.guideOpacity })
           );
           var arcSpan = Math.PI * 1.68;
           var arc = new THREE.Mesh(
@@ -635,15 +694,15 @@
         var axisRoot = new THREE.Group();
         var axisShell = new THREE.Mesh(
           new THREE.SphereGeometry(1.08, 28, 20),
-          new THREE.MeshBasicMaterial({ color: 0xbababa, wireframe: true, transparent: true, opacity: 0.12 })
+          new THREE.MeshBasicMaterial({ color: theme.axisShellColor, wireframe: true, transparent: true, opacity: theme.axisShellOpacity })
         );
         var axisOrigin = new THREE.Mesh(
           new THREE.SphereGeometry(0.07, 20, 20),
-          new THREE.MeshBasicMaterial({ color: 0xf4ead2, transparent: true, opacity: 0.95 })
+          new THREE.MeshBasicMaterial({ color: theme.axisOriginColor, transparent: true, opacity: theme.axisOriginOpacity })
         );
         var axisDevice = new THREE.Mesh(
           new THREE.BoxGeometry(0.38, 0.08, 0.38),
-          new THREE.MeshBasicMaterial({ color: 0xf6e8bc, transparent: true, opacity: 0.18 })
+          new THREE.MeshBasicMaterial({ color: theme.axisDeviceColor, transparent: true, opacity: theme.axisDeviceOpacity })
         );
         axisRoot.add(axisShell);
         axisRoot.add(axisOrigin);

@@ -4,10 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Shimmer</title>
+  <script>
+    try {
+      const theme = localStorage.getItem('shimmer-theme');
+      if (theme) document.documentElement.dataset.theme = theme;
+    } catch (e) {}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <header>
@@ -18,6 +24,7 @@
       <button id="btn-read-device" class="btn-small">Read my device</button>
       <span id="status"></span>
       <a href="simulator.html" class="btn-small" style="text-decoration:none;display:inline-flex;align-items:center;">Simulator →</a>
+      <button type="button" class="btn-small theme-toggle" data-theme-toggle aria-pressed="false">Dark mode</button>
     </div>
   </header>
 
@@ -164,6 +171,7 @@
     </div>
   </section>
 
+  <script src="theme.js?v=1"></script>
   <script src="script-safety.js?v=2"></script>
   <script src="app.js?v=10"></script>
   <footer class="site-footer">© 2026 Thawney LTD</footer>
