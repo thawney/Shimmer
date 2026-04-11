@@ -11,19 +11,19 @@ html {
 }
 
 :root {
-  --paper: #f3ebdd;
-  --paper-2: #e8dcc4;
-  --surface: #f8f1e4;
-  --surface-2: #f1e5cf;
-  --surface-3: #e7d8bb;
-  --ink: #5a4613;
-  --ink-soft: #7a6736;
-  --accent-olive: #a27c09;
-  --line: #a27c09;
-  --line-soft: rgba(162, 124, 9, 0.22);
-  --accent-yellow: #ffc20a;
-  --accent-glow: #ffc20a;
-  --shadow: #d2bf97;
+  --paper: #fff6dd;
+  --paper-2: #fff6dd;
+  --surface: #fff6dd;
+  --surface-2: #fff6dd;
+  --surface-3: #ffdc79;
+  --ink: #faa642;
+  --ink-soft: #faa642;
+  --accent-olive: #fcb017;
+  --line: #faa642;
+  --line-soft: rgba(250, 166, 66, 0.22);
+  --accent-yellow: #fec40e;
+  --accent-glow: #ffdc79;
+  --shadow: rgba(255, 220, 121, 0.7);
   --radius: 14px;
   --pill: 999px;
   --page-w: min(980px, 100% - 30px);
@@ -52,8 +52,8 @@ body {
   font-family: "Anonymous Pro", "Courier New", monospace;
   font-size: 15px;
   background:
-    radial-gradient(1200px 560px at 8% -18%, rgba(255, 194, 10, 0.18), transparent 55%),
-    radial-gradient(900px 480px at 100% 5%, rgba(162, 124, 9, 0.16), transparent 58%),
+    radial-gradient(1200px 560px at 8% -18%, rgba(255, 220, 121, 0.22), transparent 55%),
+    radial-gradient(900px 480px at 100% 5%, rgba(252, 176, 23, 0.12), transparent 58%),
     linear-gradient(180deg, var(--paper), var(--paper-2));
 }
 
@@ -63,10 +63,10 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, rgba(162, 124, 9, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(162, 124, 9, 0.08) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 220, 121, 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 220, 121, 0.14) 1px, transparent 1px);
   background-size: 24px 24px;
-  opacity: 0.34;
+  opacity: 0.24;
 }
 
 /* ---------------------------------------------------------------------------
@@ -77,9 +77,9 @@ header {
   top: 0;
   z-index: 20;
   padding: 20px 0 14px;
-  background: linear-gradient(180deg, rgba(248, 241, 228, 0.96), rgba(232, 220, 196, 0.9));
+  background: linear-gradient(180deg, rgba(255, 246, 221, 0.98), rgba(255, 246, 221, 0.94));
   backdrop-filter: blur(4px);
-  border-bottom: 2px solid rgba(162, 124, 9, 0.45);
+  border-bottom: 2px solid rgba(250, 166, 66, 0.4);
   width: var(--page-w);
   margin: 0 auto;
 }
@@ -137,7 +137,7 @@ button.home-link {
 .mode-pill:focus,
 label select:focus,
 input[type="range"]:focus {
-  outline: 3px solid rgba(255, 194, 10, 0.32);
+  outline: 3px solid rgba(254, 196, 14, 0.34);
   outline-offset: 1px;
 }
 
@@ -182,7 +182,7 @@ input[type="range"]:focus {
   height: 10px;
   border-radius: var(--pill);
   border: 2px solid var(--line);
-  background: #e4d6b9;
+  background: #ffdc79;
   overflow: hidden;
 }
 
@@ -220,7 +220,7 @@ body.boot-locked .tab-content {
   width: var(--page-w);
   margin: 0 auto;
   border-bottom: 2px solid var(--line);
-  background: rgba(243, 235, 221, 0.96);
+  background: rgba(255, 246, 221, 0.96);
   backdrop-filter: blur(4px);
 }
 
@@ -334,7 +334,7 @@ body.boot-locked .tab-content {
 }
 
 .slot-picker select:focus {
-  outline: 3px solid rgba(255, 194, 10, 0.32);
+  outline: 3px solid rgba(254, 196, 14, 0.34);
   outline-offset: 1px;
 }
 
@@ -387,7 +387,7 @@ body.boot-locked .tab-content {
 }
 
 .script-search:focus {
-  outline: 3px solid rgba(255, 194, 10, 0.32);
+  outline: 3px solid rgba(254, 196, 14, 0.34);
   outline-offset: 1px;
 }
 
@@ -404,7 +404,7 @@ body.boot-locked .tab-content {
   background: var(--surface);
   border: 2px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(90, 70, 19, 0.16);
+  box-shadow: 0 8px 24px rgba(255, 220, 121, 0.26);
 }
 
 .script-results.open {
@@ -417,7 +417,7 @@ body.boot-locked .tab-content {
   gap: 2px;
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid rgba(162, 124, 9, 0.14);
+  border-bottom: 1px solid rgba(250, 166, 66, 0.14);
 }
 
 .script-result:last-child {
@@ -426,7 +426,7 @@ body.boot-locked .tab-content {
 
 .script-result:hover,
 .script-result--active {
-  background: rgba(255, 194, 10, 0.14);
+  background: rgba(254, 196, 14, 0.14);
 }
 
 .script-result-name {
@@ -437,7 +437,7 @@ body.boot-locked .tab-content {
 
 .script-result-badge {
   font-size: 10px;
-  color: #ff9944;
+  color: #fcb017;
   opacity: 0.8;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -472,8 +472,8 @@ body.boot-locked .tab-content {
   display: block;
   width: 100%;
   height: 280px;
-  background: #f4ebdb;
-  color: #6c5216;
+  background: #fff6dd;
+  color: #faa642;
   font-family: "Anonymous Pro", "Courier New", monospace;
   font-size: 12px;
   border: 2px solid var(--line);
@@ -481,11 +481,11 @@ body.boot-locked .tab-content {
   padding: 10px 12px;
   resize: vertical;
   tab-size: 2;
-  box-shadow: inset 0 2px 8px rgba(90, 70, 19, 0.08);
+  box-shadow: inset 0 2px 8px rgba(255, 220, 121, 0.16);
 }
 
 .slot-code:focus {
-  outline: 3px solid rgba(255, 194, 10, 0.32);
+  outline: 3px solid rgba(254, 196, 14, 0.34);
   outline-offset: 1px;
 }
 
@@ -493,15 +493,15 @@ body.boot-locked .tab-content {
   min-height: 2.3em;
   font-size: 12px;
   line-height: 1.45;
-  color: #98d7ff;
+  color: #faa642;
 }
 
 .slot-safety--warn {
-  color: #ffe08a;
+  color: #fcb017;
 }
 
 .slot-safety--error {
-  color: #ff9f9f;
+  color: #cc5a1b;
 }
 
 .slot-footer {
@@ -751,7 +751,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff5d7;
+  background: #fff6dd;
   border: 2px solid var(--line);
   box-shadow: 2px 2px 0 var(--shadow);
   cursor: pointer;
@@ -761,7 +761,7 @@ input[type="range"]::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff5d7;
+  background: #fff6dd;
   border: 2px solid var(--line);
   box-shadow: 2px 2px 0 var(--shadow);
   cursor: pointer;
@@ -877,7 +877,7 @@ input[type="range"]::-moz-range-thumb {
   height: 10px;
   border-radius: var(--pill);
   border: 2px solid var(--line);
-  background: #e4d6b9;
+  background: #ffdc79;
   overflow: hidden;
 }
 
@@ -896,9 +896,9 @@ input[type="range"]::-moz-range-thumb {
 
 .fw-note {
   font-size: 12px;
-  color: #8a7850;
+  color: #faa642;
   line-height: 1.6;
-  border-left: 2px solid #c6b48d;
+  border-left: 2px solid #ffdc79;
   padding-left: 10px;
 }
 
@@ -945,7 +945,7 @@ input[type="range"]::-moz-range-thumb {
   text-align: center;
   padding: 1.5rem;
   font-size: 0.75rem;
-  color: #8a7850;
+  color: #faa642;
   letter-spacing: 0.05em;
 }
 
