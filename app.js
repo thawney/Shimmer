@@ -8,6 +8,7 @@ const DEFAULT_FILES = [
   'modes/19_tide.js',
   'modes/20_canon.js',
 ];
+const SCRIPTS_VIEW_STORAGE_KEY = 'shimmer-scripts-view';
 
 const NUM_SLOTS      = 4;    // UI-visible slots
 const NUM_MODES_TOTAL = 16;  // firmware struct size (always 16)
@@ -228,6 +229,20 @@ const slots = Array.from({length: NUM_SLOTS}, (_, i) => ({
   desc:       '',
   code:       '',
 }));
+const slotUiState = Array.from({length: NUM_SLOTS}, () => ({
+  status: '',
+  uploadDisabled: false,
+  downloadDisabled: false,
+}));
+
+let _scriptsView = 'simple';
+let _simpleSelectedSlot = 0;
+let _simpleLibraryActiveIndex = -1;
+let _simpleSelectedScriptFile = '';
+let _simpleSelectedScript = null;
+let _simpleLibrarySourceFilter = 'all';
+let _simpleLibrarySoundFilter = 'all';
+const _scriptTextCache = new Map();
 
 function parseScriptMeta(code) {
   const get = tag => {
@@ -306,9 +321,9 @@ async function loadThawneyModes() {
         const r = await fetch(`modes/${filename}`);
         if (!r.ok) throw new Error();
         const meta = parseScriptMeta(await r.text());
-        return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound };
+        return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound, author: meta.author || '' };
       } catch {
-        return { name: filename, file: filename, desc: '', sound: '' };
+        return { name: filename, file: filename, desc: '', sound: '', author: '' };
       }
     }));
   } catch { return []; }
@@ -373,6 +388,7 @@ const startupGateEl = document.getElementById('startup-gate');
 const startupTitleEl = document.getElementById('startup-title');
 const startupSubEl = document.getElementById('startup-sub');
 const startupProgressEl = document.getElementById('startup-progress');
+const tabScripts    = document.getElementById('tab-scripts');
 const tabControls   = document.getElementById('tab-controls');
 const pillsEl    = document.getElementById('mode-pills');
 const modeDescEl = document.getElementById('mode-desc');
@@ -395,8 +411,46 @@ const outParam   = document.getElementById('p-param-val');
 const lblParam   = document.getElementById('lbl-param');
 
 const slotCardsEl = document.getElementById('slot-cards');
+const scriptsSimpleViewEl = document.getElementById('scripts-simple-view');
+const scriptsAdvancedViewEl = document.getElementById('scripts-advanced-view');
+const simpleSlotListEl = document.getElementById('simple-slot-list');
+const simpleLibrarySearchEl = document.getElementById('simple-library-search');
+const simpleLibrarySoundFilterEl = document.getElementById('simple-library-sound-filter');
+const simpleLibraryResultsEl = document.getElementById('simple-library-results');
+const simpleLibrarySourceBtns = Array.from(document.querySelectorAll('[data-library-source]'));
+const simpleDetailHelpEl = document.getElementById('simple-detail-help');
+const simpleScriptSourceEl = document.getElementById('simple-script-source');
+const simpleScriptSlotTargetEl = document.getElementById('simple-script-slot-target');
+const simpleScriptNameEl = document.getElementById('simple-script-name');
+const simpleScriptAuthorEl = document.getElementById('simple-script-author');
+const simpleScriptDescEl = document.getElementById('simple-script-desc');
+const simpleScriptSoundEl = document.getElementById('simple-script-sound');
+const simpleUseScriptBtn = document.getElementById('simple-use-script');
+const simpleOpenAdvancedBtn = document.getElementById('simple-open-advanced');
+const simpleImportFileEl = document.getElementById('simple-import-file');
+const simpleCodePreviewEl = document.getElementById('simple-code-preview');
+const simpleScriptPreviewEl = document.getElementById('simple-script-preview');
+const scriptsViewBtns = Array.from(document.querySelectorAll('[data-scripts-view]'));
 
 function setStatus(msg) { statusEl.textContent = msg; }
+
+function getStoredScriptsView() {
+  try {
+    return localStorage.getItem(SCRIPTS_VIEW_STORAGE_KEY) || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function setStoredScriptsView(view) {
+  try {
+    localStorage.setItem(SCRIPTS_VIEW_STORAGE_KEY, view);
+  } catch (e) {}
+}
+
+function simpleSlotLabel(slotIdx) {
+  return `Slot ${slotIdx}`;
+}
 
 let _clockState = { external: false, running: false, usingExternal: false, bpmX10: 1200 };
 
@@ -428,6 +482,374 @@ function setSynced(v) {
   if (tabControls) tabControls.classList.toggle('synced', v);
 }
 
+function normalizeScriptsView(view) {
+  return view === 'advanced' ? 'advanced' : 'simple';
+}
+
+function applyScriptsView(view, opts = {}) {
+  _scriptsView = normalizeScriptsView(view);
+  if (tabScripts) tabScripts.dataset.scriptsView = _scriptsView;
+  if (scriptsSimpleViewEl) scriptsSimpleViewEl.classList.toggle('active', _scriptsView === 'simple');
+  if (scriptsAdvancedViewEl) scriptsAdvancedViewEl.classList.toggle('active', _scriptsView === 'advanced');
+  scriptsViewBtns.forEach(btn => {
+    const active = btn.dataset.scriptsView === _scriptsView;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  if (opts.persist !== false) setStoredScriptsView(_scriptsView);
+}
+
+function focusAdvancedSlot(slotIdx) {
+  const ta = document.getElementById(`slot-code-${slotIdx}`);
+  if (!ta) return;
+  ta.focus();
+  ta.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function setSlotStatus(slotIdx, message) {
+  if (slotIdx < 0 || slotIdx >= NUM_SLOTS) return;
+  const text = message || '';
+  slotUiState[slotIdx].status = text;
+  const advancedStatusEl = document.getElementById(`slot-status-${slotIdx}`);
+  if (advancedStatusEl) advancedStatusEl.textContent = text;
+  const simpleStatusEl = document.getElementById(`simple-slot-status-${slotIdx}`);
+  if (simpleStatusEl) simpleStatusEl.textContent = text;
+}
+
+function setSlotUploadDisabled(slotIdx, disabled) {
+  if (slotIdx < 0 || slotIdx >= NUM_SLOTS) return;
+  const finalDisabled = !!disabled;
+  slotUiState[slotIdx].uploadDisabled = finalDisabled;
+  const advancedBtn = document.getElementById(`slot-upload-${slotIdx}`);
+  if (advancedBtn) advancedBtn.disabled = finalDisabled;
+  const simpleBtn = document.getElementById(`simple-slot-upload-${slotIdx}`);
+  if (simpleBtn) simpleBtn.disabled = finalDisabled;
+}
+
+function setSlotDownloadDisabled(slotIdx, disabled) {
+  if (slotIdx < 0 || slotIdx >= NUM_SLOTS) return;
+  const finalDisabled = !!disabled;
+  slotUiState[slotIdx].downloadDisabled = finalDisabled;
+  const advancedBtn = document.getElementById(`slot-dl-${slotIdx}`);
+  if (advancedBtn) advancedBtn.disabled = finalDisabled;
+  const simpleBtn = document.getElementById(`simple-slot-dl-${slotIdx}`);
+  if (simpleBtn) simpleBtn.disabled = finalDisabled;
+}
+
+function renderSimpleSlot(slotIdx) {
+  const card = document.getElementById(`simple-slot-card-${slotIdx}`);
+  if (!card) return;
+  const slot = slots[slotIdx];
+  const selected = slotIdx === _simpleSelectedSlot;
+  card.classList.toggle('simple-slot-card--selected', selected);
+
+  const titleEl = document.getElementById(`simple-slot-title-${slotIdx}`);
+  const authorEl = document.getElementById(`simple-slot-author-${slotIdx}`);
+  const descEl = document.getElementById(`simple-slot-desc-${slotIdx}`);
+  const selectBtn = document.getElementById(`simple-slot-select-${slotIdx}`);
+  const uploadBtn = document.getElementById(`simple-slot-upload-${slotIdx}`);
+  const dlBtn = document.getElementById(`simple-slot-dl-${slotIdx}`);
+
+  if (titleEl) titleEl.textContent = `${simpleSlotLabel(slotIdx)} · ${slot.name}`;
+  if (authorEl) authorEl.textContent = slot.author ? `by ${slot.author}` : '';
+  if (descEl) descEl.textContent = slot.desc || 'No description yet. Choose a script from the library or import your own.';
+  if (selectBtn) {
+    selectBtn.textContent = selected ? 'Target slot' : `Target ${simpleSlotLabel(slotIdx)}`;
+    selectBtn.classList.toggle('active', selected);
+    selectBtn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  }
+  if (uploadBtn) uploadBtn.disabled = slotUiState[slotIdx].uploadDisabled;
+  if (dlBtn) dlBtn.disabled = slotUiState[slotIdx].downloadDisabled;
+  setSlotStatus(slotIdx, slotUiState[slotIdx].status);
+}
+
+function renderAllSimpleSlots() {
+  for (let i = 0; i < NUM_SLOTS; i++) renderSimpleSlot(i);
+}
+
+function buildSimpleSlots() {
+  if (!simpleSlotListEl) return;
+  simpleSlotListEl.innerHTML = '';
+
+  for (let i = 0; i < NUM_SLOTS; i++) {
+    const card = document.createElement('article');
+    card.className = 'simple-slot-card';
+    card.id = `simple-slot-card-${i}`;
+    card.innerHTML = `
+      <div class="simple-slot-head">
+        <div class="simple-slot-title" id="simple-slot-title-${i}">${simpleSlotLabel(i)} · ${slots[i].name}</div>
+        <div class="simple-slot-author" id="simple-slot-author-${i}">${slots[i].author ? 'by ' + slots[i].author : ''}</div>
+      </div>
+      <p class="simple-slot-desc" id="simple-slot-desc-${i}">${slots[i].desc || 'No description yet. Choose a script from the library or import your own.'}</p>
+      <div class="simple-slot-actions">
+        <button type="button" class="simple-slot-select-btn" id="simple-slot-select-${i}" aria-pressed="false">Target ${simpleSlotLabel(i)}</button>
+        <button type="button" class="slot-upload-btn" id="simple-slot-upload-${i}">Upload</button>
+        <button type="button" class="slot-dl-btn" id="simple-slot-dl-${i}">From device</button>
+        <span class="simple-slot-status" id="simple-slot-status-${i}"></span>
+      </div>
+    `;
+    simpleSlotListEl.appendChild(card);
+
+    const selectSlot = () => {
+      const prev = _simpleSelectedSlot;
+      _simpleSelectedSlot = i;
+      renderSimpleSlot(prev);
+      renderSimpleSlot(i);
+      renderSimpleLibraryDetails();
+    };
+
+    card.addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      selectSlot();
+    });
+
+    document.getElementById(`simple-slot-select-${i}`).addEventListener('click', selectSlot);
+
+    document.getElementById(`simple-slot-upload-${i}`).addEventListener('click', () => {
+      queueUploadScript(i, slots[i].code);
+    });
+
+    document.getElementById(`simple-slot-dl-${i}`).addEventListener('click', () => {
+      if (!midiOut) {
+        setSlotStatus(i, 'No device connected.');
+        return;
+      }
+      queueDownloadScript(i);
+    });
+  }
+
+  renderAllSimpleSlots();
+}
+
+async function fetchScriptText(filePath) {
+  if (_scriptTextCache.has(filePath)) return _scriptTextCache.get(filePath);
+  const res = await fetch(filePath);
+  if (!res.ok) throw new Error(res.statusText || `HTTP ${res.status}`);
+  const code = await res.text();
+  _scriptTextCache.set(filePath, code);
+  return code;
+}
+
+function getScriptIndexEntry(filePath) {
+  return buildScriptIndex().find(item => item.file === filePath) || null;
+}
+
+function syncSimpleLibraryActiveIndex(results) {
+  if (!results.length) {
+    _simpleLibraryActiveIndex = -1;
+    return;
+  }
+
+  const selectedIdx = results.findIndex(item => item.file === _simpleSelectedScriptFile);
+  if (_simpleLibraryActiveIndex < 0 || _simpleLibraryActiveIndex >= results.length) {
+    _simpleLibraryActiveIndex = selectedIdx >= 0 ? selectedIdx : 0;
+  }
+}
+
+function renderSimpleLibraryResults() {
+  if (!simpleLibraryResultsEl) return;
+  const results = getSimpleLibraryResults();
+  syncSimpleLibraryActiveIndex(results);
+
+  simpleLibraryResultsEl.innerHTML = '';
+  if (!results.length) {
+    simpleLibraryResultsEl.innerHTML = '<div class="simple-library-empty">No scripts match that search yet.</div>';
+    return;
+  }
+
+  results.forEach((item, idx) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'simple-library-item' + (idx === _simpleLibraryActiveIndex ? ' simple-library-item--active' : '');
+    button.innerHTML =
+      `<div class="simple-library-name-row">` +
+        `<span class="simple-library-name">${item.name}</span>` +
+        (item.community ? `<span class="script-result-badge">community</span>` : '') +
+      `</div>` +
+      (item.author ? `<div class="simple-library-author">by ${item.author}</div>` : '') +
+      `<div class="simple-library-desc">${item.desc || 'No short description provided.'}</div>` +
+      (item.sound ? `<div class="simple-library-sound">${item.sound}</div>` : '');
+    button.addEventListener('click', () => {
+      _simpleLibraryActiveIndex = idx;
+      selectSimpleLibraryItem(item.file);
+    });
+    simpleLibraryResultsEl.appendChild(button);
+  });
+}
+
+function renderSimpleLibraryDetails() {
+  const selectedScript = _simpleSelectedScript;
+  if (simpleScriptSlotTargetEl) simpleScriptSlotTargetEl.textContent = `Target ${simpleSlotLabel(_simpleSelectedSlot)}`;
+  if (simpleUseScriptBtn) {
+    simpleUseScriptBtn.textContent = `Use in ${simpleSlotLabel(_simpleSelectedSlot)}`;
+    simpleUseScriptBtn.disabled = !selectedScript;
+  }
+
+  if (!selectedScript) {
+    if (simpleDetailHelpEl) simpleDetailHelpEl.textContent = 'Pick a script to see what it does before assigning it to a slot.';
+    if (simpleScriptSourceEl) simpleScriptSourceEl.textContent = '';
+    if (simpleScriptNameEl) simpleScriptNameEl.textContent = 'Choose a script';
+    if (simpleScriptAuthorEl) simpleScriptAuthorEl.textContent = '';
+    if (simpleScriptDescEl) simpleScriptDescEl.textContent = 'Search the library to browse the scripts available on this site.';
+    if (simpleScriptSoundEl) simpleScriptSoundEl.textContent = '';
+    if (simpleScriptPreviewEl) simpleScriptPreviewEl.value = '';
+    return;
+  }
+
+  const loading = selectedScript.loading;
+  const previewText = selectedScript.error
+    ? selectedScript.error
+    : (selectedScript.code || (loading ? 'Loading preview…' : 'Preview unavailable.'));
+
+  if (simpleDetailHelpEl) {
+    simpleDetailHelpEl.textContent = loading
+      ? 'Loading preview…'
+      : 'Assign this script to the selected slot, or open advanced to edit the code directly.';
+  }
+  if (simpleScriptSourceEl) simpleScriptSourceEl.textContent = selectedScript.community ? 'Community' : '';
+  if (simpleScriptNameEl) simpleScriptNameEl.textContent = selectedScript.name || 'Script';
+  if (simpleScriptAuthorEl) simpleScriptAuthorEl.textContent = selectedScript.author ? `by ${selectedScript.author}` : '';
+  if (simpleScriptDescEl) simpleScriptDescEl.textContent = selectedScript.desc || 'No short description provided.';
+  if (simpleScriptSoundEl) simpleScriptSoundEl.textContent = selectedScript.sound ? `Sound: ${selectedScript.sound}` : '';
+  if (simpleScriptPreviewEl) simpleScriptPreviewEl.value = previewText;
+}
+
+async function selectSimpleLibraryItem(filePath) {
+  const item = getScriptIndexEntry(filePath);
+  if (!item) return;
+
+  _simpleSelectedScriptFile = filePath;
+  _simpleSelectedScript = { ...item, author: '', code: '', loading: true, error: '' };
+  renderSimpleLibraryResults();
+  renderSimpleLibraryDetails();
+
+  try {
+    const code = await fetchScriptText(filePath);
+    if (_simpleSelectedScriptFile !== filePath) return;
+    const meta = parseScriptMeta(code);
+    _simpleSelectedScript = {
+      ...item,
+      name: meta.name || item.name,
+      author: meta.author || '',
+      desc: meta.desc || item.desc,
+      sound: meta.sound || item.sound,
+      code,
+      loading: false,
+      error: '',
+    };
+  } catch (err) {
+    if (_simpleSelectedScriptFile !== filePath) return;
+    _simpleSelectedScript = {
+      ...item,
+      author: '',
+      code: '',
+      loading: false,
+      error: location.protocol === 'file:'
+        ? 'Serve via HTTP to load examples (python3 -m http.server).'
+        : `Could not load preview: ${err.message}`,
+    };
+  }
+
+  renderSimpleLibraryResults();
+  renderSimpleLibraryDetails();
+}
+
+function ensureSimpleLibrarySelection() {
+  const index = buildScriptIndex();
+  if (!index.length) {
+    _simpleSelectedScriptFile = '';
+    _simpleSelectedScript = null;
+    renderSimpleLibraryResults();
+    renderSimpleLibraryDetails();
+    return;
+  }
+
+  if (_simpleSelectedScriptFile && index.some(item => item.file === _simpleSelectedScriptFile)) {
+    selectSimpleLibraryItem(_simpleSelectedScriptFile);
+    return;
+  }
+
+  selectSimpleLibraryItem(index[0].file);
+}
+
+function initSimpleLibrary() {
+  renderSimpleLibraryFilters();
+  renderSimpleLibraryResults();
+  renderSimpleLibraryDetails();
+
+  if (simpleLibrarySearchEl) {
+    simpleLibrarySearchEl.addEventListener('input', () => {
+      renderSimpleLibraryResults();
+    });
+    simpleLibrarySearchEl.addEventListener('keydown', e => {
+      const results = getSimpleLibraryResults();
+      if (!results.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _simpleLibraryActiveIndex = Math.min(results.length - 1, _simpleLibraryActiveIndex + 1);
+        if (_simpleLibraryActiveIndex < 0) _simpleLibraryActiveIndex = 0;
+        renderSimpleLibraryResults();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _simpleLibraryActiveIndex = Math.max(0, _simpleLibraryActiveIndex - 1);
+        renderSimpleLibraryResults();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const picked = results[Math.max(0, _simpleLibraryActiveIndex)];
+        if (picked) selectSimpleLibraryItem(picked.file);
+      }
+    });
+  }
+
+  simpleLibrarySourceBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      _simpleLibrarySourceFilter = btn.dataset.librarySource || 'all';
+      _simpleLibraryActiveIndex = -1;
+      renderSimpleLibraryFilters();
+      renderSimpleLibraryResults();
+    });
+  });
+
+  if (simpleLibrarySoundFilterEl) {
+    simpleLibrarySoundFilterEl.addEventListener('change', () => {
+      _simpleLibrarySoundFilter = simpleLibrarySoundFilterEl.value || 'all';
+      _simpleLibraryActiveIndex = -1;
+      renderSimpleLibraryResults();
+    });
+  }
+
+  if (simpleUseScriptBtn) {
+    simpleUseScriptBtn.addEventListener('click', async () => {
+      if (!_simpleSelectedScriptFile) return;
+      await loadScriptIntoSlot(_simpleSelectedSlot, _simpleSelectedScriptFile);
+    });
+  }
+
+  if (simpleOpenAdvancedBtn) {
+    simpleOpenAdvancedBtn.addEventListener('click', () => {
+      applyScriptsView('advanced');
+      requestAnimationFrame(() => focusAdvancedSlot(_simpleSelectedSlot));
+    });
+  }
+
+  if (simpleImportFileEl) {
+    simpleImportFileEl.addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = evt => {
+        const code = evt.target.result;
+        setSlotCode(_simpleSelectedSlot, code);
+        setSlotStatus(_simpleSelectedSlot, `Ready — ${slots[_simpleSelectedSlot].name} loaded from ${file.name}`);
+      };
+      reader.readAsText(file);
+      simpleImportFileEl.value = '';
+    });
+  }
+
+  ensureSimpleLibrarySelection();
+}
+
 function sharedSettings() {
   return modeSettings[0];
 }
@@ -445,6 +867,14 @@ document.querySelectorAll('.tab').forEach(tab => {
     if (target === 'firmware') checkServerFirmware();
   });
 });
+
+scriptsViewBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyScriptsView(btn.dataset.scriptsView);
+  });
+});
+
+applyScriptsView(getStoredScriptsView() || 'simple', { persist: false });
 
 // ---------------------------------------------------------------------------
 // Build root select
@@ -525,31 +955,31 @@ function buildSlotCards() {
     // Upload button
     document.getElementById(`slot-upload-${i}`).addEventListener('click', () => {
       const code = document.getElementById(`slot-code-${i}`).value;
-      queueUploadScript(i, code, i);
+      queueUploadScript(i, code);
     });
 
     // Download from device button
     document.getElementById(`slot-dl-${i}`).addEventListener('click', () => {
-      const statusEl = document.getElementById(`slot-status-${i}`);
-      if (!midiOut) { if (statusEl) statusEl.textContent = 'No device connected.'; return; }
-      queueDownloadScript(i, i);
+      if (!midiOut) { setSlotStatus(i, 'No device connected.'); return; }
+      queueDownloadScript(i);
     });
+
+    setSlotStatus(i, slotUiState[i].status);
+    setSlotUploadDisabled(i, slotUiState[i].uploadDisabled);
+    setSlotDownloadDisabled(i, slotUiState[i].downloadDisabled);
   }
 }
 
 async function loadScriptIntoSlot(slotIdx, filePath) {
-  const statusEl = document.getElementById(`slot-status-${slotIdx}`);
   try {
-    const res = await fetch(filePath);
-    if (!res.ok) throw new Error(res.statusText);
-    const code = await res.text();
+    const code = await fetchScriptText(filePath);
     setSlotCode(slotIdx, code);
-    if (statusEl) statusEl.textContent = '';
+    setSlotStatus(slotIdx, `Ready — ${slots[slotIdx].name} loaded`);
   } catch (err) {
     const isFile = location.protocol === 'file:';
-    if (statusEl) statusEl.textContent = isFile
+    setSlotStatus(slotIdx, isFile
       ? 'Serve via HTTP to load examples (python3 -m http.server).'
-      : 'Could not load: ' + err.message;
+      : 'Could not load: ' + err.message);
   }
 }
 
@@ -559,24 +989,119 @@ async function loadScriptIntoSlot(slotIdx, filePath) {
 function buildScriptIndex() {
   const thawney = _thawneyModes.map(m => ({
     name: m.name, file: `modes/${m.file}`,
-    desc: m.desc || '', sound: m.sound || '', community: false,
+    desc: m.desc || '', sound: m.sound || '', author: m.author || '', community: false,
   }));
   const community = _userModes.map(m => ({
     name: m.name, file: `user-modes/${m.file}`,
-    desc: '', sound: '', community: true,
+    desc: m.desc || '', sound: m.sound || '', author: m.author || '', community: true,
   }));
   return [...thawney, ...community];
 }
 
-function filterScripts(query) {
+function filterScripts(query, options = {}) {
   const index = buildScriptIndex();
-  if (!query.trim()) return index;
-  const q = query.toLowerCase();
-  return index.filter(m =>
-    m.name.toLowerCase().includes(q) ||
-    m.desc.toLowerCase().includes(q) ||
-    m.sound.toLowerCase().includes(q)
-  );
+  const source = options.source || 'all';
+  const sound = options.sound || 'all';
+  const q = (query || '').trim().toLowerCase();
+
+  return index.filter(m => {
+    if (source === 'built-in' && m.community) return false;
+    if (source === 'community' && !m.community) return false;
+    if (sound !== 'all' && getSoundFilterValue(m.sound) !== sound) return false;
+    if (!q) return true;
+    return (
+      m.name.toLowerCase().includes(q) ||
+      m.desc.toLowerCase().includes(q) ||
+      m.sound.toLowerCase().includes(q) ||
+      m.author.toLowerCase().includes(q)
+    );
+  });
+}
+
+function getSimpleLibraryResults() {
+  return filterScripts(simpleLibrarySearchEl ? simpleLibrarySearchEl.value : '', {
+    source: _simpleLibrarySourceFilter,
+    sound: _simpleLibrarySoundFilter,
+  });
+}
+
+function getSoundFilterValue(sound) {
+  const raw = (sound || '').trim();
+  if (!raw) return 'none';
+
+  const lower = raw.toLowerCase();
+  if (lower === 'none' || lower === 'none - visual only') return 'none';
+  if (/\bpad\b/.test(lower)) return 'pad';
+  if (/\barp\b/.test(lower)) return 'arp';
+  if (/\bbell\b/.test(lower)) return 'bell';
+  if (/\bpluck(?:ed)?\b/.test(lower)) return 'pluck';
+  if (/\brhodes\b/.test(lower)) return 'rhodes';
+  if (/\bmarimba\b/.test(lower)) return 'marimba';
+  if (/\bchoir\b/.test(lower)) return 'choir';
+  if (/\borgan\b/.test(lower)) return 'organ';
+  if (/\bflute\b/.test(lower)) return 'flute';
+  if (/\bglass\b/.test(lower)) return 'glass';
+  if (/\bkalimba\b/.test(lower)) return 'kalimba';
+  if (/\bharp\b/.test(lower)) return 'harp';
+  if (/\blead\b/.test(lower)) return 'lead';
+  if (/\bstring\b/.test(lower)) return 'string';
+
+  return raw.split('/')[0].trim().toLowerCase();
+}
+
+function getSoundFilterLabel(value) {
+  const labels = {
+    none: 'None',
+    pad: 'Pad',
+    arp: 'Arp',
+    bell: 'Bell',
+    pluck: 'Pluck',
+    rhodes: 'Rhodes',
+    marimba: 'Marimba',
+    choir: 'Choir',
+    organ: 'Organ',
+    flute: 'Flute',
+    glass: 'Glass',
+    kalimba: 'Kalimba',
+    harp: 'Harp',
+    lead: 'Lead',
+    string: 'String',
+  };
+  if (labels[value]) return labels[value];
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function getSimpleLibrarySounds() {
+  return Array.from(new Set(
+    buildScriptIndex()
+      .map(item => getSoundFilterValue(item.sound))
+      .filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b));
+}
+
+function renderSimpleLibraryFilters() {
+  simpleLibrarySourceBtns.forEach(btn => {
+    const active = btn.dataset.librarySource === _simpleLibrarySourceFilter;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+
+  if (!simpleLibrarySoundFilterEl) return;
+  const sounds = getSimpleLibrarySounds();
+  const prev = _simpleLibrarySoundFilter;
+  simpleLibrarySoundFilterEl.innerHTML = '<option value="all">All sounds</option>';
+  sounds.forEach(sound => {
+    const opt = document.createElement('option');
+    opt.value = sound;
+    opt.textContent = getSoundFilterLabel(sound);
+    simpleLibrarySoundFilterEl.appendChild(opt);
+  });
+  simpleLibrarySoundFilterEl.value = sounds.includes(prev) ? prev : 'all';
+  _simpleLibrarySoundFilter = simpleLibrarySoundFilterEl.value;
 }
 
 function renderSearchResults(slotIdx, results) {
@@ -601,6 +1126,11 @@ function renderSearchResults(slotIdx, results) {
       const input = document.getElementById(`slot-search-${slotIdx}`);
       if (input) input.value = '';
       hideSearchResults(slotIdx);
+      const prev = _simpleSelectedSlot;
+      _simpleSelectedSlot = slotIdx;
+      renderSimpleSlot(prev);
+      renderSimpleSlot(slotIdx);
+      selectSimpleLibraryItem(m.file);
       await loadScriptIntoSlot(slotIdx, m.file);
     });
     ul.appendChild(li);
@@ -659,28 +1189,32 @@ function setSlotCode(slotIdx, code) {
   renderSlotSafety(slotIdx, code);
 }
 
+function updateSlotDisplay(slotIdx) {
+  const slot = slots[slotIdx];
+  const nameEl   = document.getElementById(`slot-name-${slotIdx}`);
+  const authorEl = document.getElementById(`slot-author-${slotIdx}`);
+  const descEl   = document.getElementById(`slot-desc-${slotIdx}`);
+  if (nameEl)   nameEl.textContent   = slot.name;
+  if (authorEl) authorEl.textContent = slot.author ? `by ${slot.author}` : '';
+  if (descEl)   descEl.textContent   = slot.desc;
+
+  const pill = pillsEl.querySelector(`[data-idx="${slotIdx}"]`);
+  if (pill) pill.textContent = slot.name;
+
+  if (slotIdx === currentSlot) {
+    lblParam.textContent = slot.paramLabel;
+    modeDescEl.textContent = slot.desc;
+  }
+
+  renderSimpleSlot(slotIdx);
+}
+
 function applySlotMeta(slotIdx, meta) {
   slots[slotIdx].name       = meta.name;
   slots[slotIdx].author     = meta.author;
   slots[slotIdx].paramLabel = meta.paramLabel;
   slots[slotIdx].desc       = meta.desc;
-
-  const nameEl   = document.getElementById(`slot-name-${slotIdx}`);
-  const authorEl = document.getElementById(`slot-author-${slotIdx}`);
-  const descEl   = document.getElementById(`slot-desc-${slotIdx}`);
-  if (nameEl)   nameEl.textContent   = meta.name;
-  if (authorEl) authorEl.textContent = meta.author ? `by ${meta.author}` : '';
-  if (descEl)   descEl.textContent   = meta.desc;
-
-  // Refresh pill label if this slot is visible on Controls tab
-  const pill = pillsEl.querySelector(`[data-idx="${slotIdx}"]`);
-  if (pill) pill.textContent = meta.name;
-
-  // Refresh param label if this is the active slot
-  if (slotIdx === currentSlot) {
-    lblParam.textContent = meta.paramLabel;
-    modeDescEl.textContent = meta.desc;
-  }
+  updateSlotDisplay(slotIdx);
 }
 
 // ---------------------------------------------------------------------------
@@ -899,11 +1433,11 @@ async function runStartupSync(force) {
         Math.round((completed / totalSteps) * 100)
       );
       // One retry per slot makes first-connect sync robust on slower host stacks.
-      let ok = await queueDownloadScript(i, i);
+      let ok = await queueDownloadScript(i);
       if (!ok) {
         await new Promise(resolve => setTimeout(resolve, 150));
         if (epoch !== _portEpoch || !midiOut) return;
-        ok = await queueDownloadScript(i, i);
+        ok = await queueDownloadScript(i);
       }
       allScriptsOk = allScriptsOk && ok;
       completed++;
@@ -1080,11 +1614,7 @@ function handleSysExFrame(data) {
       const name = String.fromCharCode(...(nullAt >= 0 ? nameBytes.slice(0, nullAt) : nameBytes)).trim();
       if (name) {
         slots[slot].name = name;
-        const pill = pillsEl.querySelector(`[data-idx="${slot}"]`);
-        if (pill) pill.textContent = name;
-        const nameEl = document.getElementById(`slot-name-${slot}`);
-        if (nameEl) nameEl.textContent = name;
-        if (slot === currentSlot) modeDescEl.textContent = slots[slot].desc;
+        updateSlotDisplay(slot);
       }
       const allNamesMask = (1 << NUM_SLOTS) - 1;
       if (_slotNamesSeenMask === allNamesMask) {
@@ -1109,8 +1639,7 @@ function handleSysExFrame(data) {
     const lenLo = data[6] & 0x7F;
     _dlExpectedLen = (lenHi << 7) | lenLo;
     _dlBuf = [];
-    const st = document.getElementById(`slot-status-${_dlSlot}`);
-    if (st) st.textContent = 'Downloading…';
+    setSlotStatus(_dlSlot, 'Downloading…');
     return;
   }
 
@@ -1119,8 +1648,7 @@ function handleSysExFrame(data) {
     const decoded = decode7to8(Array.from(data.slice(6, -1)));
     _dlBuf.push(...decoded);
     const pct = _dlExpectedLen > 0 ? Math.min(100, Math.round(_dlBuf.length / _dlExpectedLen * 100)) : 0;
-    const st = document.getElementById(`slot-status-${_dlSlot}`);
-    if (st) st.textContent = `Downloading… ${pct}%`;
+    setSlotStatus(_dlSlot, `Downloading… ${pct}%`);
     return;
   }
 
@@ -1128,9 +1656,8 @@ function handleSysExFrame(data) {
     const completedSlot = _dlSlot;
     const text = new TextDecoder().decode(new Uint8Array(_dlBuf.slice(0, _dlExpectedLen)));
     setSlotCode(completedSlot, text);
-    const st = document.getElementById(`slot-status-${completedSlot}`);
-    if (st) st.textContent = `Done — ${slots[completedSlot].name}`;
-    setStatus(`Downloaded slot ${completedSlot} from device`);
+    setSlotStatus(completedSlot, `Done — ${slots[completedSlot].name}`);
+    setStatus(`Downloaded ${simpleSlotLabel(completedSlot)} from device`);
     if (_dlResolve) _dlResolve();
     clearActiveDownload();
     return;
@@ -1349,9 +1876,8 @@ const SCRIPT_BEGIN_ACK_TIMEOUT_MS = 2500;
 const SCRIPT_CHUNK_ACK_TIMEOUT_MS = 2500;
 const SCRIPT_END_ACK_TIMEOUT_MS = 3000;
 
-function queueScriptTransfer(cardSlot, label, run) {
-  const statusEl = document.getElementById(`slot-status-${cardSlot}`);
-  if (_scriptTransferDepth > 0 && statusEl) statusEl.textContent = `${label} queued…`;
+function queueScriptTransfer(slotIdx, label, run) {
+  if (_scriptTransferDepth > 0) setSlotStatus(slotIdx, `${label} queued…`);
 
   _scriptTransferDepth++;
   const op = _scriptTransferChain.then(async () => {
@@ -1422,21 +1948,21 @@ function waitFwChunkAck(timeoutMs = 5000) {
   });
 }
 
-function queueUploadScript(slotIdx, scriptText, cardSlot) {
-  return queueScriptTransfer(cardSlot, 'Upload', () => uploadScript(slotIdx, scriptText, cardSlot));
+function queueUploadScript(slotIdx, scriptText) {
+  return queueScriptTransfer(slotIdx, 'Upload', () => uploadScript(slotIdx, scriptText));
 }
 
-function queueDownloadScript(slotIdx, cardSlot) {
-  return queueScriptTransfer(cardSlot, 'Download', () => downloadScript(slotIdx, cardSlot));
+function queueDownloadScript(slotIdx) {
+  return queueScriptTransfer(slotIdx, 'Download', () => downloadScript(slotIdx));
 }
 
-async function performScriptUpload(slotIdx, scriptText, uploadStatus) {
+async function performScriptUpload(slotIdx, scriptText) {
   const raw = Array.from(new TextEncoder().encode(scriptText));
   const totalLen = raw.length;
   const lenHi7 = (totalLen >> 7) & 0x7F;
   const lenLo7 = totalLen & 0x7F;
 
-  if (uploadStatus) uploadStatus.textContent = 'Starting…';
+  setSlotStatus(slotIdx, 'Starting…');
   await sendAndWaitAck(
     [SYSEX_SCRIPT_BEGIN, VER, slotIdx & 0x0F, lenHi7, lenLo7],
     SYSEX_SCRIPT_BEGIN,
@@ -1457,7 +1983,7 @@ async function performScriptUpload(slotIdx, scriptText, uploadStatus) {
     );
     seq++;
     const pct = Math.round((off + chunk.length) / totalLen * 100);
-    if (uploadStatus) uploadStatus.textContent = `Uploading… ${pct}%`;
+    setSlotStatus(slotIdx, `Uploading… ${pct}%`);
   }
 
   await sendAndWaitAck(
@@ -1467,19 +1993,16 @@ async function performScriptUpload(slotIdx, scriptText, uploadStatus) {
   );
 }
 
-async function downloadScript(slotIdx, cardSlot) {
-  const dlBtn = document.getElementById(`slot-dl-${cardSlot}`);
-  const dlStatus = document.getElementById(`slot-status-${cardSlot}`);
-
-  if (!midiOut) { if (dlStatus) dlStatus.textContent = 'No device connected.'; return false; }
+async function downloadScript(slotIdx) {
+  if (!midiOut) { setSlotStatus(slotIdx, 'No device connected.'); return false; }
 
   let ok = true;
-  if (dlBtn) dlBtn.disabled = true;
+  setSlotDownloadDisabled(slotIdx, true);
   try {
     _dlSlot = slotIdx;
     _dlBuf = [];
     _dlExpectedLen = 0;
-    if (dlStatus) dlStatus.textContent = 'Requesting…';
+    setSlotStatus(slotIdx, 'Requesting…');
 
     await new Promise((resolve, reject) => {
       _dlResolve = resolve;
@@ -1489,51 +2012,44 @@ async function downloadScript(slotIdx, cardSlot) {
     });
   } catch (e) {
     ok = false;
-    if (dlStatus) dlStatus.textContent = `Error: ${e.message}`;
+    setSlotStatus(slotIdx, `Error: ${e.message}`);
   } finally {
-    if (dlBtn) dlBtn.disabled = false;
+    setSlotDownloadDisabled(slotIdx, false);
   }
   return ok;
 }
 
-async function uploadScript(slotIdx, scriptText, cardSlot) {
-  const uploadBtn    = document.getElementById(`slot-upload-${cardSlot}`);
-  const uploadStatus = document.getElementById(`slot-status-${cardSlot}`);
-
-  if (!midiOut) { if (uploadStatus) uploadStatus.textContent = 'No device connected.'; return; }
+async function uploadScript(slotIdx, scriptText) {
+  if (!midiOut) { setSlotStatus(slotIdx, 'No device connected.'); return; }
   clearTimeout(_saveTimer);
 
   const safety = analyzeScriptSafety(scriptText);
-  renderSlotSafety(cardSlot, scriptText);
+  renderSlotSafety(slotIdx, scriptText);
   if (safety.hasErrors) {
-    if (uploadStatus) uploadStatus.textContent = SCRIPT_SAFETY
+    setSlotStatus(slotIdx, SCRIPT_SAFETY
       ? SCRIPT_SAFETY.summarize(safety, { maxItems: 1 })
-      : 'Fix script issues before uploading.';
+      : 'Fix script issues before uploading.');
     return;
   }
 
   const totalLen = new TextEncoder().encode(scriptText).length;
-  if (totalLen === 0) { if (uploadStatus) uploadStatus.textContent = 'Script is empty.'; return; }
+  if (totalLen === 0) { setSlotStatus(slotIdx, 'Script is empty.'); return; }
 
-  if (uploadBtn) uploadBtn.disabled = true;
+  setSlotUploadDisabled(slotIdx, true);
   try {
-    await performScriptUpload(slotIdx, scriptText, uploadStatus);
-    if (uploadStatus) {
-      uploadStatus.textContent = `Done — slot ${slotIdx} updated.`;
-    }
+    await performScriptUpload(slotIdx, scriptText);
+    setSlotStatus(slotIdx, `Done — ${simpleSlotLabel(slotIdx)} updated.`);
 
     // Re-parse local metadata and re-fetch names from device
     applySlotMeta(slotIdx, parseScriptMeta(scriptText));
     setTimeout(() => send([CMD_GET_SLOT_NAMES, VER]), 300);
   } catch (e) {
-    if (uploadStatus) {
-      const hint = /ACK timeout/.test(e.message)
-        ? ' The device may still be busy finishing the transfer; wait a moment and retry.'
-        : '';
-      uploadStatus.textContent = `Error: ${e.message}${hint}`;
-    }
+    const hint = /ACK timeout/.test(e.message)
+      ? ' The device may still be busy finishing the transfer; wait a moment and retry.'
+      : '';
+    setSlotStatus(slotIdx, `Error: ${e.message}${hint}`);
   } finally {
-    if (uploadBtn) uploadBtn.disabled = false;
+    setSlotUploadDisabled(slotIdx, false);
   }
 }
 
@@ -1726,13 +2242,33 @@ async function loadUserModes() {
     );
     if (!res.ok) return [];
     const files = await res.json();
-    return files
+    const fileNames = files
       .filter(f => f.type === 'file' && f.name.endsWith('.js'))
-      .map(f => ({
-        name: f.name.replace(/\.js$/, '').replace(/[_-]/g, ' ')
-                     .replace(/\b\w/g, c => c.toUpperCase()),
-        file: f.name,
-      }));
+      .map(f => f.name)
+      .sort((a, b) => a.localeCompare(b));
+
+    return Promise.all(fileNames.map(async filename => {
+      try {
+        const r = await fetch(`user-modes/${filename}`);
+        if (!r.ok) throw new Error();
+        const meta = parseScriptMeta(await r.text());
+        return {
+          name: meta.name || filename.replace(/\.js$/, '').replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          file: filename,
+          desc: meta.desc || '',
+          sound: meta.sound || '',
+          author: meta.author || '',
+        };
+      } catch {
+        return {
+          name: filename.replace(/\.js$/, '').replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          file: filename,
+          desc: '',
+          sound: '',
+          author: '',
+        };
+      }
+    }));
   } catch { return []; }
 }
 
@@ -1740,7 +2276,9 @@ Promise.all([loadThawneyModes(), loadUserModes()]).then(([thawneyList, userList]
   _thawneyModes = thawneyList;
   _userModes = userList;
   buildRootSelect();
+  buildSimpleSlots();
   buildSlotCards();
+  initSimpleLibrary();
   buildModePills();
   initFirmwareTab();
   selectSlot(0, false);

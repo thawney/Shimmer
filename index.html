@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <header>
@@ -45,7 +45,91 @@
 
   <!-- ── Scripts tab ── -->
   <section id="tab-scripts" class="tab-content">
-    <div id="slot-cards"></div>
+    <div class="scripts-view-bar">
+      <div class="scripts-view-toggle" role="group" aria-label="Scripts view">
+        <button type="button" class="scripts-view-btn active" data-scripts-view="simple" aria-pressed="true">Simple</button>
+        <button type="button" class="scripts-view-btn" data-scripts-view="advanced" aria-pressed="false">Advanced</button>
+      </div>
+      <p class="scripts-view-note">Simple makes picking scripts easier. Advanced shows full slot code.</p>
+    </div>
+
+    <div id="scripts-simple-view" class="scripts-mode active">
+      <div class="scripts-simple-grid">
+        <section class="scripts-panel scripts-panel-slots">
+          <div class="scripts-panel-head">
+            <div>
+              <h3>Your Slots</h3>
+              <p>Choose a slot, then load a script from the library.</p>
+            </div>
+          </div>
+          <div id="simple-slot-list" class="simple-slot-list"></div>
+        </section>
+
+        <section class="scripts-panel scripts-panel-library">
+          <div class="scripts-panel-head">
+            <div>
+              <h3>Script Library</h3>
+              <p>Loaded from the `modes` and `user-modes` folders each time the page opens.</p>
+            </div>
+          </div>
+          <div class="simple-library-search-wrap">
+            <input
+              type="text"
+              class="simple-library-search"
+              id="simple-library-search"
+              placeholder="Search scripts…"
+              autocomplete="off"
+              spellcheck="false">
+          </div>
+          <div class="simple-library-filters">
+            <div class="simple-library-source-filters" role="group" aria-label="Library source">
+              <button type="button" class="simple-library-filter-btn active" data-library-source="all" aria-pressed="true">All</button>
+              <button type="button" class="simple-library-filter-btn" data-library-source="built-in" aria-pressed="false">Built-in</button>
+              <button type="button" class="simple-library-filter-btn" data-library-source="community" aria-pressed="false">Community</button>
+            </div>
+            <label class="simple-library-filter-label">Sound
+              <select id="simple-library-sound-filter" class="simple-library-sound-filter">
+                <option value="all">All sounds</option>
+              </select>
+            </label>
+          </div>
+          <div id="simple-library-results" class="simple-library-results" role="listbox" aria-label="Script library"></div>
+        </section>
+
+        <section class="scripts-panel scripts-panel-details">
+          <div class="scripts-panel-head">
+            <div>
+              <h3>Script Details</h3>
+              <p id="simple-detail-help">Pick a script to see what it does before assigning it to a slot.</p>
+            </div>
+          </div>
+          <div class="simple-script-detail">
+            <div class="simple-script-meta-row">
+              <span class="simple-script-source" id="simple-script-source">Built-in</span>
+              <span class="simple-script-slot-target" id="simple-script-slot-target">Target Slot 1</span>
+            </div>
+            <h4 id="simple-script-name">Choose a script</h4>
+            <p id="simple-script-author" class="simple-script-author"></p>
+            <p id="simple-script-desc" class="simple-script-desc">Search the library to browse the scripts available on this site.</p>
+            <p id="simple-script-sound" class="simple-script-sound"></p>
+            <div class="simple-script-actions">
+              <button type="button" class="slot-upload-btn" id="simple-use-script" disabled>Use in Slot 1</button>
+              <label class="file-label">Import .js<input type="file" accept=".js" id="simple-import-file"></label>
+              <button type="button" class="slot-dl-btn" id="simple-open-advanced">Open in advanced</button>
+            </div>
+            <details class="simple-code-preview" id="simple-code-preview">
+              <summary>Preview code</summary>
+              <textarea id="simple-script-preview" readonly spellcheck="false"></textarea>
+            </details>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="scripts-advanced-view" class="scripts-mode">
+      <div id="slot-cards"></div>
+    </div>
+
     <p class="api-docs"><a href="user-modes/README.md" target="_blank">JS API reference →</a></p>
   </section>
 
@@ -174,7 +258,7 @@
 
   <script src="theme.js?v=1"></script>
   <script src="script-safety.js?v=2"></script>
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=14"></script>
   <footer class="site-footer">© 2026 Thawney LTD</footer>
 </body>
 </html>
