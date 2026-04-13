@@ -69,7 +69,7 @@ function update(m) {
 | `m.beatMs` | ms | Milliseconds per beat at current tempo, or external MIDI clock when the mode has `Clock In` and `Prefer Ext` enabled, clamped to `40..4000ms` |
 | `m.density` | 0..255 | Per-slot density knob value |
 | `m.brightness` | 0..255 | Per-slot brightness value |
-| `m.rootNote` | 0..127 | Current root note used by scale-degree output |
+| `m.rootNote` | 0..127 | Current root MIDI note used by scale-degree output |
 | `m.scale` | 0..9 | Current scale id: 0=Major 1=Minor 2=Dorian 3=Pentatonic 4=Chromatic 5=Mixolydian 6=Lydian 7=Phrygian 8=Harmonic Minor 9=Whole Tone |
 | `m.COLS` | 12 | Grid width |
 | `m.ROWS` | 12 | Grid height |
@@ -189,6 +189,7 @@ m.allOff()                            // cancel all held notes
 ```
 
 `degree` maps through the active scale/root and wraps across octaves.
+Degree `0` is the selected root MIDI note exactly; changing the root octave shifts all `m.note()` output with it.
 Scale degrees 0–6 span one octave diatonically; 7–13 continue into the next.
 Use `m.noteMidi()` / `m.noteOn()` when a mode needs exact 0–127 MIDI pitch control.
 

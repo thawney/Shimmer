@@ -87,6 +87,13 @@ const MODE_CLOCK_IN_ENABLE_BIT = 0x10;
 const MODE_CLOCK_PREFER_EXTERNAL_BIT = 0x20;
 const MODE_CLOCK_OUT_ENABLE_BIT = 0x40;
 
+function formatMidiNoteName(note) {
+  const midi = Math.max(0, Math.min(127, note | 0));
+  const name = NOTE_NAMES[midi % 12];
+  const octave = Math.floor(midi / 12);
+  return `${name}${octave}`;
+}
+
 function formatAckError(cmd, status, meta = {}) {
   if (cmd === SYSEX_SCRIPT_BEGIN) {
     if (status === 0x01) return 'Script upload could not start due to an invalid begin packet.';
@@ -1499,7 +1506,7 @@ function randomizeKey() {
 
   selectSlot(currentSlot, false);
   scheduleSave();
-  setStatus(`Randomized key — ${NOTE_NAMES[root % 12]} ${SCALE_NAMES[scale] ?? '?'}`);
+  setStatus(`Randomized key — ${formatMidiNoteName(root)} ${SCALE_NAMES[scale] ?? '?'}`);
 }
 
 function scheduleSave() {
@@ -1565,7 +1572,7 @@ function handleSysExFrame(data) {
       modeSettings[i].rootNote = root;
     }
     selectSlot(currentSlot, false);
-    setStatus(`Synced key — ${NOTE_NAMES[root % 12]} ${SCALE_NAMES[scale] ?? '?'}`);
+    setStatus(`Synced key — ${formatMidiNoteName(root)} ${SCALE_NAMES[scale] ?? '?'}`);
     return;
   }
 
@@ -1774,7 +1781,7 @@ function selectSlot(idx, sendToDevice) {
 
 function updateKeyInfo() {
   const s = sharedSettings();
-  const name  = NOTE_NAMES[s.rootNote % 12];
+  const name  = formatMidiNoteName(s.rootNote);
   const scale = SCALE_NAMES[s.scale] ?? '?';
   keyInfoEl.textContent = name + ' ' + scale;
 }

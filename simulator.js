@@ -158,9 +158,8 @@ function hsvToRgb(h, s, v) {
   }
 }
 
-// Matches MidiEngine::degreeToMidi() with default octave=4.
-function degreeToMidi(degree, rootNote, scaleId, octave) {
-  if (octave === undefined) octave = 4;
+// Matches firmware MidiEngine::degreeToMidi().
+function degreeToMidi(degree, rootNote, scaleId) {
   var mask = SCALES[scaleId] != null ? SCALES[scaleId] : SCALES[3];
   var tones = 0;
   for (var i = 0; i < 12; i++) if (mask & (1 << i)) tones++;
@@ -177,7 +176,7 @@ function degreeToMidi(degree, rootNote, scaleId, octave) {
     }
   }
 
-  var midi = (octave * 12) + (rootNote % 12) + semitone + (octaveShift * 12);
+  var midi = rootNote + semitone + (octaveShift * 12);
   return Math.max(0, Math.min(127, midi));
 }
 
@@ -469,7 +468,7 @@ function _attachMidiInputs(access) {
 
 var settings = {
   scale:       3,   // 0=Major 1=Minor 2=Dorian 3=Pentatonic 4=Chromatic 5=Mixolydian 6=Lydian 7=Phrygian 8=HarmonicMinor 9=WholeTone
-  rootNote:    0,   // 0-11 pitch class (C=0)
+  rootNote:    60,  // MIDI note number (60 = C4)
   tempo:       120, // BPM
   brightness:  200, // 0-255
   density:     128, // 0-255 (the per-script "amount" parameter)
@@ -1027,12 +1026,17 @@ Promise.all([loadThawneyModes(), loadUserModes()]).then(function(results) {
 });
 
 var selRootEl = document.getElementById('sim-root');
-NOTE_NAMES.forEach(function(name, i) {
-  var opt = document.createElement('option');
-  opt.value = i;
-  opt.textContent = name;
-  selRootEl.appendChild(opt);
-});
+for (var oct = 2; oct <= 5; oct++) {
+  NOTE_NAMES.forEach(function(name, i) {
+    var note = (oct * 12) + i;
+    if (note > 127) return;
+    var opt = document.createElement('option');
+    opt.value = note;
+    opt.textContent = name + oct;
+    if (note === settings.rootNote) opt.selected = true;
+    selRootEl.appendChild(opt);
+  });
+}
 
 var selChanEl = document.getElementById('sim-channel');
 var selInChanEl = document.getElementById('sim-in-channel');

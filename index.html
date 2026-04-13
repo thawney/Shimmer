@@ -142,7 +142,7 @@
 
     <div id="key-banner">
       Key: <span id="key-info">C Pentatonic</span>
-      <span class="key-hint">(double-press device button to cycle)</span>
+      <span class="key-hint">(double-press device button to randomise key)</span>
       <div id="key-actions">
         <button id="btn-randomize-key" class="btn-small">Randomize Key</button>
       </div>
@@ -250,6 +250,7 @@
       <p id="fw-status" class="fw-status-text"></p>
       <p class="fw-note">
         The device reboots automatically after a successful flash.<br>
+        If firmware upload times out, switch to a less active script before flashing.<br>
         Rollback is active: if the new firmware crashes before setup() completes,
         the device boots the previous version.
       </p>
