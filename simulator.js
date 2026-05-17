@@ -16,6 +16,16 @@ var ROWS = 12;
 var MAX_SCRIPT_BYTES = 12288;
 var SCRIPT_SAFETY = window.ShimmerScriptSafety || null;
 var _textEncoder = new TextEncoder();
+var MFR = 0x7D;
+var VER = 0x01;
+var CMD_ACK = 0x06;
+var SYSEX_SCRIPT_BEGIN = 0x20;
+var SYSEX_SCRIPT_CHUNK = 0x21;
+var SYSEX_SCRIPT_END = 0x22;
+var CHUNK_BYTES = 3000;
+var SCRIPT_BEGIN_ACK_TIMEOUT_MS = 2500;
+var SCRIPT_CHUNK_ACK_TIMEOUT_MS = 2500;
+var SCRIPT_END_ACK_TIMEOUT_MS = 3000;
 
 var _thawneyModes = [];
 var _userModes = [];
@@ -109,6 +119,7 @@ function parseScriptMeta(code) {
     author:     get('author')      || '',
     paramLabel: get('param_label') || 'Amount',
     desc:       get('description') || '',
+    sound:      get('sound')       || '',
     hue:        hueStr != null ? parseInt(hueStr, 10) : 0,
     sat:        satStr != null ? parseInt(satStr, 10) : 255,
   };
@@ -119,6 +130,41 @@ function analyzeScriptSafety(code) {
     return { issues: [], hasErrors: false, hasWarnings: false, bytes: 0, maxBytes: MAX_SCRIPT_BYTES };
   }
   return SCRIPT_SAFETY.analyze(code, { maxBytes: MAX_SCRIPT_BYTES });
+}
+
+function encode8to7(bytes) {
+  var out = [];
+  var i = 0;
+  while (i < bytes.length) {
+    var count = Math.min(7, bytes.length - i);
+    var msbs = 0;
+    for (var n = 0; n < count; n++) {
+      if (bytes[i + n] & 0x80) msbs |= (1 << n);
+    }
+    out.push(msbs);
+    for (var j = 0; j < count; j++) out.push(bytes[i + j] & 0x7F);
+    i += count;
+  }
+  return out;
+}
+
+function formatScriptUploadAckError(cmd, status, totalLen) {
+  if (cmd === SYSEX_SCRIPT_BEGIN) {
+    if (status === 0x01) return 'Shimmer could not start the upload.';
+    if (status === 0x02) return 'This script is too large: ' + totalLen + ' bytes. Max is ' + MAX_SCRIPT_BYTES + ' bytes.';
+    if (status === 0x03) return 'Shimmer ran out of memory while starting the upload.';
+  }
+  if (cmd === SYSEX_SCRIPT_CHUNK) {
+    if (status === 0x01) return 'Shimmer rejected a chunk because no upload was active.';
+    if (status === 0x02) return 'Upload chunks arrived out of order. Try sending again.';
+    if (status === 0x03) return 'Upload was larger than Shimmer expected.';
+  }
+  if (cmd === SYSEX_SCRIPT_END) {
+    if (status === 0x01) return 'Shimmer could not finish because no upload was active.';
+    if (status === 0x04) return 'Shimmer could not save this script to storage.';
+    if (status === 0x05) return 'That slot is not available on this Shimmer.';
+  }
+  return 'Shimmer reported error 0x' + status.toString(16) + ' for upload command 0x' + cmd.toString(16);
 }
 
 function renderSimSafety(report) {
@@ -437,11 +483,30 @@ function handleRealtime(status, now) {
   }
 }
 
+function handleUploadSysExFrame(data) {
+  if (!data || data.length < 7) return false;
+  if (data[0] !== 0xF0 || data[data.length - 1] !== 0xF7 || data[1] !== MFR) return false;
+  if (data[2] !== CMD_ACK) return true;
+  var acked = data[4] & 0x7F;
+  var status = data[5] & 0x7F;
+  if (!_pendingUploadAck || _pendingUploadAck.cmd !== acked) return true;
+  var pending = _pendingUploadAck;
+  _pendingUploadAck = null;
+  clearTimeout(pending.timer);
+  if (status === 0x00) pending.resolve();
+  else pending.reject(new Error(formatScriptUploadAckError(acked, status, pending.totalLen)));
+  return true;
+}
+
 function _attachMidiInputs(access) {
   access.inputs.forEach(function(input) {
     input.onmidimessage = function(ev) {
       var d = ev.data;
       if (!midiInputMatchesSelection(input) || !d || d.length < 1) return;
+      if (d[0] === 0xF0) {
+        handleUploadSysExFrame(d);
+        return;
+      }
       var now = (typeof ev.timeStamp === 'number' && ev.timeStamp > 0) ? ev.timeStamp : performance.now();
       if (d[0] >= 0xF8) {
         handleRealtime(d[0], now);
@@ -804,7 +869,7 @@ function runCurrentScript() {
   }
 
   if (!handlers.update) {
-    setStatus('Script must export an update(m) function', 'error');
+    setStatus('Script must include an update(m) function', 'error');
     return;
   }
 
@@ -827,7 +892,12 @@ function runCurrentScript() {
 
 var selMidiInEl = document.getElementById('sim-midi-in-port');
 var selMidiEl   = document.getElementById('sim-midi-port');
+var selUploadSlotEl = document.getElementById('sim-upload-slot');
+var btnUploadShimmerEl = document.getElementById('btn-upload-shimmer');
 var _midiAccess = null;
+var _pendingUploadAck = null;
+var _uploadBusy = false;
+var _sysexEnabled = false;
 
 function initMidi() {
   if (!navigator.requestMIDIAccess) {
@@ -837,6 +907,7 @@ function initMidi() {
   }
   navigator.requestMIDIAccess({ sysex: false }).then(function(access) {
     _midiAccess = access;
+    _sysexEnabled = false;
     populateMidiPorts();
     _attachMidiInputs(access);
     access.onstatechange = function() {
@@ -846,6 +917,26 @@ function initMidi() {
   }).catch(function() {
     selMidiInEl.innerHTML = '<option value="">MIDI access denied</option>';
     selMidiEl.innerHTML = '<option value="">MIDI access denied</option>';
+  });
+}
+
+function ensureSysexMidiAccess() {
+  if (_sysexEnabled) return Promise.resolve();
+  if (!navigator.requestMIDIAccess) {
+    return Promise.reject(new Error('WebMIDI is not available in this browser.'));
+  }
+  setUploadStatus('Asking for Shimmer upload permission…', false);
+  return navigator.requestMIDIAccess({ sysex: true }).then(function(access) {
+    _midiAccess = access;
+    _sysexEnabled = true;
+    populateMidiPorts();
+    _attachMidiInputs(access);
+    access.onstatechange = function() {
+      populateMidiPorts();
+      _attachMidiInputs(access);
+    };
+  }).catch(function() {
+    throw new Error('Allow MIDI SysEx access, then try sending to Shimmer again.');
   });
 }
 
@@ -887,6 +978,127 @@ selMidiInEl.addEventListener('change', function() {
   resetClockIn();
   if (_handlers) scheduleClockOut(true);
 });
+
+function setUploadStatus(message, isError) {
+  var el = document.getElementById('sim-upload-status');
+  if (!el) return;
+  el.textContent = message || '';
+  el.classList.toggle('is-error', !!isError);
+}
+
+function setUploadBusy(busy) {
+  _uploadBusy = !!busy;
+  if (btnUploadShimmerEl) btnUploadShimmerEl.disabled = _uploadBusy;
+}
+
+function sendUploadSysEx(bytes) {
+  if (!_sysexEnabled) {
+    throw new Error('Allow MIDI SysEx access, then reload this page to upload scripts to Shimmer.');
+  }
+  if (!midiOut) {
+    throw new Error('Choose Shimmer as MIDI out first.');
+  }
+  try {
+    midiOut.send(new Uint8Array([0xF0, MFR].concat(bytes, [0xF7])));
+  } catch (err) {
+    throw new Error('Could not send SysEx to Shimmer: ' + err.message);
+  }
+  return true;
+}
+
+function waitUploadAck(cmd, timeoutMs, totalLen) {
+  return new Promise(function(resolve, reject) {
+    if (_pendingUploadAck) {
+      reject(new Error('Another Shimmer upload is still waiting for a reply.'));
+      return;
+    }
+    var timer = setTimeout(function() {
+      _pendingUploadAck = null;
+      reject(new Error('Shimmer did not reply. Check MIDI in/out, keep the device connected, then try again.'));
+    }, timeoutMs);
+    _pendingUploadAck = { cmd: cmd, timer: timer, resolve: resolve, reject: reject, totalLen: totalLen };
+  });
+}
+
+function sendAndWaitUploadAck(bytes, ackCmd, timeoutMs, totalLen) {
+  var ackPromise = waitUploadAck(ackCmd, timeoutMs, totalLen);
+  try {
+    sendUploadSysEx(bytes);
+  } catch (err) {
+    if (_pendingUploadAck && _pendingUploadAck.cmd === ackCmd) {
+      clearTimeout(_pendingUploadAck.timer);
+      _pendingUploadAck = null;
+    }
+    return Promise.reject(err);
+  }
+  return ackPromise;
+}
+
+async function uploadEditorToShimmer() {
+  if (_uploadBusy) return;
+  var code = editor.getValue();
+  var slotIdx = selUploadSlotEl ? parseInt(selUploadSlotEl.value, 10) : 0;
+  var report = analyzeScriptSafety(code);
+  renderSimSafety(report);
+  if (report.hasErrors) {
+    setUploadStatus(SCRIPT_SAFETY ? SCRIPT_SAFETY.summarize(report, { maxItems: 1 }) : 'Fix the script before uploading.', true);
+    return;
+  }
+
+  var raw = Array.from(_textEncoder.encode(code));
+  var totalLen = raw.length;
+  if (!totalLen) {
+    setUploadStatus('There is no script code to upload yet.', true);
+    return;
+  }
+  if (totalLen > MAX_SCRIPT_BYTES) {
+    setUploadStatus('This script is too large for Shimmer: ' + totalLen + ' bytes.', true);
+    return;
+  }
+
+  setUploadBusy(true);
+  try {
+    await ensureSysexMidiAccess();
+    setUploadStatus('Starting upload to Shimmer Slot ' + (slotIdx + 1) + '…', false);
+    var lenHi7 = (totalLen >> 7) & 0x7F;
+    var lenLo7 = totalLen & 0x7F;
+    await sendAndWaitUploadAck(
+      [SYSEX_SCRIPT_BEGIN, VER, slotIdx & 0x0F, lenHi7, lenLo7],
+      SYSEX_SCRIPT_BEGIN,
+      SCRIPT_BEGIN_ACK_TIMEOUT_MS,
+      totalLen
+    );
+
+    var seq = 0;
+    for (var off = 0; off < totalLen; off += CHUNK_BYTES) {
+      var chunk = raw.slice(off, off + CHUNK_BYTES);
+      var encoded = encode8to7(chunk);
+      var seqHi7 = (seq >> 7) & 0x7F;
+      var seqLo7 = seq & 0x7F;
+      await sendAndWaitUploadAck(
+        [SYSEX_SCRIPT_CHUNK, VER, seqHi7, seqLo7].concat(encoded),
+        SYSEX_SCRIPT_CHUNK,
+        SCRIPT_CHUNK_ACK_TIMEOUT_MS,
+        totalLen
+      );
+      seq++;
+      setUploadStatus('Sending to Shimmer… ' + Math.round((off + chunk.length) / totalLen * 100) + '%', false);
+    }
+
+    await sendAndWaitUploadAck(
+      [SYSEX_SCRIPT_END, VER, slotIdx & 0x0F],
+      SYSEX_SCRIPT_END,
+      SCRIPT_END_ACK_TIMEOUT_MS,
+      totalLen
+    );
+    var meta = parseScriptMeta(code);
+    setUploadStatus('Done — ' + (meta.name || 'script') + ' is on Shimmer Slot ' + (slotIdx + 1) + '.', false);
+  } catch (err) {
+    setUploadStatus('Upload failed: ' + err.message, true);
+  } finally {
+    setUploadBusy(false);
+  }
+}
 
 // ── CodeMirror 5 editor ────────────────────────────────────────────────────────
 
@@ -1018,11 +1230,31 @@ function initSimSearch() {
   });
 }
 
+function loadInitialScriptFromQuery() {
+  var params = new URLSearchParams(window.location.search);
+  var scriptPath = params.get('script') || '';
+  if (!scriptPath) return;
+  if (!/^(modes|user-modes)\/[-\w]+\.js$/.test(scriptPath)) {
+    setStatus('Preview path is not available.', 'error');
+    return;
+  }
+  fetch(scriptPath).then(function(res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.text();
+  }).then(function(code) {
+    editor.setValue(code);
+    runCurrentScript();
+  }).catch(function() {
+    setStatus('Could not load that script preview.', 'error');
+  });
+}
+
 // Boot — discover Thawney + community scripts in parallel, then wire up search
 Promise.all([loadThawneyModes(), loadUserModes()]).then(function(results) {
   _thawneyModes = results[0];
   _userModes    = results[1];
   initSimSearch();
+  loadInitialScriptFromQuery();
 });
 
 var selRootEl = document.getElementById('sim-root');
@@ -1060,6 +1292,10 @@ document.getElementById('btn-stop').addEventListener('click', function() {
   stopLoop(true);
   setStatus('Stopped', 'idle');
 });
+
+if (btnUploadShimmerEl) {
+  btnUploadShimmerEl.addEventListener('click', uploadEditorToShimmer);
+}
 
 function wireSlider(sliderId, outputId, key) {
   var sl  = document.getElementById(sliderId);

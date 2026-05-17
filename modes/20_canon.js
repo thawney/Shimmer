@@ -10,6 +10,7 @@
 
 var CN_MAX  = 12;
 var CN_OFF  = 4;
+var CN_GRID = 144;
 
 var cnPhrase    = [];
 var cnLen       = 8;
@@ -44,7 +45,7 @@ function cnInit(m) {
 
   // Reset cnFlash
   cnFlash = [];
-  for (var j = 0; j < 144; j++) cnFlash[j] = 0;
+  for (var j = 0; j < CN_GRID; j++) cnFlash[j] = 0;
 
   cnStep   = 0;
   cnElapsed = 0;
@@ -55,7 +56,7 @@ function cnInit(m) {
 function activate(m) {
   cnReady = false;
   cnFlash = [];
-  for (var j = 0; j < 144; j++) cnFlash[j] = 0;
+  for (var j = 0; j < CN_GRID; j++) cnFlash[j] = 0;
   m.clear(); m.show();
 }
 
@@ -72,10 +73,8 @@ function update(m) {
   var nv = (m.density < 128) ? 2 : 3;
 
   cnElapsed += m.dt;
-  var steps = 0;
-  while (cnElapsed >= m.beatMs && steps < 8) {
-    cnElapsed -= m.beatMs;
-    steps++;
+  if (cnElapsed >= m.beatMs) {
+    cnElapsed = 0;
     cnStep++;
 
     for (var v = 0; v < nv; v++) {
@@ -96,7 +95,7 @@ function update(m) {
       if (row < 0) row = 0;
       if (row >= m.ROWS) row = m.ROWS - 1;
       var idx = row * m.COLS + col;
-      if (idx >= 0 && idx < 144) {
+      if (idx >= 0 && idx < CN_GRID) {
         cnFlash[idx] = Math.floor(m.brightness * (1.0 - v * 0.2));
       }
     }
@@ -115,7 +114,6 @@ function update(m) {
     // Wrap cnStep to avoid unbounded growth
     if (cnStep > 10000) cnStep = cnStep % (cnLen * 4);
   }
-  if (steps === 8 && cnElapsed >= m.beatMs) cnElapsed = m.beatMs - 1;
 
   // Fade flashes
   var fd = Math.floor((3 * m.dt + 8) / 16);

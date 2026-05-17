@@ -475,6 +475,46 @@ body {
   background: rgba(204,58,42,0.10);
 }
 
+.sim-upload-status {
+  min-height: 0;
+  padding: 0 10px;
+  color: #7b5200;
+  font-size: 12px;
+  line-height: 0;
+  background: rgba(254,196,14,0.12);
+  border-bottom: 0 solid rgba(250,166,66,0.12);
+  transition: padding 0.12s ease, line-height 0.12s ease;
+}
+
+.sim-upload-status:not(:empty) {
+  min-height: 28px;
+  padding: 6px 10px 7px;
+  line-height: 1.35;
+  border-bottom-width: 1px;
+}
+
+.sim-upload-status.is-error {
+  color: #b43d2e;
+  background: rgba(204,58,42,0.10);
+}
+
+.sim-upload-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.sim-upload-slot {
+  display: inline-flex;
+  align-items: center;
+  grid-template-columns: none;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .editor-toolbar select {
   flex: 1;
   min-width: 0;
@@ -504,6 +544,12 @@ body {
 
 .btn-run:hover {
   opacity: 0.85;
+}
+
+.btn-run:disabled,
+.btn-stop:disabled {
+  opacity: 0.38;
+  cursor: default;
 }
 
 .btn-stop {
@@ -648,6 +694,15 @@ body {
   .sim-byte-counter {
     width: 100%;
     text-align: center;
+  }
+
+  .sim-upload-tools {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .sim-upload-tools .btn-run {
+    flex: 1;
   }
 }
 
@@ -800,6 +855,17 @@ html[data-theme="dark"] .sim-safety--warn {
 }
 
 html[data-theme="dark"] .sim-safety--error {
+  color: #ffb3b3;
+  background: rgba(82, 22, 22, 0.92);
+}
+
+html[data-theme="dark"] .sim-upload-status {
+  color: #ffe08a;
+  background: rgba(76, 57, 16, 0.9);
+  border-bottom-color: rgba(255, 198, 10, 0.12);
+}
+
+html[data-theme="dark"] .sim-upload-status.is-error {
   color: #ffb3b3;
   background: rgba(82, 22, 22, 0.92);
 }

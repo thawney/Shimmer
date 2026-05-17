@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Shimmer Simulator</title>
   <script>
     try {
@@ -15,10 +18,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <!-- Inherit design tokens (colors, fonts, sliders, selects) from main stylesheet -->
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=20">
   <!-- CodeMirror 5 — MIT licensed, plain script tags, no build step required -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-  <link rel="stylesheet" href="simulator.css?v=4">
+  <link rel="stylesheet" href="simulator.css?v=6">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
   <script src="vendor/three.min.js"></script>
@@ -72,8 +75,20 @@
         <div class="sim-byte-counter" id="sim-byte-counter">0 / 12288 bytes</div>
         <button class="btn-run"  id="btn-run">▶ Run</button>
         <button class="btn-stop" id="btn-stop">■ Stop</button>
+        <div class="sim-upload-tools">
+          <label class="sim-upload-slot">Slot
+            <select id="sim-upload-slot">
+              <option value="0">1</option>
+              <option value="1">2</option>
+              <option value="2">3</option>
+              <option value="3">4</option>
+            </select>
+          </label>
+          <button class="btn-run" id="btn-upload-shimmer">Upload to Shimmer</button>
+        </div>
       </div>
       <div id="sim-safety" class="sim-safety"></div>
+      <div id="sim-upload-status" class="sim-upload-status"></div>
       <div id="editor-container"></div>
     </div>
 
@@ -141,7 +156,7 @@
 
   <script src="theme.js?v=1"></script>
   <script src="simulator-3d.js"></script>
-  <script src="script-safety.js?v=1"></script>
-  <script src="simulator.js?v=1"></script>
+  <script src="script-safety.js?v=2"></script>
+  <script src="simulator.js?v=4"></script>
 </body>
 </html>

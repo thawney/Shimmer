@@ -9,6 +9,7 @@ const DEFAULT_FILES = [
   'modes/20_canon.js',
 ];
 const SCRIPTS_VIEW_STORAGE_KEY = 'shimmer-scripts-view';
+const AUTO_CONNECT_PORT_RE = /\bshimmer\b/i;
 
 const NUM_SLOTS      = 4;    // UI-visible slots
 const NUM_MODES_TOTAL = 16;  // firmware struct size (always 16)
@@ -230,7 +231,7 @@ function decode7to8(encoded) {
 // Slot metadata — parsed from script headers
 // ---------------------------------------------------------------------------
 const slots = Array.from({length: NUM_SLOTS}, (_, i) => ({
-  name:       `Slot ${i}`,
+  name:       'Empty Slot',
   author:     '',
   paramLabel: 'Amount',
   desc:       '',
@@ -256,12 +257,16 @@ function parseScriptMeta(code) {
     const m = code.match(new RegExp('@' + tag + '\\s+(.+)'));
     return m ? m[1].trim() : null;
   };
+  const hueStr = get('hue');
+  const satStr = get('sat');
   return {
     name:       get('name')        ?? 'Script',
     author:     get('author')      ?? '',
     paramLabel: get('param_label') ?? 'Amount',
     desc:       get('description') ?? '',
     sound:      get('sound')       ?? '',
+    hue:        hueStr != null ? parseInt(hueStr, 10) : 0,
+    sat:        satStr != null ? parseInt(satStr, 10) : 255,
   };
 }
 
@@ -301,6 +306,214 @@ function renderSlotSafety(slotIdx, code) {
   const report = analyzeScriptSafety(code);
   renderSafetyMessage(safetyEl, report);
   return report;
+}
+
+function modeTraits(item) {
+  const haystack = `${item?.name || ''} ${item?.desc || ''} ${item?.sound || ''}`.toLowerCase();
+  const traits = [];
+  if (/\btilt|accelerometer|motion|shake|knock|spin|steer|wind\b/.test(haystack)) traits.push('Tilt');
+  if (/\bmidi in|incoming|keyboard|sequencer|noteon|note on|din in\b/.test(haystack)) traits.push('MIDI in');
+  if (/\b(clock|tempo|beat|pulse|canon|loop|arp|euclid|quant)/.test(haystack)) traits.push('Clock');
+  if (/\bvisual only|none\b/.test(haystack)) traits.push('Visual');
+  if (/\bpad|ambient|drone|haze|stasis|frost|tide\b/.test(haystack)) traits.push('Ambient');
+  if (/\bpluck|bell|marimba|kalimba|harp|rhodes|organ|flute|choir|lead|string|note|chord\b/.test(haystack)) traits.push('MIDI out');
+  if (!traits.length) traits.push('Generative');
+  return traits.slice(0, 4);
+}
+
+function renderModeTraitPills(item) {
+  return modeTraits(item)
+    .map(trait => `<span class="mode-trait">${trait}</span>`)
+    .join('');
+}
+
+const PREVIEW_COLS = 12;
+const PREVIEW_ROWS = 12;
+let _previewCode = '';
+let _previewHandlers = null;
+let _previewM = null;
+let _previewLastAt = 0;
+let _previewPixels = [];
+
+function clearPreviewPixels() {
+  _previewPixels = Array.from({ length: PREVIEW_ROWS }, () =>
+    Array.from({ length: PREVIEW_COLS }, () => ({ h: 0, s: 0, v: 0 }))
+  );
+}
+
+function parsePreviewHandlers(code) {
+  const factory = new Function(
+    code + '\n' +
+    'return {\n' +
+    '  activate: typeof activate !== "undefined" ? activate : null,\n' +
+    '  update: typeof update !== "undefined" ? update : null,\n' +
+    '  deactivate: typeof deactivate !== "undefined" ? deactivate : null,\n' +
+    '};\n'
+  );
+  return factory();
+}
+
+function makePreviewM(meta) {
+  const ticks = {};
+  return {
+    COLS: PREVIEW_COLS,
+    ROWS: PREVIEW_ROWS,
+    dt: 16,
+    beatMs: 500,
+    density: 128,
+    brightness: 220,
+    rootNote: 60,
+    scale: 3,
+    accelX: 0,
+    accelY: 24,
+    accelZ: 64,
+    motion: 0,
+    midiType: 0,
+    midiChannel: 0,
+    midiNote: 255,
+    midiVel: 0,
+    midiCC: 255,
+    midiCCVal: 0,
+    midiBend: 0,
+    temp: 20,
+    humidity: 50,
+    px: function(col, row, a, b, c) {
+      col |= 0; row |= 0;
+      if (col < 0 || col >= PREVIEW_COLS || row < 0 || row >= PREVIEW_ROWS) return;
+      if (c === undefined) {
+        _previewPixels[row][col] = { h: meta.hue || 0, s: meta.sat || 255, v: Math.max(0, Math.min(255, a | 0)) };
+      } else {
+        _previewPixels[row][col] = {
+          h: Math.max(0, Math.min(255, a | 0)),
+          s: Math.max(0, Math.min(255, b | 0)),
+          v: Math.max(0, Math.min(255, c | 0)),
+        };
+      }
+    },
+    fade: function(amount) {
+      const fade = amount == null ? 3 : amount | 0;
+      for (let r = 0; r < PREVIEW_ROWS; r++) {
+        for (let c = 0; c < PREVIEW_COLS; c++) {
+          _previewPixels[r][c].v = Math.max(0, _previewPixels[r][c].v - fade);
+        }
+      }
+    },
+    clear: function() { clearPreviewPixels(); },
+    show: function() {},
+    note: function() {},
+    noteMidi: function() {},
+    noteOn: function() {},
+    noteOff: function() {},
+    cc: function() {},
+    pitchBend: function() {},
+    allOff: function() {},
+    tick: function(id, intervalMs) {
+      const now = performance.now();
+      if (ticks[id] === undefined) { ticks[id] = now; return true; }
+      if (now - ticks[id] >= intervalMs) { ticks[id] = now; return true; }
+      return false;
+    },
+    rnd: function(max) {
+      return max === undefined ? (Math.random() * 256) | 0 : (Math.random() * max) | 0;
+    },
+    degreeToCol: function(degree) { return ((degree * (PREVIEW_COLS - 1)) / 6) | 0; },
+    colToDegree: function(col) { return ((col * 6) / (PREVIEW_COLS - 1)) | 0; },
+    map: function(v, inLo, inHi, outLo, outHi) {
+      return outLo + (v - inLo) * (outHi - outLo) / (inHi - inLo);
+    },
+  };
+}
+
+function hsvPreviewToRgb(h, s, v) {
+  if (v === 0) return [0, 0, 0];
+  if (s === 0) { const c = v & 0xFF; return [c, c, c]; }
+  h = h & 0xFF; s = s & 0xFF; v = v & 0xFF;
+  const region = (h / 43) | 0;
+  const rem = (h - region * 43) * 6;
+  const p = (v * (255 - s)) >> 8;
+  const q = (v * (255 - ((s * rem) >> 8))) >> 8;
+  const t = (v * (255 - ((s * (255 - rem)) >> 8))) >> 8;
+  if (region === 0) return [v, t, p];
+  if (region === 1) return [q, v, p];
+  if (region === 2) return [p, v, t];
+  if (region === 3) return [p, q, v];
+  if (region === 4) return [t, p, v];
+  return [v, p, q];
+}
+
+function ensureActualPreview(item) {
+  const code = item?.code || '';
+  if (_previewCode === code) return;
+  _previewCode = code;
+  _previewHandlers = null;
+  _previewM = null;
+  _previewLastAt = 0;
+  clearPreviewPixels();
+  if (!code.trim()) return;
+  try {
+    const safety = analyzeScriptSafety(code);
+    if (safety.hasErrors) return;
+    const meta = parseScriptMeta(code);
+    _previewHandlers = parsePreviewHandlers(code);
+    _previewM = makePreviewM(meta);
+    if (_previewHandlers.activate) _previewHandlers.activate(_previewM);
+  } catch (err) {
+    _previewHandlers = null;
+    _previewM = null;
+  }
+}
+
+function drawScriptPreview(item) {
+  if (!simpleScriptCanvasEl) return;
+  ensureActualPreview(item);
+  const ctx = simpleScriptCanvasEl.getContext('2d');
+  const size = simpleScriptCanvasEl.width;
+  const cell = size / PREVIEW_COLS;
+  const now = performance.now();
+
+  if (_previewHandlers && _previewM && _previewHandlers.update) {
+    _previewM.dt = Math.max(1, Math.min(96, _previewLastAt ? now - _previewLastAt : 16));
+    _previewLastAt = now;
+    _previewM.accelX = Math.round(Math.cos(now * 0.0011) * 42);
+    _previewM.accelY = Math.round(Math.sin(now * 0.0009) * 54);
+    _previewM.accelZ = 64 + Math.round(Math.sin(now * 0.0007) * 10);
+    _previewM.motion = Math.max(0, Math.round((Math.sin(now * 0.0022) * 0.5 + 0.5) * 120));
+    try {
+      _previewHandlers.update(_previewM);
+    } catch (err) {
+      _previewHandlers = null;
+      _previewM = null;
+    }
+  }
+
+  ctx.fillStyle = '#080808';
+  ctx.fillRect(0, 0, size, size);
+  for (let r = 0; r < PREVIEW_ROWS; r++) {
+    for (let c = 0; c < PREVIEW_COLS; c++) {
+      const px = _previewPixels[r]?.[c] || { h: 0, s: 0, v: 0 };
+      const cx = (c + 0.5) * cell;
+      const cy = (r + 0.5) * cell;
+      ctx.beginPath();
+      ctx.arc(cx, cy, cell * 0.38, 0, Math.PI * 2);
+      ctx.fillStyle = '#1c1c1c';
+      ctx.fill();
+      if (px.v > 0) {
+        const rgb = hsvPreviewToRgb(px.h, px.s, px.v);
+        ctx.beginPath();
+        ctx.arc(cx, cy, cell * 0.38, 0, Math.PI * 2);
+        ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+        ctx.shadowColor = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+        ctx.shadowBlur = cell * 0.68;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+  }
+}
+
+function animateScriptPreview() {
+  drawScriptPreview(_simpleSelectedScript);
+  requestAnimationFrame(animateScriptPreview);
 }
 
 // Mode entries discovered dynamically at boot — no hardcoded list needed.
@@ -432,6 +645,8 @@ const simpleScriptNameEl = document.getElementById('simple-script-name');
 const simpleScriptAuthorEl = document.getElementById('simple-script-author');
 const simpleScriptDescEl = document.getElementById('simple-script-desc');
 const simpleScriptSoundEl = document.getElementById('simple-script-sound');
+const simpleScriptTraitsEl = document.getElementById('simple-script-traits');
+const simpleScriptCanvasEl = document.getElementById('simple-script-canvas');
 const simpleUseScriptBtn = document.getElementById('simple-use-script');
 const simpleOpenAdvancedBtn = document.getElementById('simple-open-advanced');
 const simpleImportFileEl = document.getElementById('simple-import-file');
@@ -456,7 +671,7 @@ function setStoredScriptsView(view) {
 }
 
 function simpleSlotLabel(slotIdx) {
-  return `Slot ${slotIdx}`;
+  return `Slot ${slotIdx + 1}`;
 }
 
 let _clockState = { external: false, running: false, usingExternal: false, bpmX10: 1200 };
@@ -498,12 +713,17 @@ function applyScriptsView(view, opts = {}) {
   if (tabScripts) tabScripts.dataset.scriptsView = _scriptsView;
   if (scriptsSimpleViewEl) scriptsSimpleViewEl.classList.toggle('active', _scriptsView === 'simple');
   if (scriptsAdvancedViewEl) scriptsAdvancedViewEl.classList.toggle('active', _scriptsView === 'advanced');
+  document.body.classList.toggle('scripts-simple-active', _scriptsView === 'simple');
   scriptsViewBtns.forEach(btn => {
     const active = btn.dataset.scriptsView === _scriptsView;
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
   if (opts.persist !== false) setStoredScriptsView(_scriptsView);
+}
+
+function updateActiveTabState(target) {
+  document.body.classList.toggle('scripts-tab-active', target === 'scripts');
 }
 
 function focusAdvancedSlot(slotIdx) {
@@ -529,8 +749,6 @@ function setSlotUploadDisabled(slotIdx, disabled) {
   slotUiState[slotIdx].uploadDisabled = finalDisabled;
   const advancedBtn = document.getElementById(`slot-upload-${slotIdx}`);
   if (advancedBtn) advancedBtn.disabled = finalDisabled;
-  const simpleBtn = document.getElementById(`simple-slot-upload-${slotIdx}`);
-  if (simpleBtn) simpleBtn.disabled = finalDisabled;
 }
 
 function setSlotDownloadDisabled(slotIdx, disabled) {
@@ -539,8 +757,6 @@ function setSlotDownloadDisabled(slotIdx, disabled) {
   slotUiState[slotIdx].downloadDisabled = finalDisabled;
   const advancedBtn = document.getElementById(`slot-dl-${slotIdx}`);
   if (advancedBtn) advancedBtn.disabled = finalDisabled;
-  const simpleBtn = document.getElementById(`simple-slot-dl-${slotIdx}`);
-  if (simpleBtn) simpleBtn.disabled = finalDisabled;
 }
 
 function renderSimpleSlot(slotIdx) {
@@ -554,19 +770,15 @@ function renderSimpleSlot(slotIdx) {
   const authorEl = document.getElementById(`simple-slot-author-${slotIdx}`);
   const descEl = document.getElementById(`simple-slot-desc-${slotIdx}`);
   const selectBtn = document.getElementById(`simple-slot-select-${slotIdx}`);
-  const uploadBtn = document.getElementById(`simple-slot-upload-${slotIdx}`);
-  const dlBtn = document.getElementById(`simple-slot-dl-${slotIdx}`);
 
   if (titleEl) titleEl.textContent = `${simpleSlotLabel(slotIdx)} · ${slot.name}`;
   if (authorEl) authorEl.textContent = slot.author ? `by ${slot.author}` : '';
-  if (descEl) descEl.textContent = slot.desc || 'No description yet. Choose a script from the library or import your own.';
+  if (descEl) descEl.textContent = slot.desc || 'If a slot is empty, there is no script loaded there right now.';
   if (selectBtn) {
-    selectBtn.textContent = selected ? 'Target slot' : `Target ${simpleSlotLabel(slotIdx)}`;
+    selectBtn.textContent = selected ? 'Selected' : `Choose ${simpleSlotLabel(slotIdx)}`;
     selectBtn.classList.toggle('active', selected);
     selectBtn.setAttribute('aria-pressed', selected ? 'true' : 'false');
   }
-  if (uploadBtn) uploadBtn.disabled = slotUiState[slotIdx].uploadDisabled;
-  if (dlBtn) dlBtn.disabled = slotUiState[slotIdx].downloadDisabled;
   setSlotStatus(slotIdx, slotUiState[slotIdx].status);
 }
 
@@ -587,11 +799,8 @@ function buildSimpleSlots() {
         <div class="simple-slot-title" id="simple-slot-title-${i}">${simpleSlotLabel(i)} · ${slots[i].name}</div>
         <div class="simple-slot-author" id="simple-slot-author-${i}">${slots[i].author ? 'by ' + slots[i].author : ''}</div>
       </div>
-      <p class="simple-slot-desc" id="simple-slot-desc-${i}">${slots[i].desc || 'No description yet. Choose a script from the library or import your own.'}</p>
       <div class="simple-slot-actions">
-        <button type="button" class="simple-slot-select-btn" id="simple-slot-select-${i}" aria-pressed="false">Target ${simpleSlotLabel(i)}</button>
-        <button type="button" class="slot-upload-btn" id="simple-slot-upload-${i}">Upload</button>
-        <button type="button" class="slot-dl-btn" id="simple-slot-dl-${i}">From device</button>
+        <button type="button" class="simple-slot-select-btn" id="simple-slot-select-${i}" aria-pressed="false">Choose ${simpleSlotLabel(i)}</button>
         <span class="simple-slot-status" id="simple-slot-status-${i}"></span>
       </div>
     `;
@@ -612,17 +821,6 @@ function buildSimpleSlots() {
 
     document.getElementById(`simple-slot-select-${i}`).addEventListener('click', selectSlot);
 
-    document.getElementById(`simple-slot-upload-${i}`).addEventListener('click', () => {
-      queueUploadScript(i, slots[i].code);
-    });
-
-    document.getElementById(`simple-slot-dl-${i}`).addEventListener('click', () => {
-      if (!midiOut) {
-        setSlotStatus(i, 'No device connected.');
-        return;
-      }
-      queueDownloadScript(i);
-    });
   }
 
   renderAllSimpleSlots();
@@ -675,7 +873,8 @@ function renderSimpleLibraryResults() {
       `</div>` +
       (item.author ? `<div class="simple-library-author">by ${item.author}</div>` : '') +
       `<div class="simple-library-desc">${item.desc || 'No short description provided.'}</div>` +
-      (item.sound ? `<div class="simple-library-sound">${item.sound}</div>` : '');
+      (item.sound ? `<div class="simple-library-sound">${item.sound}</div>` : '') +
+      `<div class="mode-traits">${renderModeTraitPills(item)}</div>`;
     button.addEventListener('click', () => {
       _simpleLibraryActiveIndex = idx;
       selectSimpleLibraryItem(item.file);
@@ -686,19 +885,20 @@ function renderSimpleLibraryResults() {
 
 function renderSimpleLibraryDetails() {
   const selectedScript = _simpleSelectedScript;
-  if (simpleScriptSlotTargetEl) simpleScriptSlotTargetEl.textContent = `Target ${simpleSlotLabel(_simpleSelectedSlot)}`;
+  if (simpleScriptSlotTargetEl) simpleScriptSlotTargetEl.textContent = simpleSlotLabel(_simpleSelectedSlot);
   if (simpleUseScriptBtn) {
-    simpleUseScriptBtn.textContent = `Use in ${simpleSlotLabel(_simpleSelectedSlot)}`;
+    simpleUseScriptBtn.textContent = `Upload to ${simpleSlotLabel(_simpleSelectedSlot)}`;
     simpleUseScriptBtn.disabled = !selectedScript;
   }
 
   if (!selectedScript) {
-    if (simpleDetailHelpEl) simpleDetailHelpEl.textContent = 'Pick a script to see what it does before assigning it to a slot.';
+    if (simpleDetailHelpEl) simpleDetailHelpEl.textContent = 'Pick a script to see what it does before loading it into a slot.';
     if (simpleScriptSourceEl) simpleScriptSourceEl.textContent = '';
     if (simpleScriptNameEl) simpleScriptNameEl.textContent = 'Choose a script';
     if (simpleScriptAuthorEl) simpleScriptAuthorEl.textContent = '';
     if (simpleScriptDescEl) simpleScriptDescEl.textContent = 'Search the library to browse the scripts available on this site.';
     if (simpleScriptSoundEl) simpleScriptSoundEl.textContent = '';
+    if (simpleScriptTraitsEl) simpleScriptTraitsEl.innerHTML = '';
     if (simpleScriptPreviewEl) simpleScriptPreviewEl.value = '';
     return;
   }
@@ -711,13 +911,14 @@ function renderSimpleLibraryDetails() {
   if (simpleDetailHelpEl) {
     simpleDetailHelpEl.textContent = loading
       ? 'Loading preview…'
-      : 'Assign this script to the selected slot, or open advanced to edit the code directly.';
+      : 'Check this script, then upload it to the selected slot.';
   }
   if (simpleScriptSourceEl) simpleScriptSourceEl.textContent = selectedScript.community ? 'Community' : '';
   if (simpleScriptNameEl) simpleScriptNameEl.textContent = selectedScript.name || 'Script';
   if (simpleScriptAuthorEl) simpleScriptAuthorEl.textContent = selectedScript.author ? `by ${selectedScript.author}` : '';
   if (simpleScriptDescEl) simpleScriptDescEl.textContent = selectedScript.desc || 'No short description provided.';
   if (simpleScriptSoundEl) simpleScriptSoundEl.textContent = selectedScript.sound ? `Sound: ${selectedScript.sound}` : '';
+  if (simpleScriptTraitsEl) simpleScriptTraitsEl.innerHTML = renderModeTraitPills(selectedScript);
   if (simpleScriptPreviewEl) simpleScriptPreviewEl.value = previewText;
 }
 
@@ -828,7 +1029,8 @@ function initSimpleLibrary() {
   if (simpleUseScriptBtn) {
     simpleUseScriptBtn.addEventListener('click', async () => {
       if (!_simpleSelectedScriptFile) return;
-      await loadScriptIntoSlot(_simpleSelectedSlot, _simpleSelectedScriptFile);
+      const ok = await loadScriptIntoSlot(_simpleSelectedSlot, _simpleSelectedScriptFile);
+      if (ok !== false) await queueUploadScript(_simpleSelectedSlot, slots[_simpleSelectedSlot].code);
     });
   }
 
@@ -857,6 +1059,8 @@ function initSimpleLibrary() {
   ensureSimpleLibrarySelection();
 }
 
+if (simpleScriptCanvasEl) requestAnimationFrame(animateScriptPreview);
+
 function sharedSettings() {
   return modeSettings[0];
 }
@@ -871,9 +1075,11 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.tab-content').forEach(s =>
       s.classList.toggle('active', s.id === 'tab-' + target)
     );
+    updateActiveTabState(target);
     if (target === 'firmware') checkServerFirmware();
   });
 });
+updateActiveTabState(document.querySelector('.tab.active')?.dataset.tab || 'controls');
 
 scriptsViewBtns.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -912,7 +1118,7 @@ function buildSlotCards() {
 
     card.innerHTML = `
       <div class="slot-header">
-        <span class="slot-num">Slot ${i}</span>
+        <span class="slot-num">${simpleSlotLabel(i)}</span>
         <span class="slot-name" id="slot-name-${i}">${slots[i].name}</span>
         <span class="slot-author" id="slot-author-${i}">${slots[i].author ? 'by ' + slots[i].author : ''}</span>
       </div>
@@ -923,14 +1129,14 @@ function buildSlotCards() {
             placeholder="search scripts…" autocomplete="off" spellcheck="false">
           <ul class="script-results" id="slot-results-${i}"></ul>
         </div>
-        <label class="file-label">browse… <input type="file" accept=".js" id="slot-file-${i}"></label>
+        <label class="file-label">import script <input type="file" accept=".js" id="slot-file-${i}"></label>
       </div>
       <textarea class="slot-code" id="slot-code-${i}" spellcheck="false" autocomplete="off"
-        placeholder="// Load a script above or paste your own here…"></textarea>
+        placeholder="// Load a script above or paste your own code here…"></textarea>
       <div class="slot-safety" id="slot-safety-${i}"></div>
       <div class="slot-footer">
-        <button class="slot-upload-btn" id="slot-upload-${i}">Upload to device</button>
-        <button class="slot-dl-btn" id="slot-dl-${i}">From device</button>
+        <button class="slot-upload-btn" id="slot-upload-${i}">Upload to Shimmer</button>
+        <button class="slot-dl-btn" id="slot-dl-${i}">Read from Shimmer</button>
         <span class="slot-status" id="slot-status-${i}"></span>
       </div>
     `;
@@ -982,11 +1188,13 @@ async function loadScriptIntoSlot(slotIdx, filePath) {
     const code = await fetchScriptText(filePath);
     setSlotCode(slotIdx, code);
     setSlotStatus(slotIdx, `Ready — ${slots[slotIdx].name} loaded`);
+    return true;
   } catch (err) {
     const isFile = location.protocol === 'file:';
     setSlotStatus(slotIdx, isFile
       ? 'Serve via HTTP to load examples (python3 -m http.server).'
       : 'Could not load: ' + err.message);
+    return false;
   }
 }
 
@@ -1259,6 +1467,8 @@ async function initMidi() {
 function populatePorts() {
   const prev = selPort.value;
   selPort.innerHTML = '<option value="">-- none --</option>';
+  let firstOutputName = '';
+  let firstShimmerOutputName = '';
 
   // Show ALL output ports — input/output port names can differ on some OS/browsers
   midiAccess.outputs.forEach(p => {
@@ -1266,14 +1476,19 @@ function populatePorts() {
     o.value = p.name;
     o.textContent = p.name;
     selPort.appendChild(o);
+    if (!firstOutputName) firstOutputName = p.name;
+    if (!firstShimmerOutputName && AUTO_CONNECT_PORT_RE.test(p.name || '')) {
+      firstShimmerOutputName = p.name;
+    }
   });
 
   selPort.value = prev;
 
-  // Auto-select if exactly one output and nothing previously chosen
+  // Auto-select a listed Shimmer device on the main site. The simulator stays manual.
   if (!selPort.value) {
     const opts = selPort.querySelectorAll('option[value]:not([value=""])');
-    if (opts.length === 1) selPort.value = opts[0].value;
+    if (firstShimmerOutputName) selPort.value = firstShimmerOutputName;
+    else if (opts.length === 1) selPort.value = firstOutputName || opts[0].value;
   }
 
   bindPorts();
@@ -1596,7 +1811,7 @@ function handleSysExFrame(data) {
       speed:       raw[7],
     };
     selectSlot(currentSlot, false);
-    setStatus(`Synced — ${_thawneyModes[modeIdx]?.name ?? ('mode ' + modeIdx)}`);
+    setStatus(`Synced — ${_thawneyModes[modeIdx]?.name ?? ('script ' + (modeIdx + 1))}`);
     return;
   }
 
@@ -2052,7 +2267,7 @@ async function uploadScript(slotIdx, scriptText) {
     setTimeout(() => send([CMD_GET_SLOT_NAMES, VER]), 300);
   } catch (e) {
     const hint = /ACK timeout/.test(e.message)
-      ? ' The device may still be busy finishing the transfer; wait a moment and retry.'
+      ? ' Shimmer may still be busy finishing the transfer; wait a moment and retry.'
       : '';
     setSlotStatus(slotIdx, `Error: ${e.message}${hint}`);
   } finally {
