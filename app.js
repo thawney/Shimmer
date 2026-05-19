@@ -52,7 +52,7 @@ const FW_STATUS_PROGRESS = 1;
 const FW_STATUS_DONE     = 2;
 const FW_STATUS_ERROR    = 3;
 
-const FW_CHUNK_BYTES = 7000; // 1000 complete 7-byte groups → 8000 encoded bytes → 8007-byte SysEx msg
+const FW_CHUNK_BYTES = 7000; // 1000 complete 7-byte groups -> 8000 encoded bytes -> 8007-byte SysEx msg
 const MAX_SCRIPT_BYTES = 12288;
 const SCRIPT_SAFETY = window.ShimmerScriptSafety || null;
 
@@ -196,9 +196,9 @@ function renderClockModeHelp(mode) {
   if (clockModeHelpEl) clockModeHelpEl.textContent = CLOCK_MODE_HELP[mode] || CLOCK_MODE_HELP.auto;
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // 8-to-7 SysEx codec
-// ---------------------------------------------------------------------------
+// -------------------------
 function encode8to7(bytes) {
   const out = [];
   let i = 0;
@@ -227,9 +227,9 @@ function decode7to8(encoded) {
   return out;
 }
 
-// ---------------------------------------------------------------------------
-// Slot metadata — parsed from script headers
-// ---------------------------------------------------------------------------
+// -------------------------
+// Slot metadata - parsed from script headers
+// -------------------------
 const slots = Array.from({length: NUM_SLOTS}, (_, i) => ({
   name:       'Empty Slot',
   author:     '',
@@ -516,7 +516,7 @@ function animateScriptPreview() {
   requestAnimationFrame(animateScriptPreview);
 }
 
-// Mode entries discovered dynamically at boot — no hardcoded list needed.
+// Mode entries discovered dynamically at boot - no hardcoded list needed.
 // GitHub API gives the file index; each script's own header supplies the metadata.
 const GITHUB_REPO = 'thawney/shimmer';
 let _thawneyModes = [];
@@ -549,9 +549,9 @@ async function loadThawneyModes() {
   } catch { return []; }
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // State
-// ---------------------------------------------------------------------------
+// -------------------------
 let midiAccess  = null;
 let midiOut     = null;
 let midiIn      = null;
@@ -589,7 +589,7 @@ let _startupSyncInFlight = false;
 let _startupSyncTimer = null;
 let _portEpoch = 0;
 
-// Controls lock — unlocked only after a successful settings dump from device
+// Controls lock - unlocked only after a successful settings dump from device
 let _synced = false;
 let _slotNamesSeenMask = 0;
 
@@ -597,9 +597,9 @@ const modeSettings = Array.from({length: NUM_MODES_TOTAL}, () => ({
   scale: 3, rootNote: 60, tempo: 60, brightness: 200, midiChannel: 0, midiInChannel: 0, clockIn: 1, clockPriority: 1, clockOut: 1, density: 128, speed: 128
 }));
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // DOM refs
-// ---------------------------------------------------------------------------
+// -------------------------
 const selPort       = document.getElementById('midi-port');
 const btnRefresh    = document.getElementById('btn-refresh');
 const btnReadDevice = document.getElementById('btn-read-device');
@@ -682,21 +682,28 @@ function renderClockInfo() {
   if (_clockState.usingExternal) {
     clockInfoEl.textContent = _clockState.running ? `EXT ${bpm}` : 'EXT stop';
   } else if (_clockState.external) {
-    clockInfoEl.textContent = `INT ${bpm} · ext`;
+    clockInfoEl.textContent = `INT ${bpm} | ext`;
   } else {
     clockInfoEl.textContent = `INT ${bpm}`;
   }
 }
 
 function setBootState(state, title, sub, pct = 0) {
+  const locked = state !== 'ready';
   if (startupGateEl) startupGateEl.dataset.state = state;
   if (startupTitleEl && title) startupTitleEl.textContent = title;
   if (startupSubEl && sub) startupSubEl.textContent = sub;
   if (startupProgressEl) {
     const clamped = Math.max(0, Math.min(100, pct | 0));
     startupProgressEl.style.width = `${clamped}%`;
+    const progressTrack = startupProgressEl.closest('[role="progressbar"]');
+    if (progressTrack) progressTrack.setAttribute('aria-valuenow', String(clamped));
   }
-  document.body.classList.toggle('boot-locked', state !== 'ready');
+  document.body.classList.toggle('boot-locked', locked);
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.disabled = locked;
+    tab.setAttribute('aria-disabled', locked ? 'true' : 'false');
+  });
 }
 
 function setSynced(v) {
@@ -724,6 +731,17 @@ function applyScriptsView(view, opts = {}) {
 
 function updateActiveTabState(target) {
   document.body.classList.toggle('scripts-tab-active', target === 'scripts');
+  document.querySelectorAll('.tab').forEach(tab => {
+    const active = tab.dataset.tab === target;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll('.tab-content').forEach(section => {
+    const active = section.id === 'tab-' + target;
+    section.classList.toggle('active', active);
+    section.hidden = !active;
+  });
 }
 
 function focusAdvancedSlot(slotIdx) {
@@ -771,7 +789,7 @@ function renderSimpleSlot(slotIdx) {
   const descEl = document.getElementById(`simple-slot-desc-${slotIdx}`);
   const selectBtn = document.getElementById(`simple-slot-select-${slotIdx}`);
 
-  if (titleEl) titleEl.textContent = `${simpleSlotLabel(slotIdx)} · ${slot.name}`;
+  if (titleEl) titleEl.textContent = `${simpleSlotLabel(slotIdx)} - ${slot.name}`;
   if (authorEl) authorEl.textContent = slot.author ? `by ${slot.author}` : '';
   if (descEl) descEl.textContent = slot.desc || 'If a slot is empty, there is no script loaded there right now.';
   if (selectBtn) {
@@ -796,7 +814,7 @@ function buildSimpleSlots() {
     card.id = `simple-slot-card-${i}`;
     card.innerHTML = `
       <div class="simple-slot-head">
-        <div class="simple-slot-title" id="simple-slot-title-${i}">${simpleSlotLabel(i)} · ${slots[i].name}</div>
+        <div class="simple-slot-title" id="simple-slot-title-${i}">${simpleSlotLabel(i)} - ${slots[i].name}</div>
         <div class="simple-slot-author" id="simple-slot-author-${i}">${slots[i].author ? 'by ' + slots[i].author : ''}</div>
       </div>
       <div class="simple-slot-actions">
@@ -906,11 +924,11 @@ function renderSimpleLibraryDetails() {
   const loading = selectedScript.loading;
   const previewText = selectedScript.error
     ? selectedScript.error
-    : (selectedScript.code || (loading ? 'Loading preview…' : 'Preview unavailable.'));
+    : (selectedScript.code || (loading ? 'Loading preview...' : 'Preview unavailable.'));
 
   if (simpleDetailHelpEl) {
     simpleDetailHelpEl.textContent = loading
-      ? 'Loading preview…'
+      ? 'Loading preview...'
       : 'Check this script, then upload it to the selected slot.';
   }
   if (simpleScriptSourceEl) simpleScriptSourceEl.textContent = selectedScript.community ? 'Community' : '';
@@ -1049,7 +1067,7 @@ function initSimpleLibrary() {
       reader.onload = evt => {
         const code = evt.target.result;
         setSlotCode(_simpleSelectedSlot, code);
-        setSlotStatus(_simpleSelectedSlot, `Ready — ${slots[_simpleSelectedSlot].name} loaded from ${file.name}`);
+        setSlotStatus(_simpleSelectedSlot, `Ready - ${slots[_simpleSelectedSlot].name} loaded from ${file.name}`);
       };
       reader.readAsText(file);
       simpleImportFileEl.value = '';
@@ -1065,9 +1083,9 @@ function sharedSettings() {
   return modeSettings[0];
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // Tab switching
-// ---------------------------------------------------------------------------
+// -------------------------
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const target = tab.dataset.tab;
@@ -1089,9 +1107,9 @@ scriptsViewBtns.forEach(btn => {
 
 applyScriptsView(getStoredScriptsView() || 'simple', { persist: false });
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // Build root select
-// ---------------------------------------------------------------------------
+// -------------------------
 function buildRootSelect() {
   for (let oct = 2; oct <= 5; oct++) {
     NOTE_NAMES.forEach((n, i) => {
@@ -1106,9 +1124,9 @@ function buildRootSelect() {
   }
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // Build slot cards (Scripts tab)
-// ---------------------------------------------------------------------------
+// -------------------------
 function buildSlotCards() {
   slotCardsEl.innerHTML = '';
   for (let i = 0; i < NUM_SLOTS; i++) {
@@ -1126,13 +1144,13 @@ function buildSlotCards() {
       <div class="slot-picker">
         <div class="script-search-wrap">
           <input type="text" class="script-search" id="slot-search-${i}"
-            placeholder="search scripts…" autocomplete="off" spellcheck="false">
+            placeholder="search scripts..." autocomplete="off" spellcheck="false">
           <ul class="script-results" id="slot-results-${i}"></ul>
         </div>
         <label class="file-label">import script <input type="file" accept=".js" id="slot-file-${i}"></label>
       </div>
       <textarea class="slot-code" id="slot-code-${i}" spellcheck="false" autocomplete="off"
-        placeholder="// Load a script above or paste your own code here…"></textarea>
+        placeholder="// Load a script above or paste your own code here..."></textarea>
       <div class="slot-safety" id="slot-safety-${i}"></div>
       <div class="slot-footer">
         <button class="slot-upload-btn" id="slot-upload-${i}">Upload to Shimmer</button>
@@ -1158,7 +1176,7 @@ function buildSlotCards() {
       reader.readAsText(file);
     });
 
-    // Live textarea edit — re-parse metadata
+    // Live textarea edit - re-parse metadata
     document.getElementById(`slot-code-${i}`).addEventListener('input', () => {
       const code = document.getElementById(`slot-code-${i}`).value;
       applySlotMeta(i, parseScriptMeta(code));
@@ -1187,7 +1205,7 @@ async function loadScriptIntoSlot(slotIdx, filePath) {
   try {
     const code = await fetchScriptText(filePath);
     setSlotCode(slotIdx, code);
-    setSlotStatus(slotIdx, `Ready — ${slots[slotIdx].name} loaded`);
+    setSlotStatus(slotIdx, `Ready - ${slots[slotIdx].name} loaded`);
     return true;
   } catch (err) {
     const isFile = location.protocol === 'file:';
@@ -1198,9 +1216,9 @@ async function loadScriptIntoSlot(slotIdx, filePath) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Script search — builds the full index and wires up the search UI per slot
-// ---------------------------------------------------------------------------
+// -------------------------
+// Script search - builds the full index and wires up the search UI per slot
+// -------------------------
 function buildScriptIndex() {
   const thawney = _thawneyModes.map(m => ({
     name: m.name, file: `modes/${m.file}`,
@@ -1432,9 +1450,9 @@ function applySlotMeta(slotIdx, meta) {
   updateSlotDisplay(slotIdx);
 }
 
-// ---------------------------------------------------------------------------
-// Build mode pills (Controls tab — 4 pills from slot metadata)
-// ---------------------------------------------------------------------------
+// -------------------------
+// Build mode pills (Controls tab - 4 pills from slot metadata)
+// -------------------------
 function buildModePills() {
   pillsEl.innerHTML = '';
   for (let i = 0; i < NUM_SLOTS; i++) {
@@ -1450,15 +1468,15 @@ function buildModePills() {
   }
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // MIDI
-// ---------------------------------------------------------------------------
+// -------------------------
 async function initMidi() {
   try {
     midiAccess = await navigator.requestMIDIAccess({ sysex: true });
     midiAccess.onstatechange = populatePorts;
     populatePorts();
-    setStatus('WebMIDI ready — select your device');
+    setStatus('WebMIDI ready - select your device');
   } catch (e) {
     setStatus('WebMIDI failed: ' + e.message);
   }
@@ -1470,7 +1488,7 @@ function populatePorts() {
   let firstOutputName = '';
   let firstShimmerOutputName = '';
 
-  // Show ALL output ports — input/output port names can differ on some OS/browsers
+  // Show ALL output ports - input/output port names can differ on some OS/browsers
   midiAccess.outputs.forEach(p => {
     const o = document.createElement('option');
     o.value = p.name;
@@ -1549,12 +1567,12 @@ function bindPorts() {
   if (midiIn) midiIn.onmidimessage = onMidiMessage;
 
   if (midiOut && midiIn) {
-    setStatus('Connected — syncing from device…');
-    setBootState('loading', 'Loading from device…', 'Reading settings and scripts from flash.', 2);
+    setStatus('Connected - syncing from device...');
+    setBootState('loading', 'Loading from device...', 'Reading settings and scripts from flash.', 2);
     scheduleStartupSync();
   } else if (midiOut) {
     if (_startupSyncTimer) { clearTimeout(_startupSyncTimer); _startupSyncTimer = null; }
-    setStatus('Output connected — no matching MIDI input found');
+    setStatus('Output connected - no matching MIDI input found');
     setBootState('awaiting', 'Select device to begin', 'Pick the matching MIDI input/output pair.');
   } else {
     if (_startupSyncTimer) { clearTimeout(_startupSyncTimer); _startupSyncTimer = null; }
@@ -1569,13 +1587,13 @@ btnRefresh.addEventListener('click', populatePorts);
 
 if (btnReadDevice) btnReadDevice.addEventListener('click', () => {
   if (!midiOut || !midiIn) { setStatus('Select a device first'); return; }
-  setBootState('loading', 'Loading from device…', 'Reading settings and scripts from flash.', 2);
+  setBootState('loading', 'Loading from device...', 'Reading settings and scripts from flash.', 2);
   runStartupSync(true);
 });
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // Send
-// ---------------------------------------------------------------------------
+// -------------------------
 function send(bytes) {
   if (!midiOut) { setStatus('Select a device first'); return false; }
   midiOut.send(new Uint8Array([0xF0, MFR, ...bytes, 0xF7]));
@@ -1615,7 +1633,7 @@ function requestSettingsRefresh() {
 async function runStartupSync(force) {
   if (!midiOut || !midiIn) return;
   if (_startupSyncInFlight) {
-    if (force) setStatus('Sync already running…');
+    if (force) setStatus('Sync already running...');
     return;
   }
 
@@ -1625,8 +1643,8 @@ async function runStartupSync(force) {
 
   try {
     _slotNamesSeenMask = 0;
-    setBootState('loading', 'Loading from device…', 'Reading settings and slot names…', 4);
-    setStatus('Reading device…');
+    setBootState('loading', 'Loading from device...', 'Reading settings and slot names...', 4);
+    setStatus('Reading device...');
     send([CMD_GET, VER]);
     setTimeout(() => {
       if (epoch !== _portEpoch || !midiOut) return;
@@ -1642,7 +1660,7 @@ async function runStartupSync(force) {
     }
     // Small settle window so the last incoming SysEx is fully processed.
     await new Promise(resolve => setTimeout(resolve, 120));
-    setBootState('loading', 'Loading from device…', 'Reading scripts 0/4…', Math.round((1 / totalSteps) * 100));
+    setBootState('loading', 'Loading from device...', 'Reading scripts 0/4...', Math.round((1 / totalSteps) * 100));
 
     let allScriptsOk = true;
     let completed = 1;
@@ -1650,8 +1668,8 @@ async function runStartupSync(force) {
       if (epoch !== _portEpoch || !midiOut) return;
       setBootState(
         'loading',
-        'Loading from device…',
-        `Reading scripts ${i + 1}/${NUM_SLOTS}…`,
+        'Loading from device...',
+        `Reading scripts ${i + 1}/${NUM_SLOTS}...`,
         Math.round((completed / totalSteps) * 100)
       );
       // One retry per slot makes first-connect sync robust on slower host stacks.
@@ -1665,8 +1683,8 @@ async function runStartupSync(force) {
       completed++;
       setBootState(
         'loading',
-        'Loading from device…',
-        `Reading scripts ${Math.min(completed - 1, NUM_SLOTS)}/${NUM_SLOTS}…`,
+        'Loading from device...',
+        `Reading scripts ${Math.min(completed - 1, NUM_SLOTS)}/${NUM_SLOTS}...`,
         Math.round((completed / totalSteps) * 100)
       );
     }
@@ -1674,8 +1692,8 @@ async function runStartupSync(force) {
     if (epoch === _portEpoch) {
       setBootState('ready', 'Ready', '', 100);
       setStatus(allScriptsOk
-        ? 'Synced — scripts loaded from device'
-        : 'Synced — some scripts failed to download');
+        ? 'Synced - scripts loaded from device'
+        : 'Synced - some scripts failed to download');
     }
   } finally {
     _startupSyncInFlight = false;
@@ -1703,14 +1721,14 @@ function reshuffleCurrentSlot() {
   sendParam(currentSlot, P_DENSITY, density);
   sendParam(currentSlot, P_SPEED, speed);
   scheduleSave();
-  setStatus(`Reshuffled — ${slots[currentSlot].name}`);
+  setStatus(`Reshuffled - ${slots[currentSlot].name}`);
 }
 
 function randomizeKey() {
   if (!midiOut) { setStatus('Select a device first'); return; }
 
   const scale = Math.floor(Math.random() * SCALE_NAMES.length);
-  const root  = 48 + Math.floor(Math.random() * 12); // C3–B3
+  const root  = 48 + Math.floor(Math.random() * 12); // C3-B3
 
   for (let i = 0; i < NUM_SLOTS; i++) {
     modeSettings[i].scale = scale;
@@ -1721,7 +1739,7 @@ function randomizeKey() {
 
   selectSlot(currentSlot, false);
   scheduleSave();
-  setStatus(`Randomized key — ${formatMidiNoteName(root)} ${SCALE_NAMES[scale] ?? '?'}`);
+  setStatus(`Randomized key - ${formatMidiNoteName(root)} ${SCALE_NAMES[scale] ?? '?'}`);
 }
 
 function scheduleSave() {
@@ -1731,9 +1749,9 @@ function scheduleSave() {
   }, 1500);
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // Receive
-// ---------------------------------------------------------------------------
+// -------------------------
 function handleSysExFrame(data) {
   if (data[0] !== 0xF0 || data[data.length - 1] !== 0xF7) return;
   if (data[1] !== MFR) return;
@@ -1787,7 +1805,7 @@ function handleSysExFrame(data) {
       modeSettings[i].rootNote = root;
     }
     selectSlot(currentSlot, false);
-    setStatus(`Synced key — ${formatMidiNoteName(root)} ${SCALE_NAMES[scale] ?? '?'}`);
+    setStatus(`Synced key - ${formatMidiNoteName(root)} ${SCALE_NAMES[scale] ?? '?'}`);
     return;
   }
 
@@ -1811,7 +1829,7 @@ function handleSysExFrame(data) {
       speed:       raw[7],
     };
     selectSlot(currentSlot, false);
-    setStatus(`Synced — ${_thawneyModes[modeIdx]?.name ?? ('script ' + (modeIdx + 1))}`);
+    setStatus(`Synced - ${_thawneyModes[modeIdx]?.name ?? ('script ' + (modeIdx + 1))}`);
     return;
   }
 
@@ -1844,9 +1862,9 @@ function handleSysExFrame(data) {
           // Fallback unlock: settings dump may have been lost, but names prove round-trip comms.
           setSynced(true);
           selectSlot(currentSlot, false);
-          setStatus('Synced — slot names from device (settings dump missing)');
+          setStatus('Synced - slot names from device (settings dump missing)');
         } else {
-          setStatus('Synced — slot names from device');
+          setStatus('Synced - slot names from device');
         }
       }
     }
@@ -1861,7 +1879,7 @@ function handleSysExFrame(data) {
     const lenLo = data[6] & 0x7F;
     _dlExpectedLen = (lenHi << 7) | lenLo;
     _dlBuf = [];
-    setSlotStatus(_dlSlot, 'Downloading…');
+    setSlotStatus(_dlSlot, 'Downloading...');
     return;
   }
 
@@ -1870,7 +1888,7 @@ function handleSysExFrame(data) {
     const decoded = decode7to8(Array.from(data.slice(6, -1)));
     _dlBuf.push(...decoded);
     const pct = _dlExpectedLen > 0 ? Math.min(100, Math.round(_dlBuf.length / _dlExpectedLen * 100)) : 0;
-    setSlotStatus(_dlSlot, `Downloading… ${pct}%`);
+    setSlotStatus(_dlSlot, `Downloading... ${pct}%`);
     return;
   }
 
@@ -1878,7 +1896,7 @@ function handleSysExFrame(data) {
     const completedSlot = _dlSlot;
     const text = new TextDecoder().decode(new Uint8Array(_dlBuf.slice(0, _dlExpectedLen)));
     setSlotCode(completedSlot, text);
-    setSlotStatus(completedSlot, `Done — ${slots[completedSlot].name}`);
+    setSlotStatus(completedSlot, `Done - ${slots[completedSlot].name}`);
     setStatus(`Downloaded ${simpleSlotLabel(completedSlot)} from device`);
     if (_dlResolve) _dlResolve();
     clearActiveDownload();
@@ -1902,10 +1920,13 @@ function handleSysExFrame(data) {
       const bar = document.getElementById('fw-progress-bar');
       const sta = document.getElementById('fw-status');
       if (bar && _fwTotalBytes > 0) {
-        bar.style.width = Math.round(Math.min(bytes / _fwTotalBytes, 0.95) * 100) + '%';
+        const pct = Math.round(Math.min(bytes / _fwTotalBytes, 0.95) * 100);
+        bar.style.width = pct + '%';
+        const track = bar.closest('[role="progressbar"]');
+        if (track) track.setAttribute('aria-valuenow', String(pct));
       }
       if (sta && _fwTotalBytes > 0) {
-        sta.textContent = `Flashing… ${Math.round(bytes / _fwTotalBytes * 100)}%`;
+        sta.textContent = `Flashing... ${Math.round(bytes / _fwTotalBytes * 100)}%`;
       }
     }
     return;
@@ -1953,13 +1974,13 @@ function parseGlobalSettings(raw) {
 
   const activeSlot = devMode < NUM_SLOTS ? devMode : 0;
   setSynced(true);
-  setStatus(`Synced — device on ${slots[activeSlot]?.name ?? 'slot ' + activeSlot}`);
+  setStatus(`Synced - device on ${slots[activeSlot]?.name ?? 'slot ' + activeSlot}`);
   selectSlot(activeSlot, false);
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // Slot selection (Controls tab)
-// ---------------------------------------------------------------------------
+// -------------------------
 function selectSlot(idx, sendToDevice) {
   const clamped = Math.max(0, Math.min(NUM_SLOTS - 1, idx));
   currentSlot = clamped;
@@ -2001,9 +2022,9 @@ function updateKeyInfo() {
   keyInfoEl.textContent = name + ' ' + scale;
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // Param controls
-// ---------------------------------------------------------------------------
+// -------------------------
 selScale.addEventListener('change', () => {
   const v = parseInt(selScale.value);
   for (let i = 0; i < NUM_SLOTS; i++) {
@@ -2087,11 +2108,11 @@ slParam.addEventListener('input', () => {
 
 if (btnRandomizeKey) btnRandomizeKey.addEventListener('click', randomizeKey);
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // Script upload (per-slot)
-// ---------------------------------------------------------------------------
-// Script upload chunk size. 3000 raw bytes → 3429 encoded bytes → 3435-byte
-// SysEx msg — comfortably within the device's 8192-byte SysEx receive buffer.
+// -------------------------
+// Script upload chunk size. 3000 raw bytes -> 3429 encoded bytes -> 3435-byte
+// SysEx msg - comfortably within the device's 8192-byte SysEx receive buffer.
 // Matches the decoded[3100] buffer in SysExHandler.cpp.
 const CHUNK_BYTES = 3000;
 const SCRIPT_BEGIN_ACK_TIMEOUT_MS = 2500;
@@ -2099,7 +2120,7 @@ const SCRIPT_CHUNK_ACK_TIMEOUT_MS = 2500;
 const SCRIPT_END_ACK_TIMEOUT_MS = 3000;
 
 function queueScriptTransfer(slotIdx, label, run) {
-  if (_scriptTransferDepth > 0) setSlotStatus(slotIdx, `${label} queued…`);
+  if (_scriptTransferDepth > 0) setSlotStatus(slotIdx, `${label} queued...`);
 
   _scriptTransferDepth++;
   const op = _scriptTransferChain.then(async () => {
@@ -2149,7 +2170,7 @@ async function sendAndWaitAck(bytes, ackCmd, timeoutMs = 1200, meta = null) {
   await ackPromise;
 }
 
-// Windowed ACK wait for FW_CHUNK — consumes from _fwAckQueue
+// Windowed ACK wait for FW_CHUNK - consumes from _fwAckQueue
 function waitFwChunkAck(timeoutMs = 5000) {
   return new Promise((resolve, reject) => {
     if (_fwAckQueue.length > 0) {
@@ -2184,7 +2205,7 @@ async function performScriptUpload(slotIdx, scriptText) {
   const lenHi7 = (totalLen >> 7) & 0x7F;
   const lenLo7 = totalLen & 0x7F;
 
-  setSlotStatus(slotIdx, 'Starting…');
+  setSlotStatus(slotIdx, 'Starting...');
   await sendAndWaitAck(
     [SYSEX_SCRIPT_BEGIN, VER, slotIdx & 0x0F, lenHi7, lenLo7],
     SYSEX_SCRIPT_BEGIN,
@@ -2205,7 +2226,7 @@ async function performScriptUpload(slotIdx, scriptText) {
     );
     seq++;
     const pct = Math.round((off + chunk.length) / totalLen * 100);
-    setSlotStatus(slotIdx, `Uploading… ${pct}%`);
+    setSlotStatus(slotIdx, `Uploading... ${pct}%`);
   }
 
   await sendAndWaitAck(
@@ -2224,7 +2245,7 @@ async function downloadScript(slotIdx) {
     _dlSlot = slotIdx;
     _dlBuf = [];
     _dlExpectedLen = 0;
-    setSlotStatus(slotIdx, 'Requesting…');
+    setSlotStatus(slotIdx, 'Requesting...');
 
     await new Promise((resolve, reject) => {
       _dlResolve = resolve;
@@ -2260,7 +2281,7 @@ async function uploadScript(slotIdx, scriptText) {
   setSlotUploadDisabled(slotIdx, true);
   try {
     await performScriptUpload(slotIdx, scriptText);
-    setSlotStatus(slotIdx, `Done — ${simpleSlotLabel(slotIdx)} updated.`);
+    setSlotStatus(slotIdx, `Done - ${simpleSlotLabel(slotIdx)} updated.`);
 
     // Re-parse local metadata and re-fetch names from device
     applySlotMeta(slotIdx, parseScriptMeta(scriptText));
@@ -2275,9 +2296,9 @@ async function uploadScript(slotIdx, scriptText) {
   }
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------
 // Firmware flash
-// ---------------------------------------------------------------------------
+// -------------------------
 async function flashFirmware(arrayBuffer) {
   const flashBtn   = document.getElementById('fw-flash');
   const abortBtn   = document.getElementById('fw-abort');
@@ -2299,22 +2320,25 @@ async function flashFirmware(arrayBuffer) {
 
   if (flashBtn)   flashBtn.disabled = true;
   if (abortBtn)   abortBtn.style.display = '';
-  if (progressTr) progressTr.style.display = '';
+  if (progressTr) {
+    progressTr.style.display = '';
+    progressTr.setAttribute('aria-valuenow', '0');
+  }
   if (progressBr) progressBr.style.width = '0%';
 
   try {
-    // ── BEGIN ──────────────────────────────────────────────────────────────
-    if (fwStatusEl) fwStatusEl.textContent = 'Starting OTA…';
+    // -- BEGIN --------------------------------------------------------------
+    if (fwStatusEl) fwStatusEl.textContent = 'Starting OTA...';
     const sizeB2 = (totalLen >> 14) & 0x7F;
     const sizeB1 = (totalLen >>  7) & 0x7F;
     const sizeB0 =  totalLen        & 0x7F;
     await sendAndWaitAck([SYSEX_FW_BEGIN, VER, sizeB2, sizeB1, sizeB0], SYSEX_FW_BEGIN, 4000);
 
-    // ── CHUNKS (window=1: send one chunk, wait for ACK, repeat) ────────────
+    // -- CHUNKS (window=1: send one chunk, wait for ACK, repeat) ------------
     // Window > 1 floods the device's TinyUSB RX FIFO before it can drain,
-    // causing SysEx data corruption → Update.end() MD5 fail → stuck at 95%.
+    // causing SysEx data corruption -> Update.end() MD5 fail -> stuck at 95%.
     // With 7000-byte chunks there are only ~86 round-trips; the per-call
-    // overhead of WebMIDI send() (≈40 ms) already dominates, not the window.
+    // overhead of WebMIDI send() (~40 ms) already dominates, not the window.
     const FW_WINDOW = 1;
     let seq = 0;
     let acksPending = 0;
@@ -2339,7 +2363,8 @@ async function flashFirmware(arrayBuffer) {
 
       const pct = Math.round(Math.min((off + chunk.length) / totalLen, 0.95) * 100);
       if (progressBr) progressBr.style.width = pct + '%';
-      if (fwStatusEl) fwStatusEl.textContent = `Flashing… ${pct}%`;
+      if (progressTr) progressTr.setAttribute('aria-valuenow', String(pct));
+      if (fwStatusEl) fwStatusEl.textContent = `Flashing... ${pct}%`;
     }
     // Drain remaining in-flight ACKs
     while (acksPending > 0) {
@@ -2347,8 +2372,8 @@ async function flashFirmware(arrayBuffer) {
       acksPending--;
     }
 
-    // ── END — device does not ACK; sends FW_STATUS_DONE then reboots ───────
-    if (fwStatusEl) fwStatusEl.textContent = 'Verifying…';
+    // END - device does not ACK; sends FW_STATUS_DONE then reboots.
+    if (fwStatusEl) fwStatusEl.textContent = 'Verifying...';
     send([SYSEX_FW_END, VER]);
 
     await new Promise((resolve, reject) => {
@@ -2356,13 +2381,14 @@ async function flashFirmware(arrayBuffer) {
       _fwReject  = reject;
       _fwTimer   = setTimeout(() => {
         _fwResolve = null; _fwReject = null;
-        reject(new Error('OTA timeout — device did not confirm (check console)'));
+        reject(new Error('OTA timeout - device did not confirm (check console)'));
       }, 30000);
     });
 
     if (progressBr) progressBr.style.width = '100%';
-    if (fwStatusEl) fwStatusEl.textContent = 'Done! Device is restarting…';
-    setStatus('Firmware flashed — reconnect after reboot');
+    if (progressTr) progressTr.setAttribute('aria-valuenow', '100');
+    if (fwStatusEl) fwStatusEl.textContent = 'Done! Device is restarting...';
+    setStatus('Firmware flashed - reconnect after reboot');
 
   } catch (e) {
     if (!_fwAborted) {
@@ -2390,20 +2416,20 @@ async function checkServerFirmware() {
   const flash = document.getElementById('fw-flash');
   const fname = document.getElementById('fw-filename');
   const st    = document.getElementById('fw-status');
-  if (info) info.textContent = 'Checking firmware/firmware.bin…';
+  if (info) info.textContent = 'Checking firmware/firmware.bin...';
   try {
     const resp = await fetch('firmware/firmware.bin?' + Date.now());
     if (!resp.ok) throw new Error('not found');
     const buf = await resp.arrayBuffer();
     _fwBuffer = buf;
     const kb = (buf.byteLength / 1024).toFixed(0);
-    if (info)  info.textContent  = `firmware/firmware.bin — ${kb} KB  ✓`;
-    if (fname) fname.textContent = `or choose a file…`;
+    if (info)  info.textContent  = `firmware/firmware.bin - ${kb} KB  - ready`;
+    if (fname) fname.textContent = `or choose a file...`;
     if (flash) flash.disabled = false;
-    if (st)    st.textContent = `Ready — ${(buf.byteLength / 1024).toFixed(1)} KB (firmware/firmware.bin)`;
+    if (st)    st.textContent = `Ready - ${(buf.byteLength / 1024).toFixed(1)} KB (firmware/firmware.bin)`;
   } catch {
     _fwBuffer = null;
-    if (info)  info.textContent  = 'No firmware.bin in docs/firmware/ — use file picker';
+    if (info)  info.textContent  = 'No firmware.bin in docs/firmware/ - use file picker';
     if (flash) flash.disabled    = true;
     if (st)    st.textContent    = '';
   }
@@ -2426,7 +2452,7 @@ function initFirmwareTab() {
         _fwBuffer = evt.target.result;
         if (fwFlash) fwFlash.disabled = false;
         const st = document.getElementById('fw-status');
-        if (st) st.textContent = `Ready — ${(file.size / 1024).toFixed(1)} KB`;
+        if (st) st.textContent = `Ready - ${(file.size / 1024).toFixed(1)} KB`;
         const info = document.getElementById('fw-server-info');
         if (info) info.textContent = 'Using selected file (overrides firmware folder)';
       };
@@ -2453,9 +2479,9 @@ function initFirmwareTab() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Boot — discover built-in and community scripts from GitHub, then build UI
-// ---------------------------------------------------------------------------
+// -------------------------
+// Boot - discover built-in and community scripts from GitHub, then build UI
+// -------------------------
 async function loadUserModes() {
   try {
     const res = await fetch(
@@ -2510,6 +2536,6 @@ Promise.all([loadThawneyModes(), loadUserModes()]).then(([thawneyList, userList]
     initMidi();
   } else {
     setBootState('awaiting', 'WebMIDI unavailable', 'Use Chrome or Edge to connect and sync.');
-    setStatus('WebMIDI not supported — use Chrome or Edge');
+    setStatus('WebMIDI not supported - use Chrome or Edge');
   }
 });

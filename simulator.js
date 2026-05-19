@@ -3,13 +3,13 @@
  * Browser-side runtime that mimics the device's Duktape JS environment.
  * Renders scripts on a canvas LED grid and outputs via WebMIDI.
  *
- * © 2026 Thawney LTD — CC BY-NC-SA 4.0
+ * (c) 2026 Thawney LTD - CC BY-NC-SA 4.0
  *
  * Depends on: CodeMirror 5 (loaded via <script> tag in simulator.html)
  */
 'use strict';
 
-// ── Constants (must match firmware defaults) ───────────────────────────────────
+// -- Constants (must match firmware defaults) -----------------------------------
 
 var COLS = 12;
 var ROWS = 12;
@@ -81,7 +81,7 @@ function loadUserModes() {
 
 var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
-// Scale interval bitmasks — bit N = semitone N is in scale, bit 0 = root.
+// Scale interval bitmasks - bit N = semitone N is in scale, bit 0 = root.
 // Matches MidiEngine::SCALES[] in firmware exactly.
 var SCALES = [
   0b101010110101, // 0 Major
@@ -96,7 +96,7 @@ var SCALES = [
   0b010101010101, // 9 Whole Tone
 ];
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// -- Helpers --------------------------------------------------------------------
 
 function clamp(v, lo, hi) {
   return v < lo ? lo : (v > hi ? hi : v);
@@ -184,7 +184,7 @@ function renderSimSafety(report) {
   else if (report.hasWarnings) el.classList.add('sim-safety--warn');
 }
 
-// FastLED-compatible HSV→RGB. All inputs and outputs 0–255.
+// FastLED-compatible HSV->RGB. All inputs and outputs 0-255.
 function hsvToRgb(h, s, v) {
   if (v === 0) return [0, 0, 0];
   if (s === 0) { var c = v & 0xFF; return [c, c, c]; }
@@ -226,7 +226,7 @@ function degreeToMidi(degree, rootNote, scaleId) {
   return Math.max(0, Math.min(127, midi));
 }
 
-// ── Pixel buffer & canvas renderer ────────────────────────────────────────────
+// -- Pixel buffer & canvas renderer --------------------------------------------
 
 var canvas = document.getElementById('grid-canvas');
 var ctx2d  = canvas.getContext('2d');
@@ -235,7 +235,7 @@ var threeStageEl = document.getElementById('sim-3d-stage');
 var enable3DEl = document.getElementById('sim-enable-3d');
 var sensorReadoutEl = document.getElementById('sim-sensor-readout');
 
-// [row][col] = { h, s, v }  (0–255 each)
+// [row][col] = { h, s, v }  (0-255 each)
 var pixelBuf = [];
 for (var _r = 0; _r < ROWS; _r++) {
   pixelBuf[_r] = [];
@@ -297,7 +297,7 @@ if (window.ResizeObserver) {
   }).observe(canvas);
 }
 
-// ── MIDI IN state (written by WebMIDI input handler, consumed per tick) ────────
+// -- MIDI IN state (written by WebMIDI input handler, consumed per tick) --------
 
 var _midiIn = { type: 0, channel: 0, byte1: 255, byte2: 0, bend: 0 };
 var MIDI_CLOCK = 0xF8;
@@ -346,7 +346,7 @@ function renderClockInfo(now) {
   if (usingExternalClock(now)) {
     el.textContent = _clockIn.running ? ('EXT ' + bpm) : 'EXT stop';
   } else if (extActive) {
-    el.textContent = 'INT ' + bpm + ' · ext';
+    el.textContent = 'INT ' + bpm + ' | ext';
   } else {
     el.textContent = 'INT ' + bpm;
   }
@@ -529,7 +529,7 @@ function _attachMidiInputs(access) {
   });
 }
 
-// ── Shared state ───────────────────────────────────────────────────────────────
+// -- Shared state ---------------------------------------------------------------
 
 var settings = {
   scale:       3,   // 0=Major 1=Minor 2=Dorian 3=Pentatonic 4=Chromatic 5=Mixolydian 6=Lydian 7=Phrygian 8=HarmonicMinor 9=WholeTone
@@ -544,7 +544,7 @@ var settings = {
   clockOut:    1,
 };
 
-// Script @hue / @sat — updated on each script load
+// Script @hue / @sat - updated on each script load
 var meta = { hue: 0, sat: 255 };
 
 // Current WebMIDI output port (null = visual only)
@@ -579,9 +579,9 @@ function updateSensorReadout() {
   if (!sensorReadoutEl) return;
   sensorReadoutEl.textContent =
     'X ' + formatSignedInt(sensorState.accelX, 3) +
-    ' · Y ' + formatSignedInt(sensorState.accelY, 3) +
-    ' · Z ' + formatSignedInt(sensorState.accelZ, 3) +
-    ' · M ' + String(sensorState.motion | 0).padStart(3, '0');
+    ' | Y ' + formatSignedInt(sensorState.accelY, 3) +
+    ' | Z ' + formatSignedInt(sensorState.accelZ, 3) +
+    ' | M ' + String(sensorState.motion | 0).padStart(3, '0');
 }
 
 function resetSensorState() {
@@ -616,7 +616,7 @@ function init3DSimulatorControls() {
   if (enable3DEl) enable3DEl.title = '3D view unavailable: simulator-3d.js failed to load';
 }
 
-// ── m object factory ───────────────────────────────────────────────────────────
+// -- m object factory -----------------------------------------------------------
 
 function makeM() {
   var ticks = {};
@@ -638,7 +638,7 @@ function makeM() {
     get rootNote()   { return settings.rootNote; },
     get scale()      { return settings.scale; },
 
-    // Sensor stubs — static defaults so sensor-aware scripts run without errors.
+    // Sensor stubs - static defaults so sensor-aware scripts run without errors.
     // On real hardware these are updated every frame from the LIS3DH / AM2302.
     get accelX()   { return sensorState.accelX; },
     get accelY()   { return sensorState.accelY; },
@@ -647,7 +647,7 @@ function makeM() {
     temp:     22.0,
     humidity: 55.0,
 
-    // MIDI IN — overwritten each tick from _midiIn before update() runs.
+    // MIDI IN - overwritten each tick from _midiIn before update() runs.
     // type: 0=none 1=noteOn 2=noteOff 3=CC 4=pitchBend. Consumed after each frame.
     midiType:    0,
     midiChannel: 0,
@@ -657,8 +657,8 @@ function makeM() {
     midiCCVal:   0,
     midiBend:    0,
 
-    // m.px(col, row, brightness)       — uses @hue/@sat defaults
-    // m.px(col, row, hue, sat, val)    — explicit HSV
+    // m.px(col, row, brightness)       - uses @hue/@sat defaults
+    // m.px(col, row, hue, sat, val)    - explicit HSV
     px: function(col, row) {
       if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return;
       var extra = Array.prototype.slice.call(arguments, 2);
@@ -735,15 +735,15 @@ function makeM() {
       return false;
     },
 
-    // m.rnd()      → integer 0–255
-    // m.rnd(max)   → integer 0..max-1
+    // m.rnd()      -> integer 0-255
+    // m.rnd(max)   -> integer 0..max-1
     rnd: function(max) {
       return max === undefined
         ? (Math.random() * 256) | 0
         : (Math.random() * max)  | 0;
     },
 
-    // Integer truncation — matches firmware ScriptedModeRunner.cpp
+    // Integer truncation - matches firmware ScriptedModeRunner.cpp
     degreeToCol: function(degree) { return ((degree * (COLS - 1)) / 6) | 0; },
     colToDegree: function(col)    { return ((col * 6) / (COLS - 1)) | 0; },
 
@@ -753,7 +753,7 @@ function makeM() {
   };
 }
 
-// ── Animation loop ─────────────────────────────────────────────────────────────
+// -- Animation loop -------------------------------------------------------------
 
 var _rafId    = null;
 var _lastTs   = null;
@@ -828,7 +828,7 @@ function _tick(ts) {
   _rafId = requestAnimationFrame(_tick);
 }
 
-// ── Script parsing & execution ─────────────────────────────────────────────────
+// -- Script parsing & execution -------------------------------------------------
 
 function parseHandlers(code) {
   // Wrap in a function scope so var declarations are isolated per run.
@@ -888,7 +888,7 @@ function runCurrentScript() {
   startLoop(m, handlers);
 }
 
-// ── WebMIDI ────────────────────────────────────────────────────────────────────
+// -- WebMIDI --------------------------------------------------------------------
 
 var selMidiInEl = document.getElementById('sim-midi-in-port');
 var selMidiEl   = document.getElementById('sim-midi-port');
@@ -925,7 +925,7 @@ function ensureSysexMidiAccess() {
   if (!navigator.requestMIDIAccess) {
     return Promise.reject(new Error('WebMIDI is not available in this browser.'));
   }
-  setUploadStatus('Asking for Shimmer upload permission…', false);
+  setUploadStatus('Asking for Shimmer upload permission...', false);
   return navigator.requestMIDIAccess({ sysex: true }).then(function(access) {
     _midiAccess = access;
     _sysexEnabled = true;
@@ -1059,7 +1059,7 @@ async function uploadEditorToShimmer() {
   setUploadBusy(true);
   try {
     await ensureSysexMidiAccess();
-    setUploadStatus('Starting upload to Shimmer Slot ' + (slotIdx + 1) + '…', false);
+    setUploadStatus('Starting upload to Shimmer Slot ' + (slotIdx + 1) + '...', false);
     var lenHi7 = (totalLen >> 7) & 0x7F;
     var lenLo7 = totalLen & 0x7F;
     await sendAndWaitUploadAck(
@@ -1082,7 +1082,7 @@ async function uploadEditorToShimmer() {
         totalLen
       );
       seq++;
-      setUploadStatus('Sending to Shimmer… ' + Math.round((off + chunk.length) / totalLen * 100) + '%', false);
+      setUploadStatus('Sending to Shimmer... ' + Math.round((off + chunk.length) / totalLen * 100) + '%', false);
     }
 
     await sendAndWaitUploadAck(
@@ -1092,7 +1092,7 @@ async function uploadEditorToShimmer() {
       totalLen
     );
     var meta = parseScriptMeta(code);
-    setUploadStatus('Done — ' + (meta.name || 'script') + ' is on Shimmer Slot ' + (slotIdx + 1) + '.', false);
+    setUploadStatus('Done - ' + (meta.name || 'script') + ' is on Shimmer Slot ' + (slotIdx + 1) + '.', false);
   } catch (err) {
     setUploadStatus('Upload failed: ' + err.message, true);
   } finally {
@@ -1100,7 +1100,7 @@ async function uploadEditorToShimmer() {
   }
 }
 
-// ── CodeMirror 5 editor ────────────────────────────────────────────────────────
+// -- CodeMirror 5 editor --------------------------------------------------------
 
 var editor = CodeMirror(document.getElementById('editor-container'), {
   value:          '',
@@ -1112,6 +1112,8 @@ var editor = CodeMirror(document.getElementById('editor-container'), {
   lineWrapping:   false,
   autofocus:      false,
 });
+editor.getWrapperElement().setAttribute('role', 'region');
+editor.getWrapperElement().setAttribute('aria-labelledby', 'sim-code-editor-label');
 
 function updateSimByteCounter() {
   var el = document.getElementById('sim-byte-counter');
@@ -1130,7 +1132,7 @@ function updateSimByteCounter() {
 editor.on('change', updateSimByteCounter);
 updateSimByteCounter();
 
-// ── Script search (mirrors app.js) ─────────────────────────────────────────────
+// -- Script search (mirrors app.js) ---------------------------------------------
 
 function buildSimScriptIndex() {
   var thawney = _thawneyModes.map(function(m) {
@@ -1155,15 +1157,22 @@ function filterSimScripts(query) {
 
 function renderSimSearchResults(results) {
   var ul = document.getElementById('sim-script-results');
+  var input = document.getElementById('sim-script-search');
   if (!ul) return;
   ul.innerHTML = '';
   if (!results.length) {
     ul.innerHTML = '<li class="script-result-empty">no scripts found</li>';
     ul.classList.add('open');
+    if (input) {
+      input.setAttribute('aria-expanded', 'true');
+      input.removeAttribute('aria-activedescendant');
+    }
     return;
   }
-  results.forEach(function(m) {
+  results.forEach(function(m, idx) {
     var li = document.createElement('li');
+    li.id = 'sim-script-result-' + idx;
+    li.setAttribute('role', 'option');
     li.className = 'script-result' + (m.community ? ' script-result--community' : '');
     li.innerHTML =
       '<span class="script-result-name">' + m.name + '</span>' +
@@ -1182,17 +1191,29 @@ function renderSimSearchResults(results) {
         editor.setValue(code);
         runCurrentScript();
       }).catch(function() {
-        setStatus('Script loading needs a web server — run: python3 -m http.server', 'error');
+        setStatus('Script loading needs a web server - run: python3 -m http.server', 'error');
       });
     });
     ul.appendChild(li);
   });
   ul.classList.add('open');
+  if (input) input.setAttribute('aria-expanded', 'true');
 }
 
 function hideSimSearchResults() {
   var ul = document.getElementById('sim-script-results');
+  var input = document.getElementById('sim-script-search');
   if (ul) ul.classList.remove('open');
+  if (input) {
+    input.setAttribute('aria-expanded', 'false');
+    input.removeAttribute('aria-activedescendant');
+  }
+}
+
+function setSimSearchActive(input, item) {
+  if (!input) return;
+  if (item && item.id) input.setAttribute('aria-activedescendant', item.id);
+  else input.removeAttribute('aria-activedescendant');
 }
 
 function initSimSearch() {
@@ -1217,11 +1238,13 @@ function initSimSearch() {
       var next = active ? active.nextElementSibling : items[0];
       if (active) active.classList.remove('script-result--active');
       if (next && next.classList.contains('script-result')) next.classList.add('script-result--active');
+      setSimSearchActive(input, next && next.classList.contains('script-result') ? next : null);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       var prev = active ? active.previousElementSibling : null;
       if (active) active.classList.remove('script-result--active');
       if (prev && prev.classList.contains('script-result')) prev.classList.add('script-result--active');
+      setSimSearchActive(input, prev && prev.classList.contains('script-result') ? prev : null);
     } else if (e.key === 'Enter') {
       if (active) { active.dispatchEvent(new MouseEvent('mousedown')); input.blur(); }
     } else if (e.key === 'Escape') {
@@ -1249,7 +1272,7 @@ function loadInitialScriptFromQuery() {
   });
 }
 
-// Boot — discover Thawney + community scripts in parallel, then wire up search
+// Boot - discover Thawney + community scripts in parallel, then wire up search
 Promise.all([loadThawneyModes(), loadUserModes()]).then(function(results) {
   _thawneyModes = results[0];
   _userModes    = results[1];
@@ -1284,7 +1307,7 @@ for (var ch = 0; ch < 16; ch++) {
   selInChanEl.appendChild(inOpt);
 }
 
-// ── UI event wiring ────────────────────────────────────────────────────────────
+// -- UI event wiring ------------------------------------------------------------
 
 document.getElementById('btn-run').addEventListener('click', runCurrentScript);
 
@@ -1333,7 +1356,7 @@ selClockModeEl.addEventListener('change', function(e) {
   renderClockInfo();
 });
 
-// ── Status display ─────────────────────────────────────────────────────────────
+// -- Status display -------------------------------------------------------------
 
 function setStatus(msg, state) {
   if (!state) state = 'idle';
@@ -1342,7 +1365,7 @@ function setStatus(msg, state) {
   el.className   = 'sim-status-' + state;
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────────
+// -- Init -----------------------------------------------------------------------
 
 initMidi();
 resetSensorState();

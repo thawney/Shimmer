@@ -17,37 +17,47 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
-  <header>
-    <h1>Shimmer</h1>
-    <div id="midi-bar">
-      <label class="port-label">Shimmer <select id="midi-port"><option value="">-- none --</option></select></label>
-      <button id="btn-refresh" class="btn-small">Refresh</button>
-      <button id="btn-read-device" class="btn-small">Read my device</button>
-      <span id="status"></span>
-      <a href="simulator.html" class="btn-small" style="text-decoration:none;display:inline-flex;align-items:center;">Simulator →</a>
-      <button type="button" class="btn-small theme-toggle" data-theme-toggle aria-pressed="false">Dark mode</button>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <header class="site-header">
+    <a class="site-brand" href="index.html">Shimmer</a>
+    <div id="midi-bar" class="site-tools">
+      <label class="port-label" for="midi-port">Shimmer</label>
+      <select id="midi-port" aria-describedby="status"><option value="">-- none --</option></select>
+      <button id="btn-refresh" class="btn-small" type="button" aria-label="Refresh MIDI ports">Refresh</button>
+      <button id="btn-read-device" class="btn-small" type="button">Read my device</button>
+      <span id="status" role="status" aria-live="polite"></span>
     </div>
+    <nav class="site-nav" aria-label="Site links">
+      <a href="index.html" class="site-link" aria-current="page">Website</a>
+      <a href="simulator.html" class="site-link">Simulator</a>
+      <a href="user-modes/" class="site-link">JS API reference</a>
+      <a href="manual.pdf" class="site-link" target="_blank" rel="noopener" aria-label="Full User Manual opens in a new tab">Full User Manual</a>
+      <button type="button" class="site-link theme-toggle" data-theme-toggle aria-pressed="false">Dark mode</button>
+    </nav>
   </header>
+
+  <main id="main-content">
+  <h1 class="sr-only">Shimmer Website</h1>
 
   <section id="startup-gate" data-state="awaiting" aria-live="polite">
     <h2 id="startup-title">Select device to begin</h2>
     <p id="startup-sub">Choose your Shimmer MIDI port, then wait while settings and scripts load.</p>
-    <div class="startup-progress-track">
+    <div class="startup-progress-track" role="progressbar" aria-label="Website loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <div id="startup-progress"></div>
     </div>
   </section>
 
-  <nav class="tab-bar">
-    <button class="tab" data-tab="scripts">Scripts</button>
-    <button class="tab active" data-tab="controls">Controls</button>
-    <button class="tab" data-tab="firmware">Firmware</button>
+  <nav class="tab-bar" role="tablist" aria-label="Website sections">
+    <button class="tab" id="tab-button-scripts" data-tab="scripts" type="button" role="tab" aria-selected="false" aria-controls="tab-scripts" tabindex="-1">Scripts</button>
+    <button class="tab active" id="tab-button-controls" data-tab="controls" type="button" role="tab" aria-selected="true" aria-controls="tab-controls">Controls</button>
+    <button class="tab" id="tab-button-firmware" data-tab="firmware" type="button" role="tab" aria-selected="false" aria-controls="tab-firmware" tabindex="-1">Firmware</button>
   </nav>
 
-  <!-- ── Scripts tab ── -->
-  <section id="tab-scripts" class="tab-content">
+  <!-- Scripts tab -->
+  <section id="tab-scripts" class="tab-content" role="tabpanel" aria-labelledby="tab-button-scripts" hidden>
     <div class="scripts-view-bar">
       <div class="scripts-view-toggle" role="group" aria-label="Scripts view">
         <button type="button" class="scripts-view-btn active" data-scripts-view="simple" aria-pressed="true">Choose Scripts</button>
@@ -61,7 +71,7 @@
         <section class="scripts-panel scripts-panel-slots">
           <div class="scripts-panel-head">
             <div>
-              <h3>What’s On Your Shimmer</h3>
+              <h3>What's On Your Shimmer</h3>
               <p>Pick which slot you want to change.</p>
             </div>
           </div>
@@ -80,7 +90,7 @@
               type="text"
               class="simple-library-search"
               id="simple-library-search"
-              placeholder="Search scripts…"
+              placeholder="Search scripts..."
               autocomplete="off"
               spellcheck="false">
           </div>
@@ -137,11 +147,11 @@
       <div id="slot-cards"></div>
     </div>
 
-    <p class="api-docs"><a href="user-modes/README.md" target="_blank">JS API reference →</a></p>
+    <p class="api-docs"><a href="user-modes/" target="_blank">JS API reference</a></p>
   </section>
 
-  <!-- ── Controls tab ── -->
-  <section id="tab-controls" class="tab-content active">
+  <!-- Controls tab -->
+  <section id="tab-controls" class="tab-content active" role="tabpanel" aria-labelledby="tab-button-controls">
 
     <div class="lock-banner">
       Connect a device to sync from flash before editing.
@@ -236,25 +246,25 @@
 
   </section>
 
-  <!-- ── Firmware tab ── -->
-  <section id="tab-firmware" class="tab-content">
+  <!-- Firmware tab -->
+  <section id="tab-firmware" class="tab-content" role="tabpanel" aria-labelledby="tab-button-firmware" hidden>
     <div class="fw-panel">
       <div class="fw-server-row">
-        <span id="fw-server-info">Checking firmware folder…</span>
-        <button id="fw-server-reload" class="fw-reload-btn" title="Re-check folder">↺</button>
+        <span id="fw-server-info">Checking firmware folder...</span>
+        <button id="fw-server-reload" class="fw-reload-btn" title="Re-check folder">Reload</button>
       </div>
       <div class="fw-zone">
         <label class="fw-file-label">
           <input type="file" id="fw-file" accept=".bin">
-          <span id="fw-filename">or choose a file…</span>
+          <span id="fw-filename">or choose a file...</span>
         </label>
         <button id="fw-flash" class="fw-flash-btn" disabled>Flash firmware</button>
         <button id="fw-abort" class="fw-abort-btn" style="display:none">Abort</button>
       </div>
-      <div class="fw-progress-track" id="fw-progress-track" style="display:none">
+      <div class="fw-progress-track" id="fw-progress-track" style="display:none" role="progressbar" aria-label="Firmware flashing progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div id="fw-progress-bar"></div>
       </div>
-      <p id="fw-status" class="fw-status-text"></p>
+      <p id="fw-status" class="fw-status-text" role="status" aria-live="polite"></p>
       <p class="fw-note">
         The device reboots automatically after a successful flash.<br>
         If firmware upload times out, switch to a less active script before flashing.<br>
@@ -263,10 +273,11 @@
       </p>
     </div>
   </section>
+  </main>
 
   <script src="theme.js?v=1"></script>
   <script src="script-safety.js?v=2"></script>
-  <script src="app.js?v=21"></script>
-  <footer class="site-footer">© 2026 Thawney LTD</footer>
+  <script src="app.js?v=24"></script>
+  <footer class="site-footer">(c) 2026 Thawney LTD</footer>
 </body>
 </html>

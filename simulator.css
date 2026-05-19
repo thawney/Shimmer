@@ -111,66 +111,14 @@ body {
 }
 
 .sim-header {
-  position: relative;
-  z-index: 20;
-  display: flex;
   flex-shrink: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  background: linear-gradient(180deg, rgba(255,246,221,0.98), rgba(255,246,221,0.94));
-  border-bottom: 2px solid rgba(250,166,66,0.4);
-  backdrop-filter: blur(4px);
 }
 
-.sim-title-block {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+.sim-midi-tools {
+  flex: 1 1 390px;
 }
 
-.sim-title-block h1 {
-  font-size: clamp(1.8rem, 4vw, 3rem);
-  color: var(--accent-olive);
-}
-
-.sim-subtitle {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--ink-soft);
-  opacity: 0.7;
-}
-
-.sim-header-right {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.home-link {
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 12px;
-  color: var(--ink-soft);
-  font-size: 12px;
-  text-decoration: none;
-  border: 2px solid rgba(250,166,66,0.32);
-  border-radius: var(--pill);
-  background: var(--surface-2);
-}
-
-.home-link:hover {
-  color: var(--accent-yellow);
-  border-color: var(--accent-yellow);
-  background: var(--surface-3);
-}
-
-.sim-header select {
+.sim-header .site-tools select {
   height: 36px;
   padding: 0 10px;
   font: inherit;
@@ -195,10 +143,7 @@ body {
   justify-content: center;
   padding: 20px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 18% 14%, rgba(255,220,121,0.24), transparent 26%),
-    radial-gradient(circle at 85% 8%, rgba(252,176,23,0.12), transparent 28%),
-    linear-gradient(180deg, #fff6dd 0%, #fff6dd 100%);
+  background: var(--paper);
   border-right: 2px solid rgba(250,166,66,0.16);
 }
 
@@ -230,10 +175,7 @@ body {
   pointer-events: none;
   touch-action: none;
   cursor: grab;
-  background:
-    radial-gradient(circle at 20% 18%, rgba(255,220,121,0.28), transparent 32%),
-    radial-gradient(circle at 80% 22%, rgba(255,246,221,0.72), transparent 26%),
-    linear-gradient(180deg, #fff6dd 0%, #ffdc79 100%);
+  background: var(--surface-2);
 }
 
 .grid-stage-layer-3d canvas {
@@ -433,6 +375,34 @@ body {
   border-bottom: 1px solid rgba(250,166,66,0.15);
 }
 
+.sim-script-search {
+  flex: 1 1 340px;
+  min-width: 260px;
+}
+
+.sim-script-search-label {
+  display: block;
+  margin: 0 0 4px 2px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sim-script-search .script-search {
+  min-height: 38px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: inset 0 2px 8px rgba(255, 220, 121, 0.12);
+}
+
+.sim-script-search .script-results {
+  top: calc(100% + 6px);
+  max-height: min(360px, 58vh);
+}
+
 .sim-byte-counter {
   padding: 6px 10px;
   font-size: 12px;
@@ -619,7 +589,7 @@ body {
 
 .sim-controls input[type="range"] {
   width: 80px;
-  height: 8px;
+  height: 22px;
 }
 
 .sim-controls output {
@@ -657,7 +627,7 @@ body {
 .editor-toolbar select:focus,
 .editor-toolbar button:focus,
 .sim-header select:focus,
-.home-link:focus,
+.site-link:focus,
 .sim-controls select:focus,
 .sim-controls input[type="range"]:focus {
   outline: 3px solid rgba(254,196,14,0.42);
@@ -694,6 +664,11 @@ body {
   .sim-byte-counter {
     width: 100%;
     text-align: center;
+  }
+
+  .sim-script-search {
+    flex-basis: 100%;
+    min-width: 100%;
   }
 
   .sim-upload-tools {
@@ -743,13 +718,7 @@ html[data-theme="dark"] .cm-s-shimmer .cm-error {
 }
 
 html[data-theme="dark"] .sim-header {
-  background: linear-gradient(180deg, rgba(35,35,35,0.97), rgba(45,45,45,0.93));
   border-bottom-color: rgba(255,198,10,0.5);
-}
-
-html[data-theme="dark"] .home-link {
-  background: transparent;
-  border-color: rgba(255,198,10,0.4);
 }
 
 html[data-theme="dark"] .sim-header select,
@@ -771,10 +740,7 @@ html[data-theme="dark"] .grid-stage-layer {
 }
 
 html[data-theme="dark"] .grid-stage-layer-3d {
-  background:
-    radial-gradient(circle at 20% 18%, rgba(255,198,10,0.18), transparent 32%),
-    radial-gradient(circle at 80% 22%, rgba(255,255,255,0.08), transparent 26%),
-    linear-gradient(180deg, #191512 0%, #090909 100%);
+  background: #191512;
 }
 
 html[data-theme="dark"] .grid-stage-layer-3d:focus-visible,
@@ -782,7 +748,7 @@ html[data-theme="dark"] .sim-toggle input:focus-visible + .sim-toggle-track,
 html[data-theme="dark"] .editor-toolbar select:focus,
 html[data-theme="dark"] .editor-toolbar button:focus,
 html[data-theme="dark"] .sim-header select:focus,
-html[data-theme="dark"] .home-link:focus,
+html[data-theme="dark"] .site-link:focus,
 html[data-theme="dark"] .sim-controls select:focus,
 html[data-theme="dark"] .sim-controls input[type="range"]:focus {
   outline-color: rgba(255,198,10,0.45);

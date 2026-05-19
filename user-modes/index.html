@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shimmer JS API Reference</title>
+  <script>
+    try {
+      var theme = localStorage.getItem('shimmer-theme');
+      if (theme) document.documentElement.dataset.theme = theme;
+    } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../style.css?v=28">
+  <link rel="stylesheet" href="reference.css?v=6">
+</head>
+<body class="docs-body">
+  <a class="skip-link" href="#main-content">Skip to reference</a>
+  <header class="site-header docs-header">
+    <a class="site-brand" href="../index.html">Shimmer <span>JS API reference</span></a>
+    <nav class="site-nav docs-topnav" aria-label="Site links">
+      <a href="../index.html" class="site-link">Website</a>
+      <a href="../simulator.html" class="site-link">Simulator</a>
+      <a href="./" class="site-link" aria-current="page">JS API reference</a>
+      <a href="../manual.pdf" class="site-link" target="_blank" rel="noopener" aria-label="Full User Manual opens in a new tab">Full User Manual</a>
+      <button type="button" class="site-link theme-toggle" data-theme-toggle aria-pressed="false">Dark mode</button>
+    </nav>
+  </header>
+
+  <main class="docs-shell" id="main-content">
+    <aside class="docs-sidebar" aria-label="Page sections">
+      <a href="#template">Template</a>
+      <a href="#metadata">Metadata</a>
+      <a href="#properties">Properties</a>
+      <a href="#pixels">Pixels</a>
+      <a href="#midi">MIDI</a>
+      <a href="#midi-in">MIDI In</a>
+      <a href="#clock">Clock</a>
+      <a href="#helpers">Helpers</a>
+      <a href="#rules">Rules</a>
+    </aside>
+
+    <article class="docs-content">
+      <section class="docs-hero">
+        <div>
+          <p class="docs-kicker">Custom Modes</p>
+          <h1>JS API Reference</h1>
+          <p>
+            Write plain JavaScript modes for Shimmer's 12 by 12 LED grid and MIDI engine.
+            Scripts run on-device in Duktape and can be tested live in the browser simulator.
+          </p>
+          <div class="docs-actions">
+            <a class="docs-primary" href="../simulator.html">Open simulator</a>
+            <a class="docs-secondary" href="example.js">Start from example.js</a>
+            <a class="docs-secondary" href="README.md">Raw Markdown</a>
+          </div>
+        </div>
+        <div class="docs-grid-preview" role="img" aria-label="12 by 12 grid preview">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </section>
+
+      <section class="docs-vitals" aria-label="Quick facts">
+        <div>
+          <strong>Lifecycle</strong>
+          <span><code>activate</code>, <code>update</code>, optional <code>deactivate</code></span>
+        </div>
+        <div>
+          <strong>Display</strong>
+          <span>12 columns by 12 rows, row 0 at the top</span>
+        </div>
+        <div>
+          <strong>Timing</strong>
+          <span><code>m.dt</code> is clamped to 1..96 ms</span>
+        </div>
+        <div>
+          <strong>Limit</strong>
+          <span>12,288 bytes per uploaded script</span>
+        </div>
+      </section>
+
+      <section id="template" class="docs-section">
+        <h2>Script Template</h2>
+        <pre><code>/**
+ * @name My Mode
+ * @author Your Name
+ * @hue 32
+ * @sat 220
+ * @param_label Motion
+ * @description One-line summary shown in the web UI.
+ * @sound Warm pluck
+ */
+
+var state = 0;
+
+function activate(m) {
+  state = 0;
+  m.clear();
+  m.show();
+}
+
+function update(m) {
+  // Called every frame. Draw pixels and trigger notes here.
+  m.show();
+}
+
+// Optional:
+// function deactivate(m) {}</code></pre>
+      </section>
+
+      <section id="metadata" class="docs-section">
+        <h2>Metadata Tags</h2>
+        <div class="docs-table-wrap">
+          <table>
+            <thead><tr><th>Tag</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>@name</code></td><td>Mode name shown in slot labels and controls.</td></tr>
+              <tr><td><code>@author</code></td><td>Shown in the Scripts tab.</td></tr>
+              <tr><td><code>@param_label</code></td><td>Label for the per-slot Density slider in Controls.</td></tr>
+              <tr><td><code>@description</code></td><td>Shown in UI descriptions.</td></tr>
+              <tr><td><code>@sound</code></td><td>Informational text in the Scripts tab.</td></tr>
+              <tr><td><code>@hue</code></td><td>Default hue for <code>m.px(col, row, brightness)</code>, 0..255.</td></tr>
+              <tr><td><code>@sat</code></td><td>Default saturation for <code>m.px(col, row, brightness)</code>, 0..255.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="lifecycle" class="docs-section docs-callout">
+        <h2>Runtime Lifecycle</h2>
+        <p><code>activate(m)</code> is called once when the mode becomes active. Reset state here.</p>
+        <p><code>update(m)</code> is called every frame, roughly 60 fps. Draw pixels and trigger notes here.</p>
+        <p><code>deactivate(m)</code> is optional. Firmware always sends note-off and clears the display on mode exit.</p>
+      </section>
+
+      <section id="properties" class="docs-section">
+        <h2><code>m</code> Properties</h2>
+        <div class="docs-table-wrap">
+          <table>
+            <thead><tr><th>Property</th><th>Type</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>m.dt</code></td><td>ms</td><td>Frame delta time, clamped to <code>1..96ms</code>.</td></tr>
+              <tr><td><code>m.beatMs</code></td><td>ms</td><td>Milliseconds per beat at current tempo or external MIDI clock, clamped to <code>40..4000ms</code>.</td></tr>
+              <tr><td><code>m.density</code></td><td>0..255</td><td>Per-slot density knob value.</td></tr>
+              <tr><td><code>m.brightness</code></td><td>0..255</td><td>Per-slot brightness value.</td></tr>
+              <tr><td><code>m.rootNote</code></td><td>0..127</td><td>Current root MIDI note used by scale-degree output.</td></tr>
+              <tr><td><code>m.scale</code></td><td>0..9</td><td>0 Major, 1 Minor, 2 Dorian, 3 Pentatonic, 4 Chromatic, 5 Mixolydian, 6 Lydian, 7 Phrygian, 8 Harmonic Minor, 9 Whole Tone.</td></tr>
+              <tr><td><code>m.COLS</code></td><td>12</td><td>Grid width.</td></tr>
+              <tr><td><code>m.ROWS</code></td><td>12</td><td>Grid height.</td></tr>
+              <tr><td><code>m.accelX</code></td><td>-128..127</td><td>Tilt forward/back. Positive means the top edge is tilted down.</td></tr>
+              <tr><td><code>m.accelY</code></td><td>-128..127</td><td>Tilt left/right. Positive means tilted right.</td></tr>
+              <tr><td><code>m.accelZ</code></td><td>-128..127</td><td>Roughly +64 when flat, decreasing as the device tilts onto its side.</td></tr>
+              <tr><td><code>m.motion</code></td><td>0..255</td><td>Motion magnitude. Spikes transiently on knock or shake.</td></tr>
+              <tr><td><code>m.temp</code></td><td>number</td><td>Temperature in Celsius on supported hardware.</td></tr>
+              <tr><td><code>m.humidity</code></td><td>number</td><td>Relative humidity percentage on supported hardware.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="grid" class="docs-section">
+        <h2>Grid Reference</h2>
+        <p><code>m.px(col, row, ...)</code> uses col 0 on the left and row 0 at the top.</p>
+        <div class="axis-card">
+          <div class="axis-label axis-top">row 0, top edge</div>
+          <div class="axis-grid">
+            <span>1</span><span>12</span><span>132</span><span>144</span>
+          </div>
+          <div class="axis-label axis-bottom">row 11, bottom edge</div>
+        </div>
+      </section>
+
+      <section id="accelerometer" class="docs-section">
+        <h2>Accelerometer Patterns</h2>
+        <div class="docs-table-wrap">
+          <table>
+            <thead><tr><th>Action</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td>Tilt right, LED 12/144 side down</td><td><code>accelY</code> becomes positive.</td></tr>
+              <tr><td>Tilt top-down, LED 1-12 edge down</td><td><code>accelX</code> becomes positive.</td></tr>
+              <tr><td>Lay flat, display up</td><td><code>accelZ</code> is about <code>+64</code>.</td></tr>
+              <tr><td>Stand on edge</td><td><code>accelZ</code> moves toward <code>0</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code>// Slow tilt smoothing
+var smooth = 0;
+smooth += (m.accelY - smooth) * (m.dt / 8000.0);
+
+// Motion knock detection
+if (m.motion &gt; 150 &amp;&amp; lastMotion &lt;= 150) {
+  // fires once per knock
+}
+lastMotion = m.motion;</code></pre>
+      </section>
+
+      <section id="pixels" class="docs-section">
+        <h2>Pixel Functions</h2>
+        <div class="method-grid">
+          <div><code>m.px(col, row, brightness)</code><span>Set a pixel using <code>@hue</code> and <code>@sat</code>.</span></div>
+          <div><code>m.px(col, row, hue, sat, val)</code><span>Set a pixel with explicit HSV values, all 0..255.</span></div>
+          <div><code>m.fade(amount)</code><span>Subtract amount from every pixel. Default is 3.</span></div>
+          <div><code>m.clear()</code><span>Set all pixels to black.</span></div>
+          <div><code>m.show()</code><span>Push the pixel buffer to LEDs. Call once per update.</span></div>
+        </div>
+      </section>
+
+      <section id="midi" class="docs-section">
+        <h2>MIDI Functions</h2>
+        <div class="method-grid">
+          <div><code>m.note(degree, velocity, durationMs)</code><span>Play a scale degree. Velocity defaults to 80, duration to 1 beat.</span></div>
+          <div><code>m.noteMidi(note, velocity, durationMs)</code><span>Play an absolute MIDI note, 0..127.</span></div>
+          <div><code>m.noteOn(note, velocity)</code><span>Raw note-on, held until <code>m.noteOff()</code> or <code>m.allOff()</code>.</span></div>
+          <div><code>m.noteOff(note)</code><span>Raw note-off.</span></div>
+          <div><code>m.cc(cc, value)</code><span>Send CC on the current output channel.</span></div>
+          <div><code>m.pitchBend(value)</code><span>Signed pitch bend, clamped to -8192..8191.</span></div>
+          <div><code>m.allOff()</code><span>Cancel held notes on the current output channel.</span></div>
+        </div>
+        <p class="docs-note">
+          <code>degree</code> maps through the active scale and root. Degree 0 is the selected root MIDI note exactly;
+          degrees 0-6 span one octave diatonically and 7-13 continue into the next.
+        </p>
+      </section>
+
+      <section id="midi-in" class="docs-section">
+        <h2>MIDI In</h2>
+        <p>Incoming USB and DIN MIDI messages are available each frame via read-once properties, filtered by the mode's selected MIDI In channel.</p>
+        <div class="docs-table-wrap">
+          <table>
+            <thead><tr><th>Property</th><th>Type</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>m.midiType</code></td><td>0..4</td><td>0 none, 1 noteOn, 2 noteOff, 3 CC, 4 pitchBend.</td></tr>
+              <tr><td><code>m.midiChannel</code></td><td>0..16</td><td>MIDI input channel, 1..16 when an event arrived.</td></tr>
+              <tr><td><code>m.midiNote</code></td><td>0..127 or 255</td><td>Note number, 255 when no note event arrived.</td></tr>
+              <tr><td><code>m.midiVel</code></td><td>0..127</td><td>Velocity, 0 for noteOff.</td></tr>
+              <tr><td><code>m.midiCC</code></td><td>0..127 or 255</td><td>CC number, 255 when no CC arrived.</td></tr>
+              <tr><td><code>m.midiCCVal</code></td><td>0..127</td><td>CC value.</td></tr>
+              <tr><td><code>m.midiBend</code></td><td>-8192..8191</td><td>Pitch bend amount, 0 centered.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code>function update(m) {
+  if (m.midiType === 1) {
+    var col = Math.floor(m.midiNote * m.COLS / 128);
+    // spawn something at col
+  }
+  m.show();
+}</code></pre>
+      </section>
+
+      <section id="clock" class="docs-section">
+        <h2>Clock Mode</h2>
+        <div class="mode-list">
+          <div><strong>Auto</strong><span>Follow external clock when present, otherwise run internal clock and send clock out.</span></div>
+          <div><strong>Leader</strong><span>Ignore external clock and send your own clock out.</span></div>
+          <div><strong>Follower</strong><span>Follow external clock and do not send your own clock out.</span></div>
+          <div><strong>Internal</strong><span>Ignore external clock and do not send clock out.</span></div>
+        </div>
+      </section>
+
+      <section id="helpers" class="docs-section">
+        <h2>Timing And Helpers</h2>
+        <div class="method-grid">
+          <div><code>m.tick(timerId, intervalMs)</code><span>Returns true once per interval. Timer id is 0..7.</span></div>
+          <div><code>m.rnd()</code><span>Random integer from 0..255.</span></div>
+          <div><code>m.rnd(max)</code><span>Random integer from 0..max-1.</span></div>
+          <div><code>m.degreeToCol(degree)</code><span>Map scale degree 0..6 to display column 0..11.</span></div>
+          <div><code>m.colToDegree(col)</code><span>Map display column 0..11 to scale degree 0..6.</span></div>
+          <div><code>m.map(v, inLo, inHi, outLo, outHi)</code><span>Linear float mapping.</span></div>
+        </div>
+      </section>
+
+      <section id="rules" class="docs-section">
+        <h2>Practical Rules</h2>
+        <ul class="rules-list">
+          <li>Call <code>m.show()</code> exactly once per <code>update()</code>, at the end.</li>
+          <li>Script globals persist while the mode is active. Reset them in <code>activate()</code>.</li>
+          <li>Use <code>m.dt</code> for movement so speed is frame-rate independent.</li>
+          <li>Use <code>m.tick()</code> for rhythmically stable events.</li>
+          <li>Clamp unusually large <code>m.dt</code> or <code>m.beatMs</code> before using them in physics or divisions.</li>
+          <li>Avoid startup note storms and cap note output in physics-heavy modes.</li>
+          <li>Use current API names only: <code>m.dt</code>, <code>m.beatMs</code>, and <code>m.px()</code>.</li>
+          <li>Avoid browser-only APIs like <code>setTimeout()</code>, <code>document</code>, <code>window</code>, and <code>fetch()</code>.</li>
+        </ul>
+      </section>
+    </article>
+  </main>
+
+  <script src="../theme.js?v=1"></script>
+</body>
+</html>

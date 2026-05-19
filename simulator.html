@@ -18,23 +18,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <!-- Inherit design tokens (colors, fonts, sliders, selects) from main stylesheet -->
-  <link rel="stylesheet" href="style.css?v=20">
-  <!-- CodeMirror 5 — MIT licensed, plain script tags, no build step required -->
+  <link rel="stylesheet" href="style.css?v=28">
+  <!-- CodeMirror 5 - MIT licensed, plain script tags, no build step required -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-  <link rel="stylesheet" href="simulator.css?v=6">
+  <link rel="stylesheet" href="simulator.css?v=12">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
   <script src="vendor/three.min.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to simulator</a>
 
-  <!-- ── Header ─────────────────────────────────────────────────────────────── -->
-  <div class="sim-header">
-    <div class="sim-title-block">
-      <h1>Shimmer</h1>
-      <span class="sim-subtitle">Simulator</span>
-    </div>
-    <div class="sim-header-right">
+  <!-- Header -->
+  <header class="site-header sim-header">
+    <a class="site-brand" href="index.html">Shimmer <span>Simulator</span></a>
+    <div class="site-tools sim-midi-tools">
       <label class="port-label">
         MIDI in
         <select id="sim-midi-in-port"><option value="">-- any --</option></select>
@@ -43,38 +41,45 @@
         MIDI out
         <select id="sim-midi-port"><option value="">-- none (visual only) --</option></select>
       </label>
-      <button type="button" class="home-link theme-toggle-link" data-theme-toggle aria-pressed="false">Dark mode</button>
-      <a href="user-modes/README.md" class="home-link">Scripting docs</a>
-      <a href="index.html" class="home-link">← Device</a>
     </div>
-  </div>
+    <nav class="site-nav" aria-label="Site links">
+      <a href="index.html" class="site-link">Website</a>
+      <a href="simulator.html" class="site-link" aria-current="page">Simulator</a>
+      <a href="user-modes/" class="site-link">JS API reference</a>
+      <a href="manual.pdf" class="site-link" target="_blank" rel="noopener" aria-label="Full User Manual opens in a new tab">Full User Manual</a>
+      <button type="button" class="site-link theme-toggle-link" data-theme-toggle aria-pressed="false">Dark mode</button>
+    </nav>
+  </header>
 
-  <!-- ── Main: LED grid (left) + Editor (right) ─────────────────────────────── -->
-  <main class="sim-main">
+  <!-- Main: LED grid (left) + Editor (right) -->
+  <main class="sim-main" id="main-content">
+    <h1 class="sr-only">Shimmer simulator</h1>
 
     <div class="grid-panel">
       <div class="grid-stage" id="sim-grid-stage">
         <div class="grid-stage-layer grid-stage-layer-2d">
-          <canvas id="grid-canvas" width="600" height="600"></canvas>
+          <canvas id="grid-canvas" width="600" height="600" role="img" aria-label="Simulated 12 by 12 LED grid"></canvas>
         </div>
         <div class="grid-stage-layer grid-stage-layer-3d" id="sim-3d-stage" tabindex="-1" aria-label="3D device simulator"></div>
         <div class="sim-stage-overlay">
-          <div class="sim-sensor-readout" id="sim-sensor-readout">X +000 · Y +000 · Z +064 · M 000</div>
-          <div class="sim-3d-hint">Click device, then drag · R reset · S shake · Hold <span class="sim-axis-x">X</span>/<span class="sim-axis-y">Y</span>/<span class="sim-axis-z">Z</span> to lock</div>
+          <div class="sim-sensor-readout" id="sim-sensor-readout">X +000 | Y +000 | Z +064 | M 000</div>
+          <div class="sim-3d-hint">Click device, then drag | R reset | S shake | Hold <span class="sim-axis-x">X</span>/<span class="sim-axis-y">Y</span>/<span class="sim-axis-z">Z</span> to lock</div>
         </div>
       </div>
     </div>
 
     <div class="editor-panel">
       <div class="editor-toolbar">
-        <div class="script-search-wrap">
+        <div class="script-search-wrap sim-script-search">
+          <label class="sim-script-search-label" for="sim-script-search">Script library</label>
           <input type="text" class="script-search" id="sim-script-search"
-            placeholder="search scripts…" autocomplete="off" spellcheck="false">
-          <ul class="script-results" id="sim-script-results"></ul>
+            placeholder="Search name, sound, or description" autocomplete="off" spellcheck="false"
+            aria-label="Search scripts" aria-controls="sim-script-results" aria-expanded="false">
+          <ul class="script-results" id="sim-script-results" role="listbox" aria-label="Script search results"></ul>
         </div>
         <div class="sim-byte-counter" id="sim-byte-counter">0 / 12288 bytes</div>
-        <button class="btn-run"  id="btn-run">▶ Run</button>
-        <button class="btn-stop" id="btn-stop">■ Stop</button>
+        <button class="btn-run"  id="btn-run">Run</button>
+        <button class="btn-stop" id="btn-stop">Stop</button>
         <div class="sim-upload-tools">
           <label class="sim-upload-slot">Slot
             <select id="sim-upload-slot">
@@ -87,14 +92,15 @@
           <button class="btn-run" id="btn-upload-shimmer">Upload to Shimmer</button>
         </div>
       </div>
-      <div id="sim-safety" class="sim-safety"></div>
-      <div id="sim-upload-status" class="sim-upload-status"></div>
-      <div id="editor-container"></div>
+      <div id="sim-safety" class="sim-safety" role="status" aria-live="polite"></div>
+      <div id="sim-upload-status" class="sim-upload-status" role="status" aria-live="polite"></div>
+      <span class="sr-only" id="sim-code-editor-label">Script code editor</span>
+      <div id="editor-container" aria-labelledby="sim-code-editor-label"></div>
     </div>
 
   </main>
 
-  <!-- ── Controls bar ───────────────────────────────────────────────────────── -->
+  <!-- Controls bar -->
   <div class="sim-controls">
     <label>Scale
       <select id="sim-scale">
@@ -151,12 +157,12 @@
       <span class="sim-toggle-track" aria-hidden="true"></span>
       <span class="sim-toggle-text">Enable 3D</span>
     </label>
-    <span id="sim-status" class="sim-status-idle">Stopped</span>
+    <span id="sim-status" class="sim-status-idle" role="status" aria-live="polite">Stopped</span>
   </div>
 
   <script src="theme.js?v=1"></script>
   <script src="simulator-3d.js"></script>
   <script src="script-safety.js?v=2"></script>
-  <script src="simulator.js?v=4"></script>
+  <script src="simulator.js?v=7"></script>
 </body>
 </html>
