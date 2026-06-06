@@ -85,6 +85,9 @@ function update(m) {
     // Random nudge
     v[i].vx += ((m.rnd(255) - 128.0) / 128.0) * maxNudge;
     v[i].vy += ((m.rnd(255) - 128.0) / 128.0) * maxNudge * 0.5;
+    // Subtle gravity: tilting the box biases the random walk without taking over.
+    v[i].vx += m.accelY * 0.00000012 * tempoScale;
+    v[i].vy += -m.accelX * 0.00000008 * tempoScale;
 
     // Clamp speed
     var spd = Math.sqrt(v[i].vx * v[i].vx + v[i].vy * v[i].vy);

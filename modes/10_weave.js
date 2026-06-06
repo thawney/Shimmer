@@ -20,6 +20,12 @@ function activeRows(density) {
   return 1 + Math.floor((density * 12) / 255);
 }
 
+function weaveHumidity(m) {
+  var h = m.humidity;
+  if (!(h >= 0 && h <= 100)) h = 55.0;
+  return h / 100.0;
+}
+
 function activate(m) {
   var PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
   ROW_DIV = [];
@@ -41,6 +47,7 @@ function deactivate(m) {
 
 function update(m) {
   var nRows = activeRows(m.density);
+  var damp = weaveHumidity(m);
 
   // First update: immediately light all active rows so display isn't dark
   if (firstUpdate) {
@@ -51,7 +58,7 @@ function update(m) {
   for (var r = 0; r < m.ROWS; r++) {
     if (r >= nRows) { rowBright[r] = 0; continue; }
 
-    var period = m.beatMs * ROW_DIV[r];
+    var period = Math.floor(m.beatMs * ROW_DIV[r] * (0.92 + damp * 0.20));
     rowElapsed[r] += m.dt;
 
     if (rowElapsed[r] >= period) {
@@ -60,7 +67,7 @@ function update(m) {
       var deg = ROW_DEG[r] + (m.rnd(255) & 1);  // ±0/1 random (matches C++)
       if (deg > 13) deg = 13;
       var vel = 60 + m.rnd(64);
-      m.note(deg, vel, Math.floor(period * 3 / 4));
+      m.note(deg, vel, Math.floor(period * (0.62 + damp * 0.28)));
 
       rowBright[r] = m.brightness;
     }
@@ -85,7 +92,7 @@ function update(m) {
 
     // Phase cursor: bright dot sweeping left-to-right within period
     if (r < nRows) {
-      var period2   = m.beatMs * ROW_DIV[r];
+      var period2   = Math.floor(m.beatMs * ROW_DIV[r] * (0.92 + damp * 0.20));
       var cursorCol = Math.floor((rowElapsed[r] * (m.COLS - 1)) / period2);
       m.px(cursorCol, r, m.brightness);
     }

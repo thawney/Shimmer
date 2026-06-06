@@ -49,6 +49,7 @@ function scatter(m) {
     if (degree < 0) degree = 0;
     if (degree > DEGREE_MAX) degree = DEGREE_MAX;
     var vel    = 50 + (m.rnd(255) & 0x5F);
+    if (vel > 127) vel = 127;
     m.note(degree, vel, Math.floor(m.beatMs * 3 / 4));
 
     var col  = m.rnd(m.COLS);
@@ -77,7 +78,9 @@ function update(m) {
     for (var i = 0; i < n; i++) {
       var deg = dc + (m.rnd(7) - 3);
       if (deg < 0) deg = 0; if (deg > DEGREE_MAX) deg = DEGREE_MAX;
-      m.note(deg, 90 + m.rnd(38), Math.floor(m.beatMs * 3 / 4));
+      var knockVel = 90 + m.rnd(38);
+      if (knockVel > 127) knockVel = 127;
+      m.note(deg, knockVel, Math.floor(m.beatMs * 3 / 4));
       pix[m.rnd(m.ROWS)][m.rnd(m.COLS)] = m.brightness;
     }
   }

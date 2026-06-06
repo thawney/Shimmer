@@ -30,6 +30,12 @@ function safeBeatMs(m) {
   return beatMs;
 }
 
+function rainHumidity(m) {
+  var h = m.humidity;
+  if (!(h >= 0 && h <= 100)) h = 55.0;
+  return h / 100.0;
+}
+
 function activate(m) {
   drops        = [];
   spawnElapsed = 0;
@@ -50,6 +56,7 @@ function deactivate(m) {
 function update(m) {
   var dt = safeDt(m);
   var beatMs = safeBeatMs(m);
+  var wet = rainHumidity(m);
   // Wind: 3s lag - noticeably responds to tilt within a few seconds
   smoothWind += (m.accelY - smoothWind) * (dt / 3000.0);
   // At full tilt (~80), drops drift ~5 columns over a full fall
@@ -64,6 +71,7 @@ function update(m) {
   // spawnMs: density=0 -> ~1500ms, density=255 -> ~80ms
   var spawnMs = Math.floor(1500 / (1 + Math.floor((m.density * (m.COLS - 1)) / 255)));
   spawnMs = Math.floor(spawnMs * beatMs / 500);
+  spawnMs = Math.floor(spawnMs * (1.18 - wet * 0.42));
   if (spawnMs < 80) spawnMs = 80;
 
   spawnElapsed += dt;
@@ -107,7 +115,9 @@ function update(m) {
     if (d.y >= m.ROWS - 1) {
       // Landed - note pitch comes from landing column, so tilt changes the melody
       var deg = Math.floor((col * 6) / (m.COLS - 1));
-      m.note(deg, 65 + m.rnd(64), Math.floor(beatMs / 2));
+      var vel = 72 + m.rnd(48) - Math.floor(wet * 18);
+      if (vel < 35) vel = 35;
+      m.note(deg, vel, Math.floor(beatMs * (0.35 + wet * 0.45)));
       grid[m.ROWS - 1][col] = m.brightness;
       drops.splice(i, 1);
       continue;
@@ -120,7 +130,7 @@ function update(m) {
     // Head at full brightness; short trail one row above
     grid[row][col] = m.brightness;
     if (row > 0) {
-      var trail = Math.floor(m.brightness * 40 / 100);
+      var trail = Math.floor(m.brightness * (32 + wet * 32) / 100);
       if (trail > grid[row - 1][col]) grid[row - 1][col] = trail;
     }
   }

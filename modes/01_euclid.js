@@ -64,6 +64,7 @@ function update(m) {
       if (degree > 13) degree = 13;
 
       var vel = 70 + m.rnd(64);
+      if (vel > 127) vel = 127;
       m.note(degree, vel, Math.floor(stepMs * 7 / 8));
       colBright[step] = Math.floor((m.brightness * vel) / 127);
     }

@@ -1,12 +1,12 @@
 'use strict';
 
 // Default scripts for the 4 slots (matches data/scripts/ initial LittleFS image)
-// slot 0 = Rain, slot 1 = Lean, slot 2 = Tide, slot 3 = Canon
+// slot 0 = Rain, slot 1 = Spark, slot 2 = Dew, slot 3 = Block Chords
 const DEFAULT_FILES = [
   'modes/00_rain.js',
-  'modes/16_lean.js',
-  'modes/19_tide.js',
-  'modes/20_canon.js',
+  'modes/05_spark.js',
+  'modes/06_dew.js',
+  'modes/28_block_chords.js',
 ];
 const SCRIPTS_VIEW_STORAGE_KEY = 'shimmer-scripts-view';
 const AUTO_CONNECT_PORT_RE = /\bshimmer\b/i;
@@ -312,6 +312,7 @@ function modeTraits(item) {
   const haystack = `${item?.name || ''} ${item?.desc || ''} ${item?.sound || ''}`.toLowerCase();
   const traits = [];
   if (/\btilt|accelerometer|motion|shake|knock|spin|steer|wind\b/.test(haystack)) traits.push('Tilt');
+  if (/\btemp|temperature|humid|humidity|weather|environment|climate\b/.test(haystack)) traits.push('Environment');
   if (/\bmidi in|incoming|keyboard|sequencer|noteon|note on|din in\b/.test(haystack)) traits.push('MIDI in');
   if (/\b(clock|tempo|beat|pulse|canon|loop|arp|euclid|quant)/.test(haystack)) traits.push('Clock');
   if (/\bvisual only|none\b/.test(haystack)) traits.push('Visual');
@@ -519,6 +520,35 @@ function animateScriptPreview() {
 // Mode entries discovered dynamically at boot - no hardcoded list needed.
 // GitHub API gives the file index; each script's own header supplies the metadata.
 const GITHUB_REPO = 'thawney/shimmer';
+const LOCAL_THAWNEY_MODE_FILES = [
+  '00_rain.js',
+  '01_euclid.js',
+  '02_breath.js',
+  '03_stasis.js',
+  '04_drift.js',
+  '05_spark.js',
+  '06_dew.js',
+  '07_shift.js',
+  '09_loop.js',
+  '10_weave.js',
+  '11_flock.js',
+  '12_scatter.js',
+  '13_walk.js',
+  '14_pulse.js',
+  '16_lean.js',
+  '17_haze.js',
+  '18_midi_keys.js',
+  '19_tide.js',
+  '20_canon.js',
+  '21_frost.js',
+  '22_pressure.js',
+  '23_markov.js',
+  '24_snake.js',
+  '25_resonator.js',
+  '26_chord.js',
+  '27_quantise.js',
+  '28_block_chords.js',
+];
 let _thawneyModes = [];
 let _userModes = [];
 
@@ -534,6 +564,10 @@ async function loadThawneyModes() {
       .filter(f => f.type === 'file' && /^\d{2}_/.test(f.name) && f.name.endsWith('.js'))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map(f => f.name);
+    LOCAL_THAWNEY_MODE_FILES.forEach(filename => {
+      if (!fileNames.includes(filename)) fileNames.push(filename);
+    });
+    fileNames.sort((a, b) => a.localeCompare(b));
 
     // Fetch each script locally in parallel to parse its own @name / @description / @sound
     return Promise.all(fileNames.map(async filename => {
@@ -546,7 +580,18 @@ async function loadThawneyModes() {
         return { name: filename, file: filename, desc: '', sound: '', author: '' };
       }
     }));
-  } catch { return []; }
+  } catch {
+    return Promise.all(LOCAL_THAWNEY_MODE_FILES.map(async filename => {
+      try {
+        const r = await fetch(`modes/${filename}`);
+        if (!r.ok) throw new Error();
+        const meta = parseScriptMeta(await r.text());
+        return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound, author: meta.author || '' };
+      } catch {
+        return { name: filename, file: filename, desc: '', sound: '', author: '' };
+      }
+    }));
+  }
 }
 
 // -------------------------

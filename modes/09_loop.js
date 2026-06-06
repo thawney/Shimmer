@@ -28,6 +28,18 @@ function driftIntervalMs(density) {
   return 2000 + (255 - density) * 60;
 }
 
+function loopTempShift(m) {
+  var t = m.temp;
+  if (!(t > -20 && t < 70)) t = 22.0;
+  return Math.floor((t - 22.0) / 7.0);
+}
+
+function loopHumidity(m) {
+  var h = m.humidity;
+  if (!(h >= 0 && h <= 100)) h = 55.0;
+  return h / 100.0;
+}
+
 function activate(m) {
   initialized = false;
   step         = 0;
@@ -74,8 +86,11 @@ function update(m) {
   if (elapsed >= m.beatMs) {
     elapsed -= m.beatMs;
 
-    var degree = seq[step];
+    var degree = seq[step] + loopTempShift(m);
+    if (degree < 0) degree = 0;
+    if (degree > DEGREE_MAX) degree = DEGREE_MAX;
     var vel    = 65 + m.rnd(64);
+    if (vel > 127) vel = 127;
     m.note(degree, vel, Math.floor(m.beatMs * 7 / 8));
 
     // Flash step column: step maps to left (len/MAX_LEN) fraction of grid
@@ -88,7 +103,7 @@ function update(m) {
   }
 
   // Drift: shift random note ±1 degree
-  var driftInterval = driftIntervalMs(m.density);
+  var driftInterval = Math.floor(driftIntervalMs(m.density) * (0.85 + loopHumidity(m) * 0.45));
   if (driftElapsed >= driftInterval) {
     driftElapsed = 0;
     var idx = m.rnd(len);

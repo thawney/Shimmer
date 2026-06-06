@@ -35,9 +35,16 @@ function deactivate(m) {
   m.allOff();
 }
 
+function shiftHumidity(m) {
+  var h = m.humidity;
+  if (!(h >= 0 && h <= 100)) h = 55.0;
+  return h;
+}
+
 function update(m) {
   // stepMs = beatMs (fixed subdivide=1; C++ uses speed>>6 but no speed in JS)
-  var stepMs = m.beatMs;
+  var damp = shiftHumidity(m);
+  var stepMs = Math.floor(m.beatMs * (0.92 + damp * 0.002));
 
   elapsed += m.dt;
   var catchUps = 0;
@@ -58,7 +65,10 @@ function update(m) {
 
     // New bit = fired; flip if rnd > density (density=lock: high=stable, low=chaotic)
     var new_bit = fired;
-    if (m.rnd(255) > m.density) new_bit ^= 1;
+    var lock = m.density + Math.floor((damp - 55) / 3);
+    if (lock < 0) lock = 0;
+    if (lock > 255) lock = 255;
+    if (m.rnd(255) > lock) new_bit ^= 1;
 
     reg = (((reg << 1) | new_bit) >>> 0) & REG_MASK;
   }

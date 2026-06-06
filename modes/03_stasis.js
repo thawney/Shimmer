@@ -31,6 +31,12 @@ function voiceChangeInterval(density) {
   return base < 300 ? 300 : base;
 }
 
+function stasisTempOffset(m) {
+  var t = m.temp;
+  if (!(t > -20 && t < 70)) t = 22.0;
+  return Math.floor((t - 22.0) / 8.0);
+}
+
 function activate(m) {
   initialized = false;
   changeElapsed  = 0;
@@ -50,7 +56,9 @@ function deactivate(m) {
 
 function initChord(m) {
   var nv     = numVoices(m.density);
-  var root   = Math.floor((m.density * 8) / 255);
+  var root   = Math.floor((m.density * 8) / 255) + stasisTempOffset(m);
+  if (root < 0) root = 0;
+  if (root > 8) root = 8;
   var spread = 1 + (m.density & 3);
   for (var v = 0; v < MAX_V; v++) {
     var deg = root + v * spread;

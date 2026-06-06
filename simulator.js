@@ -29,6 +29,35 @@ var SCRIPT_END_ACK_TIMEOUT_MS = 3000;
 
 var _thawneyModes = [];
 var _userModes = [];
+var LOCAL_THAWNEY_MODE_FILES = [
+  '00_rain.js',
+  '01_euclid.js',
+  '02_breath.js',
+  '03_stasis.js',
+  '04_drift.js',
+  '05_spark.js',
+  '06_dew.js',
+  '07_shift.js',
+  '09_loop.js',
+  '10_weave.js',
+  '11_flock.js',
+  '12_scatter.js',
+  '13_walk.js',
+  '14_pulse.js',
+  '16_lean.js',
+  '17_haze.js',
+  '18_midi_keys.js',
+  '19_tide.js',
+  '20_canon.js',
+  '21_frost.js',
+  '22_pressure.js',
+  '23_markov.js',
+  '24_snake.js',
+  '25_resonator.js',
+  '26_chord.js',
+  '27_quantise.js',
+  '28_block_chords.js',
+];
 
 function loadThawneyModes() {
   var GITHUB_REPO = 'thawney/shimmer';
@@ -43,6 +72,10 @@ function loadThawneyModes() {
       .filter(function(f) { return f.type === 'file' && /^\d{2}_/.test(f.name) && f.name.endsWith('.js'); })
       .sort(function(a, b) { return a.name < b.name ? -1 : 1; })
       .map(function(f) { return f.name; });
+    LOCAL_THAWNEY_MODE_FILES.forEach(function(filename) {
+      if (fileNames.indexOf(filename) === -1) fileNames.push(filename);
+    });
+    fileNames.sort(function(a, b) { return a < b ? -1 : 1; });
 
     return Promise.all(fileNames.map(function(filename) {
       return fetch('modes/' + filename)
@@ -54,7 +87,18 @@ function loadThawneyModes() {
           return { name: filename, file: filename, desc: '', sound: '' };
         });
     }));
-  }).catch(function() { return []; });
+  }).catch(function() {
+    return Promise.all(LOCAL_THAWNEY_MODE_FILES.map(function(filename) {
+      return fetch('modes/' + filename)
+        .then(function(r) { return r.ok ? r.text() : Promise.reject(); })
+        .then(function(code) {
+          var meta = parseScriptMeta(code);
+          return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound };
+        }).catch(function() {
+          return { name: filename, file: filename, desc: '', sound: '' };
+        });
+    }));
+  });
 }
 
 function loadUserModes() {
@@ -573,6 +617,8 @@ var sensorState = {
   accelY: 0,
   accelZ: 64,
   motion: 0,
+  temp: 22.0,
+  humidity: 55.0,
 };
 
 function updateSensorReadout() {
@@ -581,7 +627,9 @@ function updateSensorReadout() {
     'X ' + formatSignedInt(sensorState.accelX, 3) +
     ' | Y ' + formatSignedInt(sensorState.accelY, 3) +
     ' | Z ' + formatSignedInt(sensorState.accelZ, 3) +
-    ' | M ' + String(sensorState.motion | 0).padStart(3, '0');
+    ' | M ' + String(sensorState.motion | 0).padStart(3, '0') +
+    ' | T ' + Math.round(sensorState.temp) + 'C' +
+    ' | H ' + Math.round(sensorState.humidity) + '%';
 }
 
 function resetSensorState() {
@@ -589,6 +637,8 @@ function resetSensorState() {
   sensorState.accelY = 0;
   sensorState.accelZ = 64;
   sensorState.motion = 0;
+  sensorState.temp = 22.0;
+  sensorState.humidity = 55.0;
   updateSensorReadout();
 }
 
@@ -644,8 +694,8 @@ function makeM() {
     get accelY()   { return sensorState.accelY; },
     get accelZ()   { return sensorState.accelZ; },   // ~+64 = 1g pointing down when device is flat/upright
     get motion()   { return sensorState.motion; },
-    temp:     22.0,
-    humidity: 55.0,
+    get temp()     { return sensorState.temp; },
+    get humidity() { return sensorState.humidity; },
 
     // MIDI IN - overwritten each tick from _midiIn before update() runs.
     // type: 0=none 1=noteOn 2=noteOff 3=CC 4=pitchBend. Consumed after each frame.

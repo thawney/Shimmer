@@ -69,6 +69,13 @@ function qzNoteToCol(note, cols) {
   return col;
 }
 
+function qzVisualLean(m) {
+  var lean = Math.floor(m.accelY / 48);
+  if (lean < -1) lean = -1;
+  if (lean > 1) lean = 1;
+  return lean;
+}
+
 function activate(m) {
   var i;
   for (var c = 0; c < m.COLS; c++) { qzColIn[c] = 0; qzColOut[c] = 0; }
@@ -152,6 +159,7 @@ function update(m) {
   var bridgeBottom = 6;
   var outTop = 7;
   var bridgeGlow = qzBridgeMs > 0 ? Math.floor(m.brightness * qzBridgeMs / 380.0) : 0;
+  var visualLean = qzVisualLean(m);
 
   for (var c = 0; c < m.COLS; c++)
     if (qzColIn[c] > 0)
@@ -178,7 +186,7 @@ function update(m) {
   if (bridgeGlow > 0 && qzBridgeIn >= 0 && qzBridgeOut >= 0) {
     for (var row = bridgeTop; row <= outTop; row++) {
       var frac = (row - bridgeTop) / (outTop - bridgeTop);
-      var col = Math.floor(qzBridgeIn + (qzBridgeOut - qzBridgeIn) * frac + 0.5);
+      var col = Math.floor(qzBridgeIn + (qzBridgeOut - qzBridgeIn) * frac + 0.5) + visualLean;
       if (col >= 0 && col < m.COLS) {
         var hue = 170 + Math.floor(110 * frac);
         var br = bridgeGlow - Math.floor((row - bridgeTop) * 18);

@@ -29,6 +29,12 @@ function rExcite(e, deg) {
   if (e > rEnergy[deg]) rEnergy[deg] = e;
 }
 
+function resHumidity(m) {
+  var h = m.humidity;
+  if (!(h >= 0 && h <= 100)) h = 55.0;
+  return h / 100.0;
+}
+
 function update(m) {
   // ── MIDI in ──
   if (m.midiType === 1 && m.midiNote !== 255 && m.midiVel > 0) {
@@ -46,7 +52,8 @@ function update(m) {
   }
 
   // ── Idle: slow wave rolls across rows - clearly visible ──
-  rIdlePhase += m.dt * 0.0012;
+  var damp = resHumidity(m);
+  rIdlePhase += m.dt * (0.00145 - damp * 0.00055);
   rIdleBeat  += m.dt;
   if (rIdleBeat >= m.beatMs * 4) {
     rIdleBeat = 0;
@@ -55,7 +62,7 @@ function update(m) {
   }
 
   // ── Decay: density=255 → slow, density=0 → fast ──
-  var decayRate = 1 + Math.floor(((255 - m.density) / 255.0) * 7);
+  var decayRate = 1 + Math.floor(((255 - m.density) / 255.0) * (7 - damp * 3));
   var decayAmt  = Math.floor(decayRate * m.dt / 16);
   if (decayAmt < 1) decayAmt = 1;
 

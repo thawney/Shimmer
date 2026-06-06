@@ -32,10 +32,22 @@ function activate(m) {
   m.show();
 }
 
-function playChord(m, chord, voicing, dur) {
-  var root = chord[0];
-  var third = chord[1];
-  var fifth = chord[2];
+function blockTempOffset(m) {
+  var t = m.temp;
+  if (!(t > -20 && t < 70)) t = 22.0;
+  return Math.floor((t - 22.0) / 10.0);
+}
+
+function blockHumidity(m) {
+  var h = m.humidity;
+  if (!(h >= 0 && h <= 100)) h = 55.0;
+  return h / 100.0;
+}
+
+function playChord(m, chord, voicing, dur, offset) {
+  var root = chord[0] + offset;
+  var third = chord[1] + offset;
+  var fifth = chord[2] + offset;
 
   if (voicing === 0) {
     // compact and warm
@@ -55,15 +67,15 @@ function playChord(m, chord, voicing, dur) {
   }
 }
 
-function playSoftTop(m, chord, voicing, dur) {
+function playSoftTop(m, chord, voicing, dur, offset) {
   var top;
 
   if (voicing === 0) {
-    top = chord[2] + 7;
+    top = chord[2] + 7 + offset;
   } else if (voicing === 1) {
-    top = chord[2] + 14;
+    top = chord[2] + 14 + offset;
   } else {
-    top = chord[1] + 14;
+    top = chord[1] + 14 + offset;
   }
 
   m.note(top, 20, dur);
@@ -71,6 +83,8 @@ function playSoftTop(m, chord, voicing, dur) {
 
 function update(m) {
   var beatMs = Math.max(80, Math.min(4000, m.beatMs));
+  var damp = blockHumidity(m);
+  var tempOffset = blockTempOffset(m);
 
   // very slow chord movement
   var chordMs = beatMs * 8;
@@ -81,14 +95,14 @@ function update(m) {
   var voicing = Math.min(2, Math.floor(m.density / 86));
 
   if (m.tick(0, chordMs)) {
-    playChord(m, progression[chordIdx], voicing, Math.floor(chordMs * 0.95));
+    playChord(m, progression[chordIdx], voicing, Math.floor(chordMs * (0.86 + damp * 0.22)), tempOffset);
     glow = 255;
     chordIdx = (chordIdx + 1) % progression.length;
   }
 
   // only reinforce the current chord softly in between
   if (m.tick(1, topMs)) {
-    playSoftTop(m, progression[chordIdx], voicing, Math.floor(topMs * 0.65));
+    playSoftTop(m, progression[chordIdx], voicing, Math.floor(topMs * (0.55 + damp * 0.25)), tempOffset);
   }
 
   if (m.tick(2, beatMs)) {

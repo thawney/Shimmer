@@ -18,6 +18,12 @@ var phaseAcc = [0.0, 85.0*256.0, 170.0*256.0];  // 16.16 style as floats
 var heldNote = [false, false, false];
 var colourSet = false;
 
+function breathHumidity(m) {
+  var h = m.humidity;
+  if (!(h >= 0 && h <= 100)) h = 55.0;
+  return h / 100.0;
+}
+
 function activate(m) {
   VOICE_ROW = [0, Math.floor((m.ROWS - 1) / 2), m.ROWS - 1];
   colourSet = false;
@@ -48,6 +54,8 @@ function update(m) {
 
   // period: 1000 + (255-density)*27, tempo-scaled: slower BPM → longer period
   var basePeriod = 1000 + (255 - m.density) * 27;
+  // Damp air makes the breathing a little heavier and longer.
+  basePeriod = Math.floor(basePeriod * (0.90 + breathHumidity(m) * 0.28));
 
   // Clear display
   m.clear();
@@ -69,7 +77,7 @@ function update(m) {
     // Fire on first frame (!heldNote) OR on peak rollover - matches C++ (!_held || peakCrossed)
     if (peaked || !heldNote[v]) {
       // ~10% harmonic drift on each peak (not on initial fire)
-      if (peaked && m.rnd(255) < 26) {
+      if (peaked && m.rnd(255) < 18 + Math.floor(breathHumidity(m) * 18)) {
         var d = voiceDeg[v] + (m.rnd(255) < 128 ? 1 : -1);
         if (d >= 0 && d <= 12) voiceDeg[v] = d;
       }

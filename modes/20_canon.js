@@ -24,6 +24,13 @@ function cnDegToRow(deg, ROWS) {
   return (ROWS - 1) - Math.floor(deg * (ROWS - 1) / 13);
 }
 
+function cnTiltOffset(m) {
+  var off = Math.floor(m.accelY / 50);
+  if (off < -2) off = -2;
+  if (off > 2) off = 2;
+  return off;
+}
+
 function cnInit(m) {
   cnLen = 4 + Math.floor((m.density * (CN_MAX - 4)) / 255);
   if (cnLen > CN_MAX) cnLen = CN_MAX;
@@ -81,7 +88,8 @@ function update(m) {
       var vs = cnStep - v * CN_OFF;
       if (vs <= 0) continue;
       var pp  = (vs - 1) % cnLen;
-      var deg = cnPhrase[pp] + v * 2;
+      var deg = cnPhrase[pp] + v * 2 + cnTiltOffset(m);
+      if (deg < 0) deg = 0;
       if (deg > 13) deg = 13;
 
       var vel = 88 - v * 12 + m.rnd(16);

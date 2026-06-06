@@ -28,6 +28,10 @@ function deactivate(m) {
 }
 
 function update(m) {
+  var lean = Math.floor(m.accelY / 48);
+  if (lean < -1) lean = -1;
+  if (lean > 1) lean = 1;
+
   if (m.midiType === 1 && m.midiNote !== 255 && m.midiVel > 0) {
     var onCol = m.midiNote % m.COLS;
     held[onCol] = Math.floor(50 + m.midiVel * 205 / 127);
@@ -56,8 +60,8 @@ function update(m) {
         if (br > 0) {
           m.px(c, r, hue, 225, br);
           if (br > 84) {
-            if (c > 0) m.px(c - 1, r, hue, 150, br - 70);
-            if (c + 1 < m.COLS) m.px(c + 1, r, hue, 150, br - 70);
+            var leanCol = c + lean;
+            if (leanCol >= 0 && leanCol < m.COLS && leanCol !== c) m.px(leanCol, r, hue, 150, br - 70);
           }
         }
       }
