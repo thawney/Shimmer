@@ -1,12 +1,12 @@
 'use strict';
 
 // Default scripts for the 4 slots (matches data/scripts/ initial LittleFS image)
-// slot 0 = Rain, slot 1 = Spark, slot 2 = Dew, slot 3 = Block Chords
+// slot 0 = Rain, slot 1 = Spark, slot 2 = Dew, slot 3 = Weave
 const DEFAULT_FILES = [
   'modes/00_rain.js',
   'modes/05_spark.js',
   'modes/06_dew.js',
-  'modes/28_block_chords.js',
+  'modes/10_weave.js',
 ];
 const SCRIPTS_VIEW_STORAGE_KEY = 'shimmer-scripts-view';
 const AUTO_CONNECT_PORT_RE = /\bshimmer\b/i;
