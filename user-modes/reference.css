@@ -162,7 +162,8 @@
 
 .docs-vitals div,
 .method-grid div,
-.mode-list div {
+.mode-list div,
+.tag-guide-grid div {
   border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -184,6 +185,7 @@
 .docs-vitals span,
 .method-grid span,
 .mode-list span,
+.tag-guide-grid span,
 .docs-section p,
 .rules-list {
   color: var(--ink-soft);
@@ -326,18 +328,21 @@ pre code {
 }
 
 .method-grid,
-.mode-list {
+.mode-list,
+.tag-guide-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
 .method-grid div,
-.mode-list div {
+.mode-list div,
+.tag-guide-grid div {
   padding: 14px;
 }
 
-.method-grid code {
+.method-grid code,
+.tag-guide-grid code {
   display: block;
   margin-bottom: 8px;
   overflow-wrap: anywhere;
@@ -361,7 +366,8 @@ html[data-theme="dark"] .docs-hero,
 html[data-theme="dark"] .docs-section,
 html[data-theme="dark"] .docs-vitals div,
 html[data-theme="dark"] .method-grid div,
-html[data-theme="dark"] .mode-list div {
+html[data-theme="dark"] .mode-list div,
+html[data-theme="dark"] .tag-guide-grid div {
   background: var(--surface);
 }
 
@@ -382,7 +388,8 @@ html[data-theme="dark"] th {
   .docs-hero,
   .docs-vitals,
   .method-grid,
-  .mode-list {
+  .mode-list,
+  .tag-guide-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -407,7 +414,8 @@ html[data-theme="dark"] th {
   .docs-hero,
   .docs-vitals,
   .method-grid,
-  .mode-list {
+  .mode-list,
+  .tag-guide-grid {
     grid-template-columns: 1fr;
   }
 

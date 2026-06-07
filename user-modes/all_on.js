@@ -5,6 +5,7 @@
  * @sat 0
  * @param_label Brightness
  * @description All LEDs at full brightness.
+ * @tags Utility
  * @sound None
  */
 

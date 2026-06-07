@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@700&family=Modak&display=swap" rel="stylesheet">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../style.css?v=28">
-  <link rel="stylesheet" href="reference.css?v=6">
+  <link rel="stylesheet" href="reference.css?v=7">
 </head>
 <body class="docs-body">
   <a class="skip-link" href="#main-content">Skip to reference</a>
@@ -34,6 +34,7 @@
     <aside class="docs-sidebar" aria-label="Page sections">
       <a href="#template">Template</a>
       <a href="#metadata">Metadata</a>
+      <a href="#tag-guide">Tags</a>
       <a href="#properties">Properties</a>
       <a href="#pixels">Pixels</a>
       <a href="#midi">MIDI</a>
@@ -114,6 +115,7 @@
  * @sat 220
  * @param_label Motion
  * @description One-line summary shown in the web UI.
+ * @tags Tilt, Generative
  * @sound Warm pluck
  */
 
@@ -144,12 +146,33 @@ function update(m) {
               <tr><td><code>@author</code></td><td>Shown in the Scripts tab.</td></tr>
               <tr><td><code>@param_label</code></td><td>Label for the per-slot Density slider in Controls.</td></tr>
               <tr><td><code>@description</code></td><td>Shown in UI descriptions.</td></tr>
-              <tr><td><code>@sound</code></td><td>Informational text in the Scripts tab.</td></tr>
+              <tr><td><code>@tags</code></td><td>Comma-separated script tags for browsing: Tilt, MIDI in, Clocked, Generative, Ambient, Rhythm, Chords, Utility, Physics, Game, Humidity, Temperature.</td></tr>
+              <tr><td><code>@sound</code></td><td>Optional sound hint; still searchable and used as fallback context for older scripts.</td></tr>
               <tr><td><code>@hue</code></td><td>Default hue for <code>m.px(col, row, brightness)</code>, 0..255.</td></tr>
               <tr><td><code>@sat</code></td><td>Default saturation for <code>m.px(col, row, brightness)</code>, 0..255.</td></tr>
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section id="tag-guide" class="docs-section">
+        <h2>Tag Guide</h2>
+        <p>Use up to four tags that describe how the script behaves. Tags are shown in the script library and drive the tag filter.</p>
+        <div class="tag-guide-grid">
+          <div><code>Tilt</code><span>Responds to tilt, shake, knock, steering, rolling, or other motion.</span></div>
+          <div><code>MIDI in</code><span>Uses incoming MIDI notes or messages as part of the script.</span></div>
+          <div><code>Clocked</code><span>Locks events to tempo, beats, loops, pulses, or regular steps.</span></div>
+          <div><code>Generative</code><span>Creates self-running patterns, melodies, or behaviour without needing live input.</span></div>
+          <div><code>Ambient</code><span>Slow, textural, pad-like, droney, sparse, or background-friendly.</span></div>
+          <div><code>Rhythm</code><span>Beat-first scripts: Euclidean patterns, pulses, bursts, polyrhythms, or grids.</span></div>
+          <div><code>Chords</code><span>Harmony, drones, chord memory, voicing, stacked notes, or sustained groups.</span></div>
+          <div><code>Utility</code><span>Practical tool modes such as monitors, quantisers, tests, and setup helpers.</span></div>
+          <div><code>Physics</code><span>Simulates movement, particles, falling, bouncing, fluid, flocking, growth, or pressure.</span></div>
+          <div><code>Game</code><span>Game-like rules, objectives, scoring, growth, collision, or cellular automata.</span></div>
+          <div><code>Humidity</code><span>Reads <code>m.humidity</code> and changes behaviour from the humidity sensor.</span></div>
+          <div><code>Temperature</code><span>Reads <code>m.temp</code> and changes behaviour from the temperature sensor.</span></div>
+        </div>
+        <p class="docs-note">Example: <code>@tags Tilt, MIDI in, Physics, Humidity</code></p>
       </section>
 
       <section id="lifecycle" class="docs-section docs-callout">

@@ -5,6 +5,7 @@
  * @sat 220
  * @param_label Chaos
  * @description Basic Conway Game of Life on a 5x28 toroidal grid. Density controls mutation/chaos.
+ * @tags Game, Generative
  * @sound Soft Pluck / Marimba
  */
 

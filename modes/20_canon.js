@@ -5,6 +5,7 @@
  * @sat 200
  * @param_label Phrase Length
  * @description A melody plays then echoes in 2-3 staggered voices like a musical round. The phrase shape is a constellation of dots - pitch=row, step=col. Voices sweep through it and light each note. Phrase mutates and restarts differently each cycle.
+ * @tags Tilt, Clocked, Generative
  * @sound Arp / Plucked String
  */
 

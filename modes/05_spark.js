@@ -5,6 +5,7 @@
  * @sat 240
  * @param_label Particle Count
  * @description Particles bounce off walls. Left/right bounces fire notes pitched from vertical position.
+ * @tags Physics, Generative
  * @sound Plucked String / Pizzicato
  */
 

@@ -5,6 +5,7 @@
  * @sat 220
  * @param_label Active Rows
  * @description Polyrhythmic row pulses - 12 rows with prime-ratio beat clocks. Cursor sweeps each row.
+ * @tags Clocked, Rhythm, Generative, Humidity
  * @sound Bell / Celeste
  */
 

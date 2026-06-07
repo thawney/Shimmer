@@ -5,6 +5,7 @@
  * @sat 220
  * @param_label Release Speed
  * @description Shake to build energy. Release as a burst of notes. Density = burst speed.
+ * @tags Tilt, Physics, Ambient, Chords
  * @sound Pad / Brass
  */
 

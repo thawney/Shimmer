@@ -1,7 +1,20 @@
-# Writing Custom Modes for Shimmer
+# Shimmer JS API Reference
 
-Modes are plain JavaScript files running on-device in Duktape. Upload from the web UI, no compile step.
-Try scripts live in the [**Simulator →**](../simulator.html)
+Write plain JavaScript modes for Shimmer's 12 by 12 LED grid and MIDI engine.
+Scripts run on-device in Duktape and can be tested live in the browser simulator.
+
+[Open simulator](../simulator.html) | [Start from example.js](example.js)
+
+---
+
+## Quick facts
+
+| Area | Detail |
+|---|---|
+| Lifecycle | `activate`, `update`, optional `deactivate` |
+| Display | 12 columns by 12 rows, row 0 at the top |
+| Timing | `m.dt` is clamped to `1..96ms` |
+| Limit | 12,288 bytes per uploaded script |
 
 ---
 
@@ -15,6 +28,7 @@ Try scripts live in the [**Simulator →**](../simulator.html)
  * @sat 220
  * @param_label Motion
  * @description One-line summary shown in the web UI.
+ * @tags Tilt, Generative
  * @sound Warm pluck
  */
 
@@ -45,295 +59,186 @@ function update(m) {
 | `@author` | Shown in the Scripts tab |
 | `@param_label` | Label for the per-slot Density slider in Controls |
 | `@description` | Shown in UI descriptions |
-| `@sound` | Informational text in Scripts tab |
-| `@hue` | Default hue for `m.px(col, row, brightness)` (0..255) |
-| `@sat` | Default saturation for `m.px(col, row, brightness)` (0..255) |
+| `@tags` | Comma-separated script tags for browsing: Tilt, MIDI in, Clocked, Generative, Ambient, Rhythm, Chords, Utility, Physics, Game, Humidity, Temperature |
+| `@sound` | Optional sound hint; still searchable and used as fallback context for older scripts |
+| `@hue` | Default hue for `m.px(col, row, brightness)`, 0..255 |
+| `@sat` | Default saturation for `m.px(col, row, brightness)`, 0..255 |
+
+---
+
+## Tag guide
+
+Use up to four tags that describe how the script behaves. Tags are shown in the script library and drive the tag filter.
+
+| Tag | Use when |
+|---|---|
+| `Tilt` | Responds to tilt, shake, knock, steering, rolling, or other motion |
+| `MIDI in` | Uses incoming MIDI notes or messages as part of the script |
+| `Clocked` | Locks events to tempo, beats, loops, pulses, or regular steps |
+| `Generative` | Creates self-running patterns, melodies, or behaviour without needing live input |
+| `Ambient` | Slow, textural, pad-like, droney, sparse, or background-friendly |
+| `Rhythm` | Beat-first scripts: Euclidean patterns, pulses, bursts, polyrhythms, or grids |
+| `Chords` | Harmony, drones, chord memory, voicing, stacked notes, or sustained groups |
+| `Utility` | Practical tool modes such as monitors, quantisers, tests, and setup helpers |
+| `Physics` | Simulates movement, particles, falling, bouncing, fluid, flocking, growth, or pressure |
+| `Game` | Game-like rules, objectives, scoring, growth, collision, or cellular automata |
+| `Humidity` | Reads `m.humidity` and changes behaviour from the humidity sensor |
+| `Temperature` | Reads `m.temp` and changes behaviour from the temperature sensor |
+
+Example: `@tags Tilt, MIDI in, Physics, Humidity`
 
 ---
 
 ## Runtime lifecycle
 
-- `activate(m)` — called once when the mode becomes active. Reset state here.
-- `update(m)` — called every frame (~60 fps). Draw and trigger notes here.
-- `deactivate(m)` — optional. Firmware always sends note-off + clear on mode exit.
+- `activate(m)` is called once when the mode becomes active. Reset state here.
+- `update(m)` is called every frame, roughly 60 fps. Draw pixels and trigger notes here.
+- `deactivate(m)` is optional. Firmware always sends note-off and clears the display on mode exit.
 
 ---
 
-## `m` API
-
-### Properties (read-only)
+## `m` properties
 
 | Property | Type | Meaning |
 |---|---|---|
-| `m.dt` | ms | Frame delta time, clamped to `1..96ms` in the simulator and firmware runtime |
-| `m.beatMs` | ms | Milliseconds per beat at current tempo, or external MIDI clock when the mode has `Clock In` and `Prefer Ext` enabled, clamped to `40..4000ms` |
+| `m.dt` | ms | Frame delta time, clamped to `1..96ms` |
+| `m.beatMs` | ms | Milliseconds per beat at current tempo or external MIDI clock, clamped to `40..4000ms` |
 | `m.density` | 0..255 | Per-slot density knob value |
 | `m.brightness` | 0..255 | Per-slot brightness value |
 | `m.rootNote` | 0..127 | Current root MIDI note used by scale-degree output |
-| `m.scale` | 0..9 | Current scale id: 0=Major 1=Minor 2=Dorian 3=Pentatonic 4=Chromatic 5=Mixolydian 6=Lydian 7=Phrygian 8=Harmonic Minor 9=Whole Tone |
+| `m.scale` | 0..9 | 0 Major, 1 Minor, 2 Dorian, 3 Pentatonic, 4 Chromatic, 5 Mixolydian, 6 Lydian, 7 Phrygian, 8 Harmonic Minor, 9 Whole Tone |
 | `m.COLS` | 12 | Grid width |
 | `m.ROWS` | 12 | Grid height |
-| `m.accelX` | −128..127 | Tilt forward/back — **positive = top edge tilted down** |
-| `m.accelY` | −128..127 | Tilt left/right — **positive = tilted right** |
-| `m.accelZ` | −128..127 | **~+64 when flat**, decreases as device tilts onto its side |
-| `m.motion` | 0..255 | Motion magnitude — spikes transiently on knock or shake |
-
-> On `AM2302`-equipped hardware, `m.temp` and `m.humidity` expose live temperature and humidity readings. Older `AHT20` builds may still be unreliable.
-
----
-
-### Grid reference
-
-```
-col:   0   1   2   3   4   5   6   7   8   9  10  11
-       ┌───────────────────────────────────────────────┐
-row 0  │ LED 1                              LED 12     │  ← top edge
-row 1  │                                               │
-  ...  │                                               │
-row 11 │ LED 132                           LED 144     │  ← bottom edge
-       └───────────────────────────────────────────────┘
-```
-
-`m.px(col, row, ...)` — col 0 = left, row 0 = top. Always.
+| `m.accelX` | -128..127 | Tilt forward/back. Positive means the top edge is tilted down |
+| `m.accelY` | -128..127 | Tilt left/right. Positive means tilted right |
+| `m.accelZ` | -128..127 | Roughly +64 when flat, decreasing as the device tilts onto its side |
+| `m.motion` | 0..255 | Motion magnitude. Spikes transiently on knock or shake |
+| `m.temp` | number | Temperature in Celsius on supported hardware |
+| `m.humidity` | number | Relative humidity percentage on supported hardware |
 
 ---
 
-### Accelerometer
+## Grid reference
 
-**Confirmed axis orientations** (verified on hardware):
+`m.px(col, row, ...)` uses col 0 on the left and row 0 at the top.
+
+| Position | Meaning |
+|---|---|
+| LED 1 | col 0, row 0 |
+| LED 12 | col 11, row 0 |
+| LED 132 | col 0, row 11 |
+| LED 144 | col 11, row 11 |
+
+---
+
+## Accelerometer patterns
 
 | Action | Result |
 |---|---|
-| Tilt right (LED 12/144 side down) | `accelY` → positive |
-| Tilt top-down (LED 1–12 edge down) | `accelX` → positive |
-| Lay flat, display up | `accelZ` ≈ +64 |
-| Stand on edge | `accelZ` → near 0 |
+| Tilt right, LED 12/144 side down | `accelY` becomes positive |
+| Tilt top-down, LED 1-12 edge down | `accelX` becomes positive |
+| Lay flat, display up | `accelZ` is about `+64` |
+| Stand on edge | `accelZ` moves toward `0` |
 
-**Three patterns for using accel in generative modes:**
-
-**1. Seed at activation** — locks a value for the session, no frame-by-frame effect:
 ```js
-function activate(m) {
-  hueOffset = Math.floor(m.accelX * 30 / 127);  // palette set by how you picked it up
-}
-```
-
-**2. Slow exponential smooth** — barely perceptible when stationary, gradual when tilted:
-```js
+// Slow tilt smoothing
 var smooth = 0;
-// in update():
-smooth += (m.accelY - smooth) * (m.dt / 8000.0);  // ~8s time constant
-```
-Good values: 6000–15000 ms. The device is often flat or on its side — this approach
-produces zero effect when stationary and a gentle drift when the device is moved.
+smooth += (m.accelY - smooth) * (m.dt / 8000.0);
 
-**3. Direct responsive** — for modes where tilt is the primary input:
-```js
-var col = Math.floor(m.map(m.accelY, -100, 100, 0, m.COLS - 1));
-```
-
-**Physics gravity** — use the same sign as the axis (no negation needed):
-```js
-var gx = m.accelY * 0.000003;   // tilt right → push particles/objects right
-var gy = -m.accelX * 0.000003;  // tilt top-down → push toward row 0
-particle.vx += gx * m.dt;
-particle.vy += gy * m.dt;
-```
-
-**`accelZ` uses:**
-```js
-// Detect flat vs upright:
-var tilt = 1.0 - m.accelZ / 64.0;  // 0 = flat, 1 = fully on its side
-// Slow breath rate when flat, faster when upright:
-var period = Math.floor(4000 - tilt * 2500);
-```
-
-**Motion knock detection** — rising-edge only, fires once per knock:
-```js
-var lastMotion = 0;
-// in update():
-if (m.motion > 150 && lastMotion <= 150) { /* fires once per knock */ }
+// Motion knock detection
+if (m.motion > 150 && lastMotion <= 150) {
+  // fires once per knock
+}
 lastMotion = m.motion;
 ```
 
-> **Not every mode needs accelerometer.** Shimmer is most often sitting flat or resting
-> on a side — accel values will be near-constant. Generative modes are complete without
-> it; add accel where it genuinely adds something.
+---
+
+## Pixel functions
+
+| Function | Meaning |
+|---|---|
+| `m.px(col, row, brightness)` | Set a pixel using `@hue` and `@sat` |
+| `m.px(col, row, hue, sat, val)` | Set a pixel with explicit HSV values, all 0..255 |
+| `m.fade(amount)` | Subtract amount from every pixel. Default is 3 |
+| `m.clear()` | Set all pixels to black |
+| `m.show()` | Push the pixel buffer to LEDs. Call once per update |
 
 ---
 
-### Pixel functions
+## MIDI functions
 
-```js
-m.px(col, row, brightness)       // brightness 0..255, uses @hue/@sat
-m.px(col, row, hue, sat, val)    // explicit HSV — all 0..255
-m.fade(amount)                   // subtract `amount` from every pixel (default 3)
-m.clear()                        // set all pixels to 0
-m.show()                         // push pixel buffer to LEDs — call once per update()
-```
+| Function | Meaning |
+|---|---|
+| `m.note(degree, velocity, durationMs)` | Play a scale degree. Velocity defaults to 80, duration to 1 beat |
+| `m.noteMidi(note, velocity, durationMs)` | Play an absolute MIDI note, 0..127 |
+| `m.noteOn(note, velocity)` | Raw note-on, held until `m.noteOff()` or `m.allOff()` |
+| `m.noteOff(note)` | Raw note-off |
+| `m.cc(cc, value)` | Send CC on the current output channel |
+| `m.pitchBend(value)` | Signed pitch bend, clamped to -8192..8191 |
+| `m.allOff()` | Cancel held notes on the current output channel |
 
-### MIDI functions
+`degree` maps through the active scale and root. Degree 0 is the selected root MIDI note exactly; degrees 0-6 span one octave diatonically and 7-13 continue into the next.
 
-```js
-m.note(degree)                        // velocity 80, duration 1 beat
-m.note(degree, velocity)              // velocity 0..127
-m.note(degree, velocity, durationMs)
-m.noteMidi(note)                      // absolute MIDI note, velocity 80, duration 1 beat
-m.noteMidi(note, velocity)
-m.noteMidi(note, velocity, durationMs)
-m.noteOn(note, velocity)              // raw MIDI note-on, held until noteOff/allOff
-m.noteOff(note)                       // raw MIDI note-off
-m.cc(cc, value)                       // send CC on the current output channel
-m.pitchBend(value)                    // signed bend: -8192..8191
-m.allOff()                            // cancel all held notes
-```
+---
 
-`degree` maps through the active scale/root and wraps across octaves.
-Degree `0` is the selected root MIDI note exactly; changing the root octave shifts all `m.note()` output with it.
-Scale degrees 0–6 span one octave diatonically; 7–13 continue into the next.
-Use `m.noteMidi()` / `m.noteOn()` when a mode needs exact 0–127 MIDI pitch control.
+## MIDI In
 
-### MIDI In
-
-Incoming USB and DIN MIDI messages are available each frame via read-once properties.
-Messages are filtered by the mode's selected **MIDI In Ch** in the web UI.
-`midiType` resets to `0` after each frame — check it first before reading the other values.
+Incoming USB and DIN MIDI messages are available each frame via read-once properties, filtered by the mode's selected MIDI In channel.
 
 | Property | Type | Meaning |
 |---|---|---|
-| `m.midiType` | 0..4 | 0=none 1=noteOn 2=noteOff 3=CC 4=pitchBend |
+| `m.midiType` | 0..4 | 0 none, 1 noteOn, 2 noteOff, 3 CC, 4 pitchBend |
 | `m.midiChannel` | 0..16 | MIDI input channel, 1..16 when an event arrived |
-| `m.midiNote` | 0..127 or 255 | Note number (255 = no note event this frame) |
-| `m.midiVel` | 0..127 | Velocity (0 for noteOff) |
-| `m.midiCC` | 0..127 or 255 | CC number (255 = no CC event this frame) |
+| `m.midiNote` | 0..127 or 255 | Note number, 255 when no note event arrived |
+| `m.midiVel` | 0..127 | Velocity, 0 for noteOff |
+| `m.midiCC` | 0..127 or 255 | CC number, 255 when no CC arrived |
 | `m.midiCCVal` | 0..127 | CC value |
-| `m.midiBend` | -8192..8191 | Pitch bend amount (0 = centered) |
+| `m.midiBend` | -8192..8191 | Pitch bend amount, 0 centered |
 
-**Pattern — react once per NoteOn:**
 ```js
 function update(m) {
-  if (m.midiType === 1) {            // new NoteOn arrived this frame
+  if (m.midiType === 1) {
     var col = Math.floor(m.midiNote * m.COLS / 128);
-    // spawn something at col...
+    // spawn something at col
   }
   m.show();
 }
 ```
 
-In the simulator, all available WebMIDI inputs are attached, but the selected **MIDI in** port limits which input is accepted.
-Leave it on `-- any --` to listen to every connected controller, or choose a single port for cleaner testing.
+---
 
-Clock behavior is controlled from the device/web Controls page per mode via **Clock Mode**:
-- `Auto`: follow external clock when present, otherwise run internal clock and send clock out
-- `Leader`: ignore external clock and send your own clock out
-- `Follower`: follow external clock and do not send your own clock out
-- `Internal`: ignore external clock and do not send clock out
+## Clock mode
 
-The simulator exposes the same **Clock Mode** control, so you can prototype leader/follower behavior there too.
+| Mode | Meaning |
+|---|---|
+| Auto | Follow external clock when present, otherwise run internal clock and send clock out |
+| Leader | Ignore external clock and send your own clock out |
+| Follower | Follow external clock and do not send your own clock out |
+| Internal | Ignore external clock and do not send clock out |
 
-### Timing and helpers
+---
 
-```js
-m.tick(timerId, intervalMs)      // returns true once per interval; timerId 0..7
-m.rnd()                          // integer 0..255
-m.rnd(max)                       // integer 0..max-1
-m.degreeToCol(degree)            // map scale degree (0..6) → col (0..11)
-m.colToDegree(col)               // map col (0..11) → scale degree (0..6)
-m.map(v, inLo, inHi, outLo, outHi)  // linear float mapping
-```
+## Timing and helpers
+
+| Helper | Meaning |
+|---|---|
+| `m.tick(timerId, intervalMs)` | Returns true once per interval. Timer id is 0..7 |
+| `m.rnd()` | Random integer from 0..255 |
+| `m.rnd(max)` | Random integer from 0..max-1 |
+| `m.degreeToCol(degree)` | Map scale degree 0..6 to display column 0..11 |
+| `m.colToDegree(col)` | Map display column 0..11 to scale degree 0..6 |
+| `m.map(v, inLo, inHi, outLo, outHi)` | Linear float mapping |
 
 ---
 
 ## Practical rules
 
-- Call `m.show()` exactly once per `update()` call, at the end.
-- Script globals persist while the mode is active; reset them in `activate()`.
-- Use `m.dt` for all movement so speed is frame-rate-independent.
-- Use `m.tick()` for rhythmically stable events rather than manual elapsed timers.
-- Clamp unusually large `m.dt` values in timing-sensitive scripts, and clamp or sanity-check `m.beatMs` before dividing by it or feeding it into physics.
-- For particle or collision-heavy scripts, prefer bounded substeps over one giant physics step after a stall.
-- Avoid “startup storms”: don’t emit a full-grid burst of notes on the first update after `activate()`. Seed visual state first, then enable note triggers after a frame or two if needed.
-- In physics-heavy modes, cap note output per frame as well as simulation steps. A pile of simultaneous impacts can be just as destabilising as the physics itself.
-- Use the current API names only: `m.dt`, `m.beatMs`, and `m.px()`. Old names like `m.delta` or `m.pixel()` are stale and should be treated as broken.
-- Max script size: **12288 bytes**.
-- Out-of-range pixel coordinates are silently ignored.
-- Avoid browser-only APIs like `setTimeout()`, `document`, `window`, or `fetch()`.
-- Treat `while (...)` loops with care. Add an explicit cap so catch-up work cannot run forever after a long frame.
-
-**Recommended pattern for elapsed-time catch-up loops:**
-```js
-var MAX_CATCHUP_STEPS = 6;
-var steps = 0;
-while (elapsed >= stepMs && steps < MAX_CATCHUP_STEPS) {
-  elapsed -= stepMs;
-  // advance simulation...
-  steps++;
-}
-if (steps === MAX_CATCHUP_STEPS && elapsed >= stepMs) elapsed = stepMs - 1;
-```
-
-**What “hard budget” means:**
-It just means an explicit script-side cap. Don’t let a mode decide to do “as much as needed”; tell it the maximum amount of work it may do in one frame.
-
-Examples:
-```js
-// Max 3 notes in one frame:
-var notesLeft = 3;
-function safeNote(m, degree, vel, dur) {
-  if (notesLeft <= 0) return;
-  m.note(degree, vel, dur);
-  notesLeft--;
-}
-```
-
-```js
-// Ignore expensive triggers for the first 2 frames after activate():
-var settleFrames = 0;
-function activate(m) {
-  settleFrames = 2;
-}
-function update(m) {
-  if (settleFrames > 0) {
-    settleFrames--;
-    // draw only, no bursty notes/physics triggers yet
-  }
-}
-```
-
-Common hard budgets:
-- max physics substeps per frame
-- max collisions handled per frame
-- max notes triggered per frame
-- max particles/objects alive at once
-
----
-
-## Safety checks
-
-- The **Simulator** and **Device** pages now show the same preflight warnings before run/upload.
-- Syntax errors, explicit infinite loops, oversize scripts, and missing `update(m)` block run/upload.
-- Risky patterns such as generic `while (...)` loops, browser-only APIs, and stale API names like `m.delta` / `m.pixel()` show warnings but do not block by themselves.
-- The hard upload cap is `12,288` bytes, but the practical limit is lower for heavy scripts. Once a script is above roughly `6 KB`, trim comments, helper duplication, and large state if you can.
-- The firmware now keeps the script engine heap in internal SRAM, which helps heavier user modes switch more reliably, but smaller scripts are still the safest target.
-- The bundled example scripts have been patched to cap catch-up loops, so they model the safer pattern above.
-- The simulator and firmware runtime now clamp exposed timing values before scripts see them: `m.dt` is clamped to `1..96ms` and `m.beatMs` to `40..4000ms`.
-- During script upload, the device now shows a dedicated dim `#ffc60a` upload screen instead of leaving the active script running underneath the transfer.
-- During script upload, the firmware now pauses mode updates so otherwise functional but busy scripts are less likely to trigger false ACK timeouts.
-- If a slot faults on hardware, the device keeps that slot selected and shows a red `!` with the slot number on the 12x12 grid instead of silently jumping away. That red fault display is the only red device screen; normal startup and upload screens use a dim `#ffc60a` yellow.
-- After you leave a faulted slot, button-based mode stepping skips that slot until its script contents change again. Uploading a new script to that slot clears the skip and lets it be selected normally.
-- Empty slots now show an amber `?` with the slot number, so they are visibly different from real script faults.
-- Holding the device button during boot wipes the on-device script files and leaves the unit on an amber recovery screen marked with `R` until at least one script is uploaded again. Use this to escape a bad boot loop without opening the enclosure.
-
----
-
-## Upload flow
-
-1. Open the web UI and connect your device.
-2. Go to **Scripts**.
-3. Paste or edit code in a slot card.
-4. Review any safety warnings shown under the editor.
-5. Click **Upload to device**.
-
-If that slot is currently active, the device now shows an upload screen while the transfer is in progress. Upload ACK timeouts should also be rarer now because mode execution pauses during transfer, but if the device is still busy you can wait a moment and retry.
-
-Or prototype first in the [**Simulator**](../simulator.html) — no device required.
+- Call `m.show()` exactly once per `update()`, at the end.
+- Script globals persist while the mode is active. Reset them in `activate()`.
+- Use `m.dt` for movement so speed is frame-rate independent.
+- Use `m.tick()` for rhythmically stable events.
+- Clamp unusually large `m.dt` or `m.beatMs` before using them in physics or divisions.
+- Avoid startup note storms and cap note output in physics-heavy modes.
+- Use current API names only: `m.dt`, `m.beatMs`, and `m.px()`.
+- Avoid browser-only APIs like `setTimeout()`, `document`, `window`, and `fetch()`.

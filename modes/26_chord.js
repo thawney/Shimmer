@@ -6,6 +6,7 @@
  * @param_label Velocity
  * @midi_in true
  * @description Learn a chord shape, shake to lock it, then play that shape from any incoming root note until release. Shake again to unlock.
+ * @tags MIDI in, Tilt, Chords, Utility
  * @sound Pad / Organ
  */
 

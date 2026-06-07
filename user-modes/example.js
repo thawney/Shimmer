@@ -5,6 +5,7 @@
  * @sat 220
  * @param_label Motion
  * @description Tempo-synced bouncing pulse. Motion controls step speed.
+ * @tags Clocked, Utility, Physics
  * @sound Soft marimba
  */
 

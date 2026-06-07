@@ -14,6 +14,7 @@
 var COLS = 12;
 var ROWS = 12;
 var MAX_SCRIPT_BYTES = 12288;
+var SCRIPT_ASSET_VERSION = '8';
 var SCRIPT_SAFETY = window.ShimmerScriptSafety || null;
 var _textEncoder = new TextEncoder();
 var MFR = 0x7D;
@@ -23,6 +24,10 @@ var SYSEX_SCRIPT_BEGIN = 0x20;
 var SYSEX_SCRIPT_CHUNK = 0x21;
 var SYSEX_SCRIPT_END = 0x22;
 var CHUNK_BYTES = 3000;
+
+function scriptAssetUrl(filePath) {
+  return filePath + (filePath.indexOf('?') === -1 ? '?' : '&') + 'v=' + encodeURIComponent(SCRIPT_ASSET_VERSION);
+}
 var SCRIPT_BEGIN_ACK_TIMEOUT_MS = 2500;
 var SCRIPT_CHUNK_ACK_TIMEOUT_MS = 2500;
 var SCRIPT_END_ACK_TIMEOUT_MS = 3000;
@@ -78,24 +83,24 @@ function loadThawneyModes() {
     fileNames.sort(function(a, b) { return a < b ? -1 : 1; });
 
     return Promise.all(fileNames.map(function(filename) {
-      return fetch('modes/' + filename)
+      return fetch(scriptAssetUrl('modes/' + filename))
         .then(function(r) { return r.ok ? r.text() : Promise.reject(); })
         .then(function(code) {
           var meta = parseScriptMeta(code);
-          return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound };
+          return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound, tags: meta.tags };
         }).catch(function() {
-          return { name: filename, file: filename, desc: '', sound: '' };
+          return { name: filename, file: filename, desc: '', sound: '', tags: [] };
         });
     }));
   }).catch(function() {
     return Promise.all(LOCAL_THAWNEY_MODE_FILES.map(function(filename) {
-      return fetch('modes/' + filename)
+      return fetch(scriptAssetUrl('modes/' + filename))
         .then(function(r) { return r.ok ? r.text() : Promise.reject(); })
         .then(function(code) {
           var meta = parseScriptMeta(code);
-          return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound };
+          return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound, tags: meta.tags };
         }).catch(function() {
-          return { name: filename, file: filename, desc: '', sound: '' };
+          return { name: filename, file: filename, desc: '', sound: '', tags: [] };
         });
     }));
   });
@@ -116,7 +121,7 @@ function loadUserModes() {
             return {
               name: f.name.replace(/\.js$/, '').replace(/[_-]/g, ' ')
                           .replace(/\b\w/g, function(c) { return c.toUpperCase(); }),
-              file: f.name, desc: '', sound: '',
+              file: f.name, desc: '', sound: '', tags: [],
             };
           })
       : [];
@@ -156,6 +161,7 @@ function parseScriptMeta(code) {
     var m = code.match(new RegExp('@' + tag + '\\s+(.+)'));
     return m ? m[1].trim() : null;
   }
+  var tagsStr = get('tags');
   var hueStr = get('hue');
   var satStr = get('sat');
   return {
@@ -164,6 +170,7 @@ function parseScriptMeta(code) {
     paramLabel: get('param_label') || 'Amount',
     desc:       get('description') || '',
     sound:      get('sound')       || '',
+    tags:       tagsStr ? tagsStr.split(',').map(function(tag) { return tag.trim(); }).filter(Boolean) : [],
     hue:        hueStr != null ? parseInt(hueStr, 10) : 0,
     sat:        satStr != null ? parseInt(satStr, 10) : 255,
   };
@@ -1186,12 +1193,18 @@ updateSimByteCounter();
 
 function buildSimScriptIndex() {
   var thawney = _thawneyModes.map(function(m) {
-    return { name: m.name, file: 'modes/' + m.file, desc: m.desc || '', sound: m.sound || '', community: false };
+    return { name: m.name, file: 'modes/' + m.file, desc: m.desc || '', sound: m.sound || '', tags: m.tags || [], community: false };
   });
   var community = _userModes.map(function(m) {
-    return { name: m.name, file: 'user-modes/' + m.file, desc: '', sound: '', community: true };
+    return { name: m.name, file: 'user-modes/' + m.file, desc: m.desc || '', sound: m.sound || '', tags: m.tags || [], community: true };
   });
   return thawney.concat(community);
+}
+
+function renderSimTraitPills(item) {
+  return (item.tags || [])
+    .map(function(tag) { return '<span class="mode-trait">' + tag + '</span>'; })
+    .join('');
 }
 
 function filterSimScripts(query) {
@@ -1201,7 +1214,8 @@ function filterSimScripts(query) {
   return index.filter(function(m) {
     return m.name.toLowerCase().indexOf(q) !== -1 ||
            m.desc.toLowerCase().indexOf(q) !== -1 ||
-           m.sound.toLowerCase().indexOf(q) !== -1;
+           m.sound.toLowerCase().indexOf(q) !== -1 ||
+           (m.tags || []).join(' ').toLowerCase().indexOf(q) !== -1;
   });
 }
 
@@ -1228,13 +1242,13 @@ function renderSimSearchResults(results) {
       '<span class="script-result-name">' + m.name + '</span>' +
       (m.community ? '<span class="script-result-badge">community</span>' : '') +
       (m.desc  ? '<span class="script-result-desc">'  + m.desc  + '</span>' : '') +
-      (m.sound ? '<span class="script-result-sound">' + m.sound + '</span>' : '');
+      '<span class="mode-traits">' + renderSimTraitPills(m) + '</span>';
     li.addEventListener('mousedown', function(e) {
       e.preventDefault();
       var input = document.getElementById('sim-script-search');
       if (input) input.value = '';
       hideSimSearchResults();
-      fetch(m.file).then(function(res) {
+      fetch(scriptAssetUrl(m.file)).then(function(res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.text();
       }).then(function(code) {

@@ -6,6 +6,7 @@
  * @param_label Transpose
  * @midi_in true
  * @description Scale pitch quantiser. Incoming MIDI notes snap to the nearest note in the active scale across the full keyboard, with proper note-off handling. Density shifts the output up by up to a 7th. Top half shows input pitch; bottom half shows quantised output.
+ * @tags MIDI in, Utility
  * @sound Any
  */
 

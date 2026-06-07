@@ -5,6 +5,7 @@
  * @sat 220
  * @param_label Hit Density
  * @description Euclidean rhythm walks a scale. Density controls how many of 12 steps trigger notes. Tilt left/right biases melodic direction.
+ * @tags Tilt, Clocked, Rhythm, Generative
  * @sound Marimba / Mallet
  */
 

@@ -5,6 +5,7 @@
  * @sat 200
  * @param_label Boid Count
  * @description 1D boids flock and cluster. Dense clusters fire stacked chords on a tempo grid.
+ * @tags Physics, Clocked, Chords, Generative
  * @sound Choir / Ensemble
  */
 

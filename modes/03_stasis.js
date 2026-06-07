@@ -5,6 +5,7 @@
  * @sat 220
  * @param_label Chord Spread
  * @description Sustained chords hang and slowly voice-lead. Density controls spread and voice count.
+ * @tags Ambient, Chords, Generative, Temperature
  * @sound Organ / Deep Pad
  */
 

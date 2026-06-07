@@ -5,6 +5,7 @@
  * @sat 160
  * @param_label Branching
  * @description A crystal grows from a seed. Low density = spiky horizontal needles. High density = branching in all directions. Tilt steers growth. Notes fire on each new cell. Fills then shatters and restarts.
+ * @tags Tilt, Physics, Generative
  * @sound Pluck / Glass
  */
 

@@ -10,6 +10,7 @@ const DEFAULT_FILES = [
 ];
 const SCRIPTS_VIEW_STORAGE_KEY = 'shimmer-scripts-view';
 const AUTO_CONNECT_PORT_RE = /\bshimmer\b/i;
+const SCRIPT_ASSET_VERSION = '25';
 
 const NUM_SLOTS      = 4;    // UI-visible slots
 const NUM_MODES_TOTAL = 16;  // firmware struct size (always 16)
@@ -249,7 +250,7 @@ let _simpleLibraryActiveIndex = -1;
 let _simpleSelectedScriptFile = '';
 let _simpleSelectedScript = null;
 let _simpleLibrarySourceFilter = 'all';
-let _simpleLibrarySoundFilter = 'all';
+let _simpleLibraryTagFilter = 'all';
 const _scriptTextCache = new Map();
 
 function parseScriptMeta(code) {
@@ -257,6 +258,7 @@ function parseScriptMeta(code) {
     const m = code.match(new RegExp('@' + tag + '\\s+(.+)'));
     return m ? m[1].trim() : null;
   };
+  const tagsStr = get('tags');
   const hueStr = get('hue');
   const satStr = get('sat');
   return {
@@ -265,6 +267,7 @@ function parseScriptMeta(code) {
     paramLabel: get('param_label') ?? 'Amount',
     desc:       get('description') ?? '',
     sound:      get('sound')       ?? '',
+    tags:       tagsStr ? tagsStr.split(',').map(tag => tag.trim()).filter(Boolean) : [],
     hue:        hueStr != null ? parseInt(hueStr, 10) : 0,
     sat:        satStr != null ? parseInt(satStr, 10) : 255,
   };
@@ -309,23 +312,35 @@ function renderSlotSafety(slotIdx, code) {
 }
 
 function modeTraits(item) {
+  if (Array.isArray(item?.tags) && item.tags.length) return item.tags.slice(0, 4);
   const haystack = `${item?.name || ''} ${item?.desc || ''} ${item?.sound || ''}`.toLowerCase();
   const traits = [];
   if (/\btilt|accelerometer|motion|shake|knock|spin|steer|wind\b/.test(haystack)) traits.push('Tilt');
-  if (/\btemp|temperature|humid|humidity|weather|environment|climate\b/.test(haystack)) traits.push('Environment');
   if (/\bmidi in|incoming|keyboard|sequencer|noteon|note on|din in\b/.test(haystack)) traits.push('MIDI in');
-  if (/\b(clock|tempo|beat|pulse|canon|loop|arp|euclid|quant)/.test(haystack)) traits.push('Clock');
-  if (/\bvisual only|none\b/.test(haystack)) traits.push('Visual');
+  if (/\b(clock|tempo|beat|pulse|canon|loop|arp|euclid|quant)/.test(haystack)) traits.push('Clocked');
+  if (/\bvisual only|none|monitor|quantiser|quantizer|utility\b/.test(haystack)) traits.push('Utility');
+  if (/\bhumid|humidity\b/.test(haystack)) traits.push('Humidity');
+  if (/\btemperature|temp\b/.test(haystack)) traits.push('Temperature');
+  if (/\brhythm|euclid|polyrhythm|beat|pulse|scatter\b/.test(haystack)) traits.push('Rhythm');
+  if (/\bchord|drone|harmony|harmonic|voicing|organ|choir\b/.test(haystack)) traits.push('Chords');
+  if (/\bphysics|particle|bounce|water|fall|roll|ball|snake|life|flock|crystal\b/.test(haystack)) traits.push('Physics');
+  if (/\bgame|snake|life\b/.test(haystack)) traits.push('Game');
   if (/\bpad|ambient|drone|haze|stasis|frost|tide\b/.test(haystack)) traits.push('Ambient');
-  if (/\bpluck|bell|marimba|kalimba|harp|rhodes|organ|flute|choir|lead|string|note|chord\b/.test(haystack)) traits.push('MIDI out');
   if (!traits.length) traits.push('Generative');
-  return traits.slice(0, 4);
+  return Array.from(new Set(traits)).slice(0, 4);
 }
 
 function renderModeTraitPills(item) {
   return modeTraits(item)
     .map(trait => `<span class="mode-trait">${trait}</span>`)
     .join('');
+}
+
+function getModeTraitValue(trait) {
+  return String(trait || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-');
 }
 
 const PREVIEW_COLS = 12;
@@ -572,23 +587,19 @@ async function loadThawneyModes() {
     // Fetch each script locally in parallel to parse its own @name / @description / @sound
     return Promise.all(fileNames.map(async filename => {
       try {
-        const r = await fetch(`modes/${filename}`);
-        if (!r.ok) throw new Error();
-        const meta = parseScriptMeta(await r.text());
-        return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound, author: meta.author || '' };
+        const meta = parseScriptMeta(await fetchScriptText(`modes/${filename}`));
+        return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound, author: meta.author || '', tags: meta.tags };
       } catch {
-        return { name: filename, file: filename, desc: '', sound: '', author: '' };
+        return { name: filename, file: filename, desc: '', sound: '', author: '', tags: [] };
       }
     }));
   } catch {
     return Promise.all(LOCAL_THAWNEY_MODE_FILES.map(async filename => {
       try {
-        const r = await fetch(`modes/${filename}`);
-        if (!r.ok) throw new Error();
-        const meta = parseScriptMeta(await r.text());
-        return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound, author: meta.author || '' };
+        const meta = parseScriptMeta(await fetchScriptText(`modes/${filename}`));
+        return { name: meta.name, file: filename, desc: meta.desc, sound: meta.sound, author: meta.author || '', tags: meta.tags };
       } catch {
-        return { name: filename, file: filename, desc: '', sound: '', author: '' };
+        return { name: filename, file: filename, desc: '', sound: '', author: '', tags: [] };
       }
     }));
   }
@@ -680,7 +691,7 @@ const scriptsSimpleViewEl = document.getElementById('scripts-simple-view');
 const scriptsAdvancedViewEl = document.getElementById('scripts-advanced-view');
 const simpleSlotListEl = document.getElementById('simple-slot-list');
 const simpleLibrarySearchEl = document.getElementById('simple-library-search');
-const simpleLibrarySoundFilterEl = document.getElementById('simple-library-sound-filter');
+const simpleLibraryTagFilterEl = document.getElementById('simple-library-tag-filter');
 const simpleLibraryResultsEl = document.getElementById('simple-library-results');
 const simpleLibrarySourceBtns = Array.from(document.querySelectorAll('[data-library-source]'));
 const simpleDetailHelpEl = document.getElementById('simple-detail-help');
@@ -689,7 +700,6 @@ const simpleScriptSlotTargetEl = document.getElementById('simple-script-slot-tar
 const simpleScriptNameEl = document.getElementById('simple-script-name');
 const simpleScriptAuthorEl = document.getElementById('simple-script-author');
 const simpleScriptDescEl = document.getElementById('simple-script-desc');
-const simpleScriptSoundEl = document.getElementById('simple-script-sound');
 const simpleScriptTraitsEl = document.getElementById('simple-script-traits');
 const simpleScriptCanvasEl = document.getElementById('simple-script-canvas');
 const simpleUseScriptBtn = document.getElementById('simple-use-script');
@@ -891,7 +901,8 @@ function buildSimpleSlots() {
 
 async function fetchScriptText(filePath) {
   if (_scriptTextCache.has(filePath)) return _scriptTextCache.get(filePath);
-  const res = await fetch(filePath);
+  const sep = filePath.includes('?') ? '&' : '?';
+  const res = await fetch(`${filePath}${sep}v=${encodeURIComponent(SCRIPT_ASSET_VERSION)}`);
   if (!res.ok) throw new Error(res.statusText || `HTTP ${res.status}`);
   const code = await res.text();
   _scriptTextCache.set(filePath, code);
@@ -936,7 +947,6 @@ function renderSimpleLibraryResults() {
       `</div>` +
       (item.author ? `<div class="simple-library-author">by ${item.author}</div>` : '') +
       `<div class="simple-library-desc">${item.desc || 'No short description provided.'}</div>` +
-      (item.sound ? `<div class="simple-library-sound">${item.sound}</div>` : '') +
       `<div class="mode-traits">${renderModeTraitPills(item)}</div>`;
     button.addEventListener('click', () => {
       _simpleLibraryActiveIndex = idx;
@@ -960,7 +970,6 @@ function renderSimpleLibraryDetails() {
     if (simpleScriptNameEl) simpleScriptNameEl.textContent = 'Choose a script';
     if (simpleScriptAuthorEl) simpleScriptAuthorEl.textContent = '';
     if (simpleScriptDescEl) simpleScriptDescEl.textContent = 'Search the library to browse the scripts available on this site.';
-    if (simpleScriptSoundEl) simpleScriptSoundEl.textContent = '';
     if (simpleScriptTraitsEl) simpleScriptTraitsEl.innerHTML = '';
     if (simpleScriptPreviewEl) simpleScriptPreviewEl.value = '';
     return;
@@ -980,7 +989,6 @@ function renderSimpleLibraryDetails() {
   if (simpleScriptNameEl) simpleScriptNameEl.textContent = selectedScript.name || 'Script';
   if (simpleScriptAuthorEl) simpleScriptAuthorEl.textContent = selectedScript.author ? `by ${selectedScript.author}` : '';
   if (simpleScriptDescEl) simpleScriptDescEl.textContent = selectedScript.desc || 'No short description provided.';
-  if (simpleScriptSoundEl) simpleScriptSoundEl.textContent = selectedScript.sound ? `Sound: ${selectedScript.sound}` : '';
   if (simpleScriptTraitsEl) simpleScriptTraitsEl.innerHTML = renderModeTraitPills(selectedScript);
   if (simpleScriptPreviewEl) simpleScriptPreviewEl.value = previewText;
 }
@@ -1004,6 +1012,7 @@ async function selectSimpleLibraryItem(filePath) {
       author: meta.author || '',
       desc: meta.desc || item.desc,
       sound: meta.sound || item.sound,
+      tags: meta.tags.length ? meta.tags : item.tags,
       code,
       loading: false,
       error: '',
@@ -1081,9 +1090,9 @@ function initSimpleLibrary() {
     });
   });
 
-  if (simpleLibrarySoundFilterEl) {
-    simpleLibrarySoundFilterEl.addEventListener('change', () => {
-      _simpleLibrarySoundFilter = simpleLibrarySoundFilterEl.value || 'all';
+  if (simpleLibraryTagFilterEl) {
+    simpleLibraryTagFilterEl.addEventListener('change', () => {
+      _simpleLibraryTagFilter = simpleLibraryTagFilterEl.value || 'all';
       _simpleLibraryActiveIndex = -1;
       renderSimpleLibraryResults();
     });
@@ -1267,11 +1276,11 @@ async function loadScriptIntoSlot(slotIdx, filePath) {
 function buildScriptIndex() {
   const thawney = _thawneyModes.map(m => ({
     name: m.name, file: `modes/${m.file}`,
-    desc: m.desc || '', sound: m.sound || '', author: m.author || '', community: false,
+    desc: m.desc || '', sound: m.sound || '', author: m.author || '', tags: m.tags || [], community: false,
   }));
   const community = _userModes.map(m => ({
     name: m.name, file: `user-modes/${m.file}`,
-    desc: m.desc || '', sound: m.sound || '', author: m.author || '', community: true,
+    desc: m.desc || '', sound: m.sound || '', author: m.author || '', tags: m.tags || [], community: true,
   }));
   return [...thawney, ...community];
 }
@@ -1279,19 +1288,20 @@ function buildScriptIndex() {
 function filterScripts(query, options = {}) {
   const index = buildScriptIndex();
   const source = options.source || 'all';
-  const sound = options.sound || 'all';
+  const tag = options.tag || 'all';
   const q = (query || '').trim().toLowerCase();
 
   return index.filter(m => {
     if (source === 'built-in' && m.community) return false;
     if (source === 'community' && !m.community) return false;
-    if (sound !== 'all' && getSoundFilterValue(m.sound) !== sound) return false;
+    if (tag !== 'all' && !modeTraits(m).some(trait => getModeTraitValue(trait) === tag)) return false;
     if (!q) return true;
     return (
       m.name.toLowerCase().includes(q) ||
       m.desc.toLowerCase().includes(q) ||
       m.sound.toLowerCase().includes(q) ||
-      m.author.toLowerCase().includes(q)
+      m.author.toLowerCase().includes(q) ||
+      modeTraits(m).join(' ').toLowerCase().includes(q)
     );
   });
 }
@@ -1299,66 +1309,19 @@ function filterScripts(query, options = {}) {
 function getSimpleLibraryResults() {
   return filterScripts(simpleLibrarySearchEl ? simpleLibrarySearchEl.value : '', {
     source: _simpleLibrarySourceFilter,
-    sound: _simpleLibrarySoundFilter,
+    tag: _simpleLibraryTagFilter,
   });
 }
 
-function getSoundFilterValue(sound) {
-  const raw = (sound || '').trim();
-  if (!raw) return 'none';
-
-  const lower = raw.toLowerCase();
-  if (lower === 'none' || lower === 'none - visual only') return 'none';
-  if (/\bpad\b/.test(lower)) return 'pad';
-  if (/\barp\b/.test(lower)) return 'arp';
-  if (/\bbell\b/.test(lower)) return 'bell';
-  if (/\bpluck(?:ed)?\b/.test(lower)) return 'pluck';
-  if (/\brhodes\b/.test(lower)) return 'rhodes';
-  if (/\bmarimba\b/.test(lower)) return 'marimba';
-  if (/\bchoir\b/.test(lower)) return 'choir';
-  if (/\borgan\b/.test(lower)) return 'organ';
-  if (/\bflute\b/.test(lower)) return 'flute';
-  if (/\bglass\b/.test(lower)) return 'glass';
-  if (/\bkalimba\b/.test(lower)) return 'kalimba';
-  if (/\bharp\b/.test(lower)) return 'harp';
-  if (/\blead\b/.test(lower)) return 'lead';
-  if (/\bstring\b/.test(lower)) return 'string';
-
-  return raw.split('/')[0].trim().toLowerCase();
-}
-
-function getSoundFilterLabel(value) {
-  const labels = {
-    none: 'None',
-    pad: 'Pad',
-    arp: 'Arp',
-    bell: 'Bell',
-    pluck: 'Pluck',
-    rhodes: 'Rhodes',
-    marimba: 'Marimba',
-    choir: 'Choir',
-    organ: 'Organ',
-    flute: 'Flute',
-    glass: 'Glass',
-    kalimba: 'Kalimba',
-    harp: 'Harp',
-    lead: 'Lead',
-    string: 'String',
-  };
-  if (labels[value]) return labels[value];
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function getSimpleLibrarySounds() {
-  return Array.from(new Set(
-    buildScriptIndex()
-      .map(item => getSoundFilterValue(item.sound))
-      .filter(Boolean)
-  )).sort((a, b) => a.localeCompare(b));
+function getSimpleLibraryTags() {
+  const tagMap = new Map();
+  buildScriptIndex().forEach(item => {
+    modeTraits(item).forEach(trait => {
+      tagMap.set(getModeTraitValue(trait), trait);
+    });
+  });
+  return Array.from(tagMap, ([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function renderSimpleLibraryFilters() {
@@ -1368,18 +1331,18 @@ function renderSimpleLibraryFilters() {
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
 
-  if (!simpleLibrarySoundFilterEl) return;
-  const sounds = getSimpleLibrarySounds();
-  const prev = _simpleLibrarySoundFilter;
-  simpleLibrarySoundFilterEl.innerHTML = '<option value="all">All sounds</option>';
-  sounds.forEach(sound => {
+  if (!simpleLibraryTagFilterEl) return;
+  const tags = getSimpleLibraryTags();
+  const prev = _simpleLibraryTagFilter;
+  simpleLibraryTagFilterEl.innerHTML = '<option value="all">All tags</option>';
+  tags.forEach(tag => {
     const opt = document.createElement('option');
-    opt.value = sound;
-    opt.textContent = getSoundFilterLabel(sound);
-    simpleLibrarySoundFilterEl.appendChild(opt);
+    opt.value = tag.value;
+    opt.textContent = tag.label;
+    simpleLibraryTagFilterEl.appendChild(opt);
   });
-  simpleLibrarySoundFilterEl.value = sounds.includes(prev) ? prev : 'all';
-  _simpleLibrarySoundFilter = simpleLibrarySoundFilterEl.value;
+  simpleLibraryTagFilterEl.value = tags.some(tag => tag.value === prev) ? prev : 'all';
+  _simpleLibraryTagFilter = simpleLibraryTagFilterEl.value;
 }
 
 function renderSearchResults(slotIdx, results) {
@@ -1398,7 +1361,7 @@ function renderSearchResults(slotIdx, results) {
       `<span class="script-result-name">${m.name}</span>` +
       (m.community ? `<span class="script-result-badge">community</span>` : '') +
       (m.desc  ? `<span class="script-result-desc">${m.desc}</span>` : '') +
-      (m.sound ? `<span class="script-result-sound">${m.sound}</span>` : '');
+      `<span class="mode-traits">${renderModeTraitPills(m)}</span>`;
     li.addEventListener('mousedown', async e => {
       e.preventDefault(); // keep focus so blur doesn't fire first
       const input = document.getElementById(`slot-search-${slotIdx}`);
@@ -1773,7 +1736,15 @@ function randomizeKey() {
   if (!midiOut) { setStatus('Select a device first'); return; }
 
   const scale = Math.floor(Math.random() * SCALE_NAMES.length);
-  const root  = 48 + Math.floor(Math.random() * 12); // C3-B3
+  const rootOptions = Array.from(selRoot.options)
+    .map(opt => parseInt(opt.value, 10))
+    .filter(note => Number.isFinite(note));
+  const currentRoot = sharedSettings().rootNote;
+  const availableRoots = rootOptions.filter(note => note !== currentRoot);
+  const roots = availableRoots.length ? availableRoots : rootOptions;
+  const root = roots.length
+    ? roots[Math.floor(Math.random() * roots.length)]
+    : 48 + Math.floor(Math.random() * 12);
 
   for (let i = 0; i < NUM_SLOTS; i++) {
     modeSettings[i].scale = scale;
@@ -1782,7 +1753,9 @@ function randomizeKey() {
     sendParam(i, P_ROOT, root & 0x7F);
   }
 
-  selectSlot(currentSlot, false);
+  selScale.value = scale;
+  selRoot.value = root;
+  updateKeyInfo();
   scheduleSave();
   setStatus(`Randomized key - ${formatMidiNoteName(root)} ${SCALE_NAMES[scale] ?? '?'}`);
 }
@@ -2543,15 +2516,14 @@ async function loadUserModes() {
 
     return Promise.all(fileNames.map(async filename => {
       try {
-        const r = await fetch(`user-modes/${filename}`);
-        if (!r.ok) throw new Error();
-        const meta = parseScriptMeta(await r.text());
+        const meta = parseScriptMeta(await fetchScriptText(`user-modes/${filename}`));
         return {
           name: meta.name || filename.replace(/\.js$/, '').replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
           file: filename,
           desc: meta.desc || '',
           sound: meta.sound || '',
           author: meta.author || '',
+          tags: meta.tags,
         };
       } catch {
         return {
@@ -2560,6 +2532,7 @@ async function loadUserModes() {
           desc: '',
           sound: '',
           author: '',
+          tags: [],
         };
       }
     }));

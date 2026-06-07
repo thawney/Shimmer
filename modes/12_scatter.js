@@ -5,6 +5,7 @@
  * @sat 220
  * @param_label Notes Per Burst
  * @description Random note bursts scatter across the grid every beat. Density controls burst size.
+ * @tags Clocked, Rhythm, Generative
  * @sound Harp / Pizzicato
  */
 

@@ -5,6 +5,7 @@
  * @sat 200
  * @param_label Lock Amount
  * @description A pulse loops through a feedback circuit. At full density the pattern locks into a repeating phrase; at low density it dissolves into chaos. The sweet spot - mid density - is a pattern that slowly mutates and never quite repeats.
+ * @tags Clocked, Rhythm, Generative, Humidity
  * @sound Lead Synth / Pulse Wave
  */
 

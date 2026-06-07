@@ -5,6 +5,7 @@
  * @sat 150
  * @param_label Surface Tension
  * @description Humidity forms a quiet film of beads that bloom in place. Surface Tension changes bead size, spacing, and how long the soft notes hang.
+ * @tags Ambient, Humidity, Physics, Generative
  * @sound Glass pad / muted bell
  */
 

@@ -5,6 +5,7 @@
  * @sat 180
  * @param_label Bearings
  * @description Tilt rolls a tray of ball bearings around the grid. When left flat and still, they drift back to center. Knocks rattle them loose.
+ * @tags Tilt, Physics, Generative
  * @sound Metallic Bell / Glass Pluck
  */
 

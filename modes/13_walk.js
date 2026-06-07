@@ -5,6 +5,7 @@
  * @sat 220
  * @param_label Step Range
  * @description Random melodic walk. Density controls leap size. Full column glows; dim cursor dot between steps.
+ * @tags Tilt, Clocked, Generative
  * @sound Flute / Solo Wind
  */
 

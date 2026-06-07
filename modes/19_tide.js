@@ -5,6 +5,7 @@
  * @sat 200
  * @param_label Choppiness
  * @description Water fills the grid. Tilt tips the surface like a tank - left tilts the water left, right tilts it right. Density adds choppiness: waves appear on the surface and notes fire as crests move across columns.
+ * @tags Tilt, Physics, Ambient, Generative
  * @sound Rhodes / Pad
  */
 

@@ -5,6 +5,7 @@
  * @sat 170
  * @param_label Voicing
  * @description Slow Minecrafty chords using the global scale. Tempo controls timing; density changes voicing.
+ * @tags Clocked, Chords, Humidity, Temperature
  * @sound Soft warm block chords
  */
 

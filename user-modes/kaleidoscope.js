@@ -5,6 +5,7 @@
  * @sat 210
  * @param_label Glass
  * @description Mirrored glass shards drift and bloom into chords. Tilt biases the spread; knocks reshuffle it.
+ * @tags Tilt, Physics, Ambient, Chords
  * @sound Glass pad / choir
  */
 

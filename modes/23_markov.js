@@ -5,6 +5,7 @@
  * @sat 180
  * @param_label Leap Bias
  * @description A Markov chain wanders through scale degrees, each step biased toward nearby pitches (smooth melody) or occasionally leaping. Three simultaneous chains drift at different speeds, creating shifting, self-generating chord textures. Tilt biases up or down in pitch. Density controls leap tendency: low = smooth steps, high = wild jumps.
+ * @tags Tilt, Ambient, Chords, Generative
  * @sound Pad / Keys
  */
 

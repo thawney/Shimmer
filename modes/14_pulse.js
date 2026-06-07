@@ -5,6 +5,7 @@
  * @sat 200
  * @param_label Fire Probability
  * @description Sparse stochastic pulses bloom as cross-shaped splashes. Very ambient and minimal. MIDI IN notes trigger immediate splashes at the pitch-mapped column.
+ * @tags MIDI in, Clocked, Ambient, Generative
  * @midi_in true
  * @sound Pad / Ambient Texture
  */

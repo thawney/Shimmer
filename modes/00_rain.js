@@ -5,6 +5,7 @@
  * @sat 180
  * @param_label Drop Density
  * @description Drops fall from top to bottom. Tilt the device to add wind - each drop drifts sideways as it falls and the note it plays depends on where it lands. MIDI IN notes spawn targeted drops at the pitch column.
+ * @tags Tilt, MIDI in, Physics, Humidity
  * @midi_in true
  * @sound Kalimba / Bell
  */

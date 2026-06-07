@@ -5,6 +5,7 @@
  * @sat 200
  * @param_label Speed
  * @description Classic snake on a wrapped grid - edges connect, so no wall death. Tilt to steer. Eat the cross-shaped food to grow; each bite plays a note. Hit yourself to restart. Density controls speed.
+ * @tags Tilt, Game, Physics
  * @sound Pluck / Marimba
  */
 

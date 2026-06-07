@@ -5,6 +5,7 @@
  * @sat 200
  * @param_label Voice Count
  * @description 2–3 voices float on a 2D random walk. A note fires when a voice drifts ≥2 columns.
+ * @tags Tilt, Physics, Generative
  * @sound Rhodes / Electric Piano
  */
 

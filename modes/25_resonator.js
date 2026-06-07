@@ -6,6 +6,7 @@
  * @param_label Decay
  * @midi_in true
  * @description MIDI notes excite horizontal resonating strings with sympathetic harmonics. Without MIDI a slow wave idles across the strings. Density controls decay time.
+ * @tags MIDI in, Ambient, Chords, Humidity
  * @sound String / Pad
  */
 

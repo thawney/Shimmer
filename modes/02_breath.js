@@ -5,6 +5,7 @@
  * @sat 140
  * @param_label Harmonic Colour
  * @description Sustained drone voices swell slowly. Density selects chord voicing: minor/major/fifth/sus.
+ * @tags Ambient, Chords, Generative, Humidity
  * @sound Pad / String
  */
 

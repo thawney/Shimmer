@@ -5,6 +5,7 @@
  * @sat 220
  * @param_label Mass
  * @description Tilt spins a tombola cage. Knock or MIDI note adds a ball; a hard shake clears it.
+ * @tags Tilt, MIDI in, Physics, Generative
  * @sound Bell Pluck / Glass Keys
  */
 

@@ -5,6 +5,7 @@
  * @sat 210
  * @param_label Loop Length
  * @description A melodic phrase loops and slowly drifts. Density controls length (4–16 steps).
+ * @tags Clocked, Generative, Humidity, Temperature
  * @sound Arp / Sequencer
  */
 

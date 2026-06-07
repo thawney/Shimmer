@@ -677,7 +677,7 @@ body.scripts-tab-active.scripts-simple-active .simple-slot-list {
 .simple-slot-select-btn:focus,
 .scripts-view-btn:focus,
 .simple-library-filter-btn:focus,
-.simple-library-sound-filter:focus,
+.simple-library-tag-filter:focus,
 .simple-library-item:focus,
 .simple-code-preview summary:focus {
   outline: 3px solid rgba(254, 196, 14, 0.34);
@@ -701,7 +701,7 @@ body.scripts-tab-active.scripts-simple-active .simple-slot-list {
 }
 
 .simple-library-filter-btn,
-.simple-library-sound-filter {
+.simple-library-tag-filter {
   border: 2px solid var(--line);
   border-radius: var(--pill);
   background: var(--surface-2);
@@ -732,7 +732,7 @@ body.scripts-tab-active.scripts-simple-active .simple-slot-list {
   white-space: nowrap;
 }
 
-.simple-library-sound-filter {
+.simple-library-tag-filter {
   min-height: 32px;
   padding: 0 12px;
   cursor: pointer;
@@ -803,8 +803,7 @@ body.scripts-tab-active.scripts-simple-active .simple-library-desc {
   margin-bottom: 6px;
 }
 
-.simple-library-desc,
-.simple-library-sound {
+.simple-library-desc {
   font-size: 12px;
   color: var(--ink-soft);
   line-height: 1.5;
@@ -815,10 +814,6 @@ body.scripts-tab-active.scripts-simple-active .simple-library-desc {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.simple-library-sound::before {
-  content: "";
 }
 
 .mode-traits,
@@ -898,8 +893,7 @@ body.scripts-tab-active.scripts-simple-active .simple-script-detail {
 }
 
 .simple-script-author,
-.simple-script-desc,
-.simple-script-sound {
+.simple-script-desc {
   font-size: 13px;
   line-height: 1.55;
   color: var(--ink-soft);
@@ -921,8 +915,7 @@ body.scripts-tab-active.scripts-simple-active .simple-script-traits {
   margin-top: 8px;
 }
 
-.simple-script-author:empty,
-.simple-script-sound:empty {
+.simple-script-author:empty {
   display: none;
 }
 
@@ -1183,16 +1176,6 @@ body.scripts-tab-active.scripts-simple-active .api-docs {
   color: var(--ink-soft);
   opacity: 0.75;
   line-height: 1.4;
-}
-
-.script-result-sound {
-  font-size: 11px;
-  color: var(--accent-yellow);
-  opacity: 0.55;
-}
-
-.script-result-sound::before {
-  content: '';
 }
 
 .script-result-empty {
@@ -1851,10 +1834,8 @@ html[data-theme="dark"] .simple-slot-desc,
 html[data-theme="dark"] .simple-slot-status,
 html[data-theme="dark"] .simple-library-author,
 html[data-theme="dark"] .simple-library-desc,
-html[data-theme="dark"] .simple-library-sound,
 html[data-theme="dark"] .simple-script-author,
-html[data-theme="dark"] .simple-script-desc,
-html[data-theme="dark"] .simple-script-sound {
+html[data-theme="dark"] .simple-script-desc {
   color: #e8e1d0;
 }
 
@@ -1862,7 +1843,7 @@ html[data-theme="dark"] .simple-slot-card,
 html[data-theme="dark"] .simple-library-item,
 html[data-theme="dark"] .simple-library-search,
 html[data-theme="dark"] .simple-library-filter-btn,
-html[data-theme="dark"] .simple-library-sound-filter,
+html[data-theme="dark"] .simple-library-tag-filter,
 html[data-theme="dark"] .simple-script-source,
 html[data-theme="dark"] .simple-script-slot-target {
   background: #262626;
