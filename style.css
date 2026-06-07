@@ -1546,27 +1546,29 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: monospace;
   font-size: 0.85rem;
   color: var(--accent-yellow);
   opacity: 0.85;
 }
 
+.fw-server-row span {
+  font-family: "Anonymous Pro", "Courier New", monospace;
+}
+
 .fw-reload-btn {
-  background: none;
-  border: 1px solid var(--accent-yellow);
-  color: var(--accent-yellow);
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  font-size: 0.9rem;
+  height: 38px;
+  background: var(--surface-2);
+  border: 2px solid var(--line);
+  color: var(--ink);
+  border-radius: var(--pill);
+  font: inherit;
+  font-size: 13px;
   cursor: pointer;
-  opacity: 0.6;
   line-height: 1;
-  padding: 0;
+  padding: 0 14px;
   flex-shrink: 0;
 }
-.fw-reload-btn:hover { opacity: 1; }
+.fw-reload-btn:hover { background: var(--surface-3); }
 
 .fw-zone {
   display: flex;

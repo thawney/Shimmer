@@ -1,11 +1,11 @@
 'use strict';
 
 // Default scripts for the 4 slots (matches data/scripts/ initial LittleFS image)
-// slot 0 = Rain, slot 1 = Spark, slot 2 = Dew, slot 3 = Weave
+// slot 0 = Canon, slot 1 = Rain, slot 2 = Spark, slot 3 = Weave
 const DEFAULT_FILES = [
+  'modes/20_canon.js',
   'modes/00_rain.js',
   'modes/05_spark.js',
-  'modes/06_dew.js',
   'modes/10_weave.js',
 ];
 const SCRIPTS_VIEW_STORAGE_KEY = 'shimmer-scripts-view';
@@ -52,7 +52,7 @@ const FW_STATUS_PROGRESS = 1;
 const FW_STATUS_DONE     = 2;
 const FW_STATUS_ERROR    = 3;
 
-const FW_CHUNK_BYTES = 7000; // 1000 complete 7-byte groups -> 8000 encoded bytes -> 8007-byte SysEx msg
+const FW_CHUNK_BYTES = 7000; // compatibility size for older firmware; encodes to an 8007-byte SysEx msg
 const MAX_SCRIPT_BYTES = 12288;
 const SCRIPT_SAFETY = window.ShimmerScriptSafety || null;
 
@@ -2382,7 +2382,8 @@ async function flashFirmware(arrayBuffer) {
     // -- CHUNKS (window=1: send one chunk, wait for ACK, repeat) ------------
     // Window > 1 floods the device's TinyUSB RX FIFO before it can drain,
     // causing SysEx data corruption -> Update.end() MD5 fail -> stuck at 95%.
-    // With 7000-byte chunks there are only ~86 round-trips; the per-call
+    // With 7000-byte chunks there are only ~91 round-trips for the current firmware;
+    // the per-call
     // overhead of WebMIDI send() (~40 ms) already dominates, not the window.
     const FW_WINDOW = 1;
     let seq = 0;
@@ -2474,7 +2475,7 @@ async function checkServerFirmware() {
     if (st)    st.textContent = `Ready - ${(buf.byteLength / 1024).toFixed(1)} KB (firmware/firmware.bin)`;
   } catch {
     _fwBuffer = null;
-    if (info)  info.textContent  = 'No firmware.bin in docs/firmware/ - use file picker';
+    if (info)  info.textContent  = 'No firmware.bin in firmware/ - use file picker';
     if (flash) flash.disabled    = true;
     if (st)    st.textContent    = '';
   }
