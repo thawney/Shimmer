@@ -106,6 +106,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   min-height: unset;
   overflow: hidden;
 }
@@ -149,7 +150,9 @@ body {
 
 .grid-stage {
   position: relative;
-  width: min(100%, calc(100vh - 220px));
+  width: auto;
+  height: 100%;
+  max-width: 100%;
   aspect-ratio: 1 / 1;
 }
 
@@ -647,7 +650,9 @@ body {
   }
 
   .grid-stage {
-    width: min(100%, 38vh);
+    width: auto;
+    height: 100%;
+    max-width: 100%;
   }
 
   .sim-sensor-readout {
