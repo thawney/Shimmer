@@ -21,6 +21,20 @@ The script editor and simulator now share the same safety checks. They warn abou
 
 Physical MIDI in/out is available on the DIN connector. Incoming USB/DIN notes, CC, and pitch bend are exposed to mode scripts via `m.midiNote`, `m.midiType`, etc., and scripts can emit absolute notes, CC, and pitch bend as well. `m.beatMs` can follow external MIDI clock, but that is now configurable per mode from the Controls page with `Clock In`, `Prefer Ext`, and `Clock Out`, alongside separate MIDI output and input channel selection — see [`user-modes/README.md`](user-modes/README.md). MIDI output is sent simultaneously to both USB MIDI and the DIN connector. The browser simulator now mirrors that more closely too, with separate MIDI in/out port selection, a dedicated MIDI input channel selector, and external MIDI clock driving simulated tempo.
 
+## USB and standalone operation
+
+Shimmer runs without a music application receiving MIDI, and it continues playing
+when the USB host is disconnected or suspended while power remains available.
+USB reconnection does not restart or reshuffle the current mode. Interrupted
+script or firmware transfers expire after 10 seconds without progress so playback
+can resume. USB MIDI clock is briefly suppressed during queued SysEx replies to
+keep browser script downloads intact; DIN output is independent.
+
+The firmware now limits script execution time and uses a larger interpreter stack.
+A timed-out script shows the slot's red fault display while USB remains available
+for replacing it. See the [script runtime limits](user-modes/README.md#runtime-limits)
+for the difference between hardware execution and the browser simulator.
+
 ## Adding your own scripts
 
 Drop a `.js` file into the `user-modes/` folder and push to `main`.

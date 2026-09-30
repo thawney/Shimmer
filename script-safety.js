@@ -50,7 +50,7 @@
     }
 
     if (/\bwhile\s*\(\s*(?:true|1)\s*\)|\bfor\s*\(\s*;\s*;\s*\)/.test(source)) {
-      pushIssue(issues, 'error', 'Explicit infinite loops can freeze the device before it can recover.');
+      pushIssue(issues, 'error', 'Explicit infinite loops can freeze the simulator and trigger a script fault on current Shimmer firmware.');
     }
 
     addRegexWarning(

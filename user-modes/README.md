@@ -232,6 +232,26 @@ function update(m) {
 
 ---
 
+## Runtime limits
+
+The current firmware checks execution deadlines of 100 ms for `update()`, 500 ms
+for `activate()` and `deactivate()`, and 2 seconds for initial script evaluation.
+Two consecutive updates taking more than 75 ms also trigger a script fault. Keep
+loops bounded and frame work small; these limits are recovery safeguards.
+
+When a script faults, Shimmer stops its notes, shows the red fault indicator and
+slot number, and keeps USB available so you can upload a replacement. The script
+size limit remains 12,288 bytes, and deeply nested code can also exceed the
+interpreter's recursion limits.
+
+The simulator runs browser JavaScript rather than the device's Duktape engine.
+It shares the script API and safety checks, but does not enforce the firmware's
+execution deadlines or memory limits. An infinite loop can still freeze the
+simulator tab, and a script running quickly on a computer may be too slow on
+Shimmer. Test heavier scripts on the device as well.
+
+---
+
 ## Practical rules
 
 - Call `m.show()` exactly once per `update()`, at the end.
