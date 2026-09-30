@@ -1532,45 +1532,45 @@ function scheduleStartupSync() {
     _startupSyncTimer = null;
     if (epoch !== _portEpoch) return;
     runStartupSync(false);
-  }, 450);
+  }, 50);
 }
 
 function bindPorts() {
+  const name = selPort.value;
+  let nextOut = null;
+  let nextIn = null;
+  if (name) {
+    const outputs = [...midiAccess.outputs.values()].filter(p => p.state !== 'disconnected');
+    const inputs = [...midiAccess.inputs.values()].filter(p => p.state !== 'disconnected');
+    nextOut = outputs.find(p => p.name === name) || null;
+    nextIn = inputs.find(p => p.name === name)
+      || inputs.find(p => _normPort(p.name) === _normPort(name))
+      || (inputs.length === 1 ? inputs[0] : null);
+  }
+
+  // Opening a WebMIDI port fires statechange too. Rebinding the same pair here
+  // used to cancel its download and erase the promise's timer/resolve callbacks.
+  if (midiIn === nextIn && midiOut === nextOut) return;
+
   _portEpoch++;
   if (midiIn) midiIn.onmidimessage = null;
-  midiIn  = null;
-  midiOut = null;
+  const pendingAck = _pendingAck;
+  _pendingAck = null;
+  if (pendingAck) {
+    clearTimeout(pendingAck.timer);
+    pendingAck.reject(new Error('Device connection changed'));
+  }
+  failActiveDownload('Device connection changed');
+  if (_fwAckWaiter) { const waiter = _fwAckWaiter; _fwAckWaiter = null; waiter(0x01); }
+  _fwAckQueue = [];
+  midiIn = nextIn;
+  midiOut = nextOut;
   _rxInSysEx = false;
   _rxBuf = [];
-  if (_pendingAck && _pendingAck.timer) clearTimeout(_pendingAck.timer);
-  _pendingAck = null;
-  _fwAckQueue = [];
-  _fwAckWaiter = null;
-  clearActiveDownload();
   _slotNamesSeenMask = 0;
   setSynced(false);
   _clockState = { external: false, running: false, usingExternal: false, bpmX10: 1200 };
   renderClockInfo();
-
-  const name = selPort.value;
-  if (name) {
-    // Output: exact match
-    midiAccess.outputs.forEach(p => { if (p.name === name) midiOut = p; });
-
-    // Input: exact name first, then normalised name, then only-one fallback
-    midiAccess.inputs.forEach(p => {
-      if (p.name === name) midiIn = p;
-    });
-    if (!midiIn) {
-      const normOut = _normPort(name);
-      midiAccess.inputs.forEach(p => {
-        if (!midiIn && _normPort(p.name) === normOut) midiIn = p;
-      });
-    }
-    if (!midiIn && midiAccess.inputs.size === 1) {
-      midiIn = midiAccess.inputs.values().next().value;
-    }
-  }
 
   if (midiIn) midiIn.onmidimessage = onMidiMessage;
 
@@ -1654,10 +1654,7 @@ async function runStartupSync(force) {
     setBootState('loading', 'Loading from device...', 'Reading settings and slot names...', 4);
     setStatus('Reading device...');
     send([CMD_GET, VER]);
-    setTimeout(() => {
-      if (epoch !== _portEpoch || !midiOut) return;
-      send([CMD_GET_SLOT_NAMES, VER]);
-    }, 200);
+    send([CMD_GET_SLOT_NAMES, VER]);
 
     // Wait until all slot-name frames arrive (or timeout) before script pulls.
     const allNamesMask = (1 << NUM_SLOTS) - 1;
@@ -1666,8 +1663,6 @@ async function runStartupSync(force) {
       if (epoch !== _portEpoch || !midiOut) return;
       await new Promise(resolve => setTimeout(resolve, 40));
     }
-    // Small settle window so the last incoming SysEx is fully processed.
-    await new Promise(resolve => setTimeout(resolve, 120));
     setBootState('loading', 'Loading from device...', 'Reading scripts 0/4...', Math.round((1 / totalSteps) * 100));
 
     let allScriptsOk = true;
@@ -1705,6 +1700,7 @@ async function runStartupSync(force) {
     }
   } finally {
     _startupSyncInFlight = false;
+    if (epoch !== _portEpoch && midiOut && midiIn) scheduleStartupSync();
   }
 }
 
@@ -1955,6 +1951,7 @@ function onMidiMessage(event) {
   const data = event.data;
   for (let i = 0; i < data.length; i++) {
     const b = data[i];
+    if (b >= 0xF8) continue; // Realtime can arrive inside a CoreMIDI SysEx array.
     if (b === 0xF0) { _rxInSysEx = true; _rxBuf = [b]; continue; }
     if (!_rxInSysEx) continue;
     _rxBuf.push(b);
@@ -2140,9 +2137,11 @@ const SCRIPT_END_ACK_TIMEOUT_MS = 3000;
 function queueScriptTransfer(slotIdx, label, run) {
   if (_scriptTransferDepth > 0) setSlotStatus(slotIdx, `${label} queued...`);
 
+  const epoch = _portEpoch;
   _scriptTransferDepth++;
   const op = _scriptTransferChain.then(async () => {
     try {
+      if (epoch !== _portEpoch) return false;
       return await run();
     } finally {
       _scriptTransferDepth = Math.max(0, _scriptTransferDepth - 1);
